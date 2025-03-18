@@ -168,6 +168,7 @@ async def upload_job(
             content = await file.read()
             
             download_url = None
+            upload_success = False
             try:
                 # Upload to Firebase Storage
                 blob = bucket.blob(storage_path)
@@ -182,24 +183,25 @@ async def upload_job(
                 blob.make_public()
                 
                 download_url = blob.public_url
+                upload_success = True
                 print(f"File uploaded successfully. URL: {download_url}")
                 
             except Exception as storage_error:
                 print(f"Error uploading to Firebase Storage: {storage_error}")
-                # Use a better placeholder - base64 data URL instead of storage.placeholder.com
-                # This creates a minimal text file that can be downloaded
-                base64_data = base64.b64encode(f"Error loading resume {resume_number}".encode()).decode()
-                download_url = f"data:text/plain;base64,{base64_data}"
-                print(f"Using data URL as placeholder")
+                # Use a placeholder URL if storage upload fails
+                download_url = f"https://storage.placeholder.com/resume-{resume_number}-upload-failed"
+                print(f"Using placeholder URL: {download_url}")
             
-            # Create metadata for this resume - simplified to remove unnecessary fields
+            # Create metadata for this resume - REMOVE file content to stay under size limit
             resume_metadata = {
                 'contentType': file.content_type,
                 'storagePath': storage_path,
                 'downloadUrl': download_url,
                 'uploadedAt': firestore.SERVER_TIMESTAMP,
                 'resumeNumber': resume_number,
-                'fileContent': base64.b64encode(content).decode('utf-8')  # Store content even if upload fails
+                'originalFilename': file.filename,
+                'uploadSuccess': upload_success
+                # Removed fileContent field to avoid size limit error
             }
             
             # Store file metadata in a structured way
@@ -227,12 +229,14 @@ async def upload_job(
             resume_refs.append({
                 'id': f"resume_{resume_number}",
                 'downloadUrl': download_url,
-                'resumeNumber': resume_number
+                'resumeNumber': resume_number,
+                'uploadSuccess': upload_success
             })
             
             # Add to summary for the job document
             resume_summary[f"resume_{resume_number}"] = {
-                'downloadUrl': download_url
+                'downloadUrl': download_url,
+                'uploadSuccess': upload_success
             }
         
         # Update the job document with resume summary

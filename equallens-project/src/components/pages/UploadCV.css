@@ -753,3 +753,73 @@
     padding: 0.75rem 1.5rem;
     font-size: 1rem;
 }
+
+/* Loading overlay styles */
+.api-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.api-loading-content {
+    text-align: center;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Container for the loading animation */
+.loading-animation {
+    position: relative;
+    width: 200px;
+    height: 120px;
+    margin-bottom: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+/* Fix for the ball animation container */
+.loading-animation .bar {
+    position: absolute;
+    bottom: 50px;
+}
+
+.loading-animation .ball {
+    position: absolute;
+    bottom: 70px;
+}
+
+/* Remove the existing spinner */
+.api-spinner {
+    display: none;
+}
+
+/* Adjust the bar and ball to work within the overlay */
+.loading-animation .bar {
+    margin-top: 40px;
+}
+
+.api-loading-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+}
+
+.api-loading-content p {
+    margin-top: 1.5rem;
+    font-size: 1.2rem;
+    color: #555;
+}

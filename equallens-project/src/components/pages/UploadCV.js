@@ -1,10 +1,15 @@
+// Import the loading animation CSS
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import "./UploadCV.css";
+import "../pageloading.css"; // Import the loading animation CSS
 
 const UploadCV = () => {
   
     const [currentStep, setCurrentStep] = useState("jobDetails"); // "jobDetails" or "uploadCV"
     const [jobData, setJobData] = useState(null); // To store submitted job details
+    
+    // Add API state variables
+    const [apiStatus, setApiStatus] = useState("idle"); // idle, loading, success, error
     
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -275,13 +280,6 @@ const UploadCV = () => {
         }
     };
 
-    // Modified file upload simulation is now handled in the upload queue processing
-    // eslint-disable-next-line no-unused-vars
-    const simulateFileUpload = (fileName) => {
-        // This is now handled in the useEffect for queue processing
-        // Keeping this function as a stub for backward compatibility
-    };
-
     const handleDragOver = (event) => {
         event.preventDefault();
     };
@@ -411,32 +409,70 @@ const UploadCV = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    // API URL for backend
+    const API_URL = "http://localhost:8000"; // Update this with your FastAPI URL
+
     // Add handler for final submission
-    const handleFinalSubmit = () => {
+    const handleFinalSubmit = async () => {
         if (!selectedFiles || selectedFiles.length === 0) {
             alert("Please upload at least one CV file");
             return;
         }
         
-        // Here you would typically send both job data and files to your backend
-        console.log("Final submission:", {
-            jobDetails: jobData,
-            files: selectedFiles
-        });
-        
-        alert("Job details and CVs submitted successfully!");
-        
-        // Reset form for new submission
-        setCurrentStep("jobDetails");
-        setJobTitle("");
-        setJobDescription("");
-        setLanguages([]);
-        setMinimumCGPA(2.50);
-        setSkills([]);
-        setSelectedFiles([]);
-        setJobData(null);
-        setUploadProgress({});
-        setUploadQueue([]);
+        try {
+            setApiStatus("loading");
+            
+            // Create form data
+            const formData = new FormData();
+            
+            // Add job data as JSON string
+            formData.append("job_data", JSON.stringify(jobData));
+            
+            // Add all files
+            selectedFiles.forEach(file => {
+                formData.append("files", file);
+            });
+            
+            // Send to backend API
+            const response = await fetch(`${API_URL}/upload-job`, {
+                method: 'POST',
+                body: formData,
+                // No need to set Content-Type, it will be set automatically with boundary
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Server responded with ${response.status}: ${errorData.detail || errorData.error || await response.text()}`);
+            }
+            
+            await response.json();
+            
+            // Add a delay to ensure animation completes nicely
+            setTimeout(() => {
+                setApiStatus("success");
+                
+                // Show success message
+                alert("Job details and CVs submitted successfully!");
+                
+                // Reset form for new submission
+                setCurrentStep("jobDetails");
+                setJobTitle("");
+                setJobDescription("");
+                setLanguages([]);
+                setMinimumCGPA(2.50);
+                setSkills([]);
+                setSelectedFiles([]);
+                setJobData(null);
+                setUploadProgress({});
+                setUploadQueue([]);
+                setApiStatus("idle");
+            }, 1000);
+            
+        } catch (error) {
+            console.error("Error submitting job:", error);
+            setApiStatus("error");
+            alert(`Error submitting job: ${error.message}`);
+        }
     };
 
     // Language handlers
@@ -457,9 +493,30 @@ const UploadCV = () => {
         }
     };
 
+    // Updated LoadingAnimation component that correctly uses the CSS from pageloading.css
+    const LoadingAnimation = () => {
+        return (
+            <div className="loading-animation">
+                <div className="seesaw-container">
+                    <div className="ball"></div>
+                    <div className="bar"></div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="app-container">
             {getFullPageOverlay()}
+            
+            {apiStatus === "loading" && (
+                <div className="api-loading-overlay">
+                    <div className="api-loading-content">
+                        <LoadingAnimation />
+                        <p>Submitting job and uploading files...</p>
+                    </div>
+                </div>
+            )}
             
             {currentStep === "jobDetails" ? (
                 <div className="job-container">
@@ -750,9 +807,10 @@ const UploadCV = () => {
                             <button 
                                 onClick={handleFinalSubmit} 
                                 className="submit-button final-submit"
-                                disabled={isLoading || processingFiles}
+                                disabled={isLoading || processingFiles || apiStatus === "loading"}
                             >
-                                {isLoading || processingFiles ? 'Uploading Files...' : 'Submit Job Details and CV'}
+                                {isLoading || processingFiles ? 'Uploading Files...' : 
+                                 apiStatus === "loading" ? 'Submitting...' : 'Submit Job Details and CV'}
                             </button>
                         </div>
                     </div>
