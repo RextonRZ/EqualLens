@@ -411,6 +411,9 @@ const UploadCV = () => {
 
     // API URL for backend
     const API_URL = "http://localhost:8000"; // Update this with your FastAPI URL
+    // Uncomment this line to use the development endpoint if Firebase is not working
+    // const API_ENDPOINT = `${API_URL}/upload-job-dev`;
+    const API_ENDPOINT = `${API_URL}/upload-job`;
 
     // Add handler for final submission
     const handleFinalSubmit = async () => {
@@ -433,26 +436,27 @@ const UploadCV = () => {
                 formData.append("files", file);
             });
             
-            // Send to backend API
-            const response = await fetch(`${API_URL}/upload-job`, {
+            // Send to backend API - use the endpoint variable
+            const response = await fetch(API_ENDPOINT, {
                 method: 'POST',
                 body: formData,
                 // No need to set Content-Type, it will be set automatically with boundary
             });
             
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(`Server responded with ${response.status}: ${errorData.detail || errorData.error || await response.text()}`);
+                const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+                throw new Error(`Server responded with ${response.status}: ${errorData.detail || errorData.error || errorData.message || await response.text()}`);
             }
             
-            await response.json();
+            const responseData = await response.json();
+            console.log("Server response:", responseData);
             
             // Add a delay to ensure animation completes nicely
             setTimeout(() => {
                 setApiStatus("success");
                 
-                // Show success message
-                alert("Job details and CVs submitted successfully!");
+                // Show success message with job ID
+                alert(`Job details and CVs submitted successfully!\nJob ID: ${responseData.jobId || 'Unknown'}`);
                 
                 // Reset form for new submission
                 setCurrentStep("jobDetails");
@@ -472,6 +476,11 @@ const UploadCV = () => {
             console.error("Error submitting job:", error);
             setApiStatus("error");
             alert(`Error submitting job: ${error.message}`);
+            
+            // Reset API status after a short delay
+            setTimeout(() => {
+                setApiStatus("idle");
+            }, 3000);
         }
     };
 
