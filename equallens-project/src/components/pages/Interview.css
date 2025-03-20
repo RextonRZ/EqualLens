@@ -1,0 +1,615 @@
+/* src/components/pages/Interview.css */
+
+/* Common styles for all interview components */
+.interview-validator-container,
+.id-verification-container,
+.interview-questions-container,
+.interview-completed-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 2rem;
+    background-color: #f8fafc;
+}
+
+.interview-validator-card,
+.id-verification-card,
+.interview-questions-card,
+.interview-completed-card {
+    background-color: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 768px;
+    padding: 2rem;
+    margin: 1rem;
+}
+
+.interview-logo {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #ef402d;
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.error-message {
+    background-color: #fee2e2;
+    color: #b91c1c;
+    padding: 0.75rem;
+    border-radius: 0.375rem;
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.error-icon-small {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-right: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* Interview Validator Styles */
+.validator-loading,
+.validator-error,
+.validator-success {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+}
+
+.error-icon,
+.success-icon {
+    width: 3rem;
+    height: 3rem;
+    margin-bottom: 1rem;
+}
+
+.error-icon {
+    color: #ef4444;
+}
+
+.success-icon,
+.success-icon-large {
+    color: #10b981;
+}
+
+.success-icon-large {
+    width: 4rem;
+    height: 4rem;
+    margin-bottom: 1.5rem;
+}
+
+.validator-message {
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.validator-info {
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+/* ID Verification Styles */
+.id-verification-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 0.5rem;
+}
+
+.id-verification-description {
+    font-size: 0.875rem;
+    color: #4b5563;
+    margin-bottom: 1.5rem;
+}
+
+.id-verification-form {
+    margin-bottom: 1.5rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.5rem;
+}
+
+.form-input {
+    width: 100%;
+    padding: 0.625rem;
+    border-radius: 0.375rem;
+    border: 1px solid #d1d5db;
+    font-size: 0.875rem;
+    transition: border-color 0.2s;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #ef402d;
+    box-shadow: 0 0 0 3px rgba(239, 64, 45, 0.1);
+}
+
+.id-upload-options {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.camera-button,
+.upload-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.camera-button {
+    background-color: #f9645f;
+    color: white;
+}
+
+.camera-button:hover {
+    background-color: #ef402d;
+}
+
+.upload-button {
+    background-color: #f1f5f9;
+    color: #475569;
+}
+
+.upload-button:hover {
+    background-color: #e2e8f0;
+}
+
+.camera-icon,
+.upload-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-right: 0.5rem;
+}
+
+.or-divider {
+    text-align: center;
+    position: relative;
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin: 0.5rem 0;
+}
+
+.or-divider::before,
+.or-divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 45%;
+    height: 1px;
+    background-color: #e5e7eb;
+}
+
+.or-divider::before {
+    left: 0;
+}
+
+.or-divider::after {
+    right: 0;
+}
+
+.hidden-input {
+    display: none;
+}
+
+.camera-container {
+    margin-bottom: 1.5rem;
+    position: relative;
+}
+
+.camera-preview,
+.recording-video,
+.preview-video {
+    width: 100%;
+    border-radius: 0.375rem;
+    background-color: #f1f5f9;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+}
+
+.camera-controls {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.camera-capture-button,
+.camera-cancel-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.camera-capture-button {
+    background-color: #f9645f;
+    color: white;
+}
+
+.camera-capture-button:hover {
+    background-color: #ef402d;
+}
+
+.camera-cancel-button {
+    background-color: #f1f5f9;
+    color: #475569;
+}
+
+.camera-cancel-button:hover {
+    background-color: #e2e8f0;
+}
+
+.capture-icon,
+.cancel-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+.hidden-canvas {
+    display: none;
+}
+
+.id-preview-container {
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+.id-preview-image {
+    width: 100%;
+    border-radius: 0.375rem;
+    max-height: 200px;
+    object-fit: contain;
+}
+
+.preview-cancel-button {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.8);
+    color: #6b7280;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.preview-cancel-button:hover {
+    background-color: rgba(255, 255, 255, 1);
+    color: #ef4444;
+}
+
+.id-verification-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 1.5rem;
+}
+
+.submit-button {
+    background-color: #f9645f;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.submit-button:hover {
+    background-color: #ef402d;
+}
+
+.submit-button:disabled {
+    background-color: #e5e7eb;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.id-verification-note {
+    margin-top: 1.5rem;
+    font-size: 0.75rem;
+    color: #6b7280;
+    text-align: center;
+}
+
+/* Interview Questions Styles */
+.interview-progress {
+    margin-bottom: 1.5rem;
+}
+
+.progress-text {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-bottom: 0.5rem;
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 0.5rem;
+    background-color: #e5e7eb;
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: #f9645f;
+    border-radius: 9999px;
+    transition: width 0.3s ease;
+}
+
+.question-container {
+    margin-top: 1.5rem;
+}
+
+.question-text {
+    font-size: 1.25rem;
+    color: #111827;
+    margin-bottom: 1.5rem;
+}
+
+.time-limit-text {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.record-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.375rem;
+    background-color: #f9645f;
+    color: white;
+    font-size: 0.875rem;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    margin: 0 auto 2rem;
+}
+
+.record-button:hover {
+    background-color: #ef402d;
+}
+
+.record-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-right: 0.5rem;
+}
+
+.recording-tips {
+    background-color: #fef3c7;
+    border-radius: 0.375rem;
+    padding: 1rem;
+}
+
+.recording-tips h4 {
+    font-size: 0.875rem;
+    color: #92400e;
+    margin-bottom: 0.5rem;
+}
+
+.recording-tips ul {
+    padding-left: 1.5rem;
+    font-size: 0.8125rem;
+    color: #78350f;
+}
+
+.recording-tips li {
+    margin-bottom: 0.25rem;
+}
+
+.countdown-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 0;
+}
+
+.countdown-circle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 6rem;
+    height: 6rem;
+    border-radius: 50%;
+    background-color: #f9645f;
+    color: white;
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 1.5rem;
+}
+
+.countdown-text {
+    font-size: 1rem;
+    color: #4b5563;
+}
+
+.recording-container {
+    margin-bottom: 1.5rem;
+}
+
+.recording-indicator {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.75);
+    color: white;
+    padding: 0.375rem 0.625rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.recording-dot {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background-color: #ef4444;
+    margin-right: 0.5rem;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 0.6;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0.6;
+    }
+}
+
+.recording-time {
+    font-family: monospace;
+}
+
+.recording-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.stop-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.375rem;
+    background-color: #ef4444;
+    color: white;
+    font-size: 0.875rem;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.stop-button:hover {
+    background-color: #dc2626;
+}
+
+.stop-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-right: 0.5rem;
+}
+
+.review-container {
+    margin-bottom: 1.5rem;
+}
+
+.review-actions {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.retry-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.375rem;
+    background-color: #f1f5f9;
+    color: #475569;
+    font-size: 0.875rem;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.retry-button:hover {
+    background-color: #e2e8f0;
+}
+
+.retry-button:disabled {
+    background-color: #f1f5f9;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.retry-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-right: 0.5rem;
+}
+
+/* Interview Completed Styles */
+.completed-success {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 2rem;
+}
+
+.completed-message {
+    font-size: 1.125rem;
+    margin: 1rem 0;
+}
+
+.completed-info {
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+/* Responsive Styles */
+@media (min-width: 640px) {
+    .id-upload-options {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .or-divider {
+        margin: 0 1rem;
+    }
+
+    .or-divider::before,
+    .or-divider::after {
+        width: 1rem;
+    }
+}

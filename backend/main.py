@@ -9,13 +9,29 @@ import json
 import os
 import sys
 import time
+import logging
 import datetime
 import re
 from pydantic import BaseModel
 
+# Import API routers
+from api import interviews
+
 # For debugging purposes
 print("Starting FastAPI application...")
 print(f"Current working directory: {os.getcwd()}")
+
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+
+logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(title="EqualLens API", 
@@ -30,6 +46,8 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "Accept"],
 )
+
+app.include_router(interviews.router, prefix="/api/interviews", tags=["interviews"])
 
 # Helper function to generate readable job IDs
 def generate_job_id(job_title):
