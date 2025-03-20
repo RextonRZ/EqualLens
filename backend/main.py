@@ -13,6 +13,12 @@ import logging
 import datetime
 import re
 from pydantic import BaseModel
+import requests
+import base64
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Import API routers
 from api import interviews
@@ -82,20 +88,26 @@ def get_current_timestamp():
 
 # Initialize Firebase with credentials
 try:
-    # Modified file path logic to correctly locate the firebase_config.json
-    config_paths = [
-        os.path.join(os.path.dirname(os.path.dirname(__file__)), "equallens-project", "firebase_config.json"),
-        os.path.join(os.path.dirname(os.path.dirname(__file__)), "firebase_config.json"),
-        os.path.join(os.getcwd(), "firebase_config.json")  # Try current working directory as well
-    ]
+    # Try to use FIREBASE_CONFIG_PATH from environment variable first
+    firebase_config_path = os.getenv("FIREBASE_CONFIG_PATH")
     
-    firebase_config_path = None
-    for path in config_paths:
-        print(f"Checking for config at: {path}")
-        if os.path.exists(path):
-            firebase_config_path = path
-            print(f"Found Firebase config at: {path}")
-            break
+    # If not set in .env, use the fallback logic
+    if not firebase_config_path or not os.path.exists(firebase_config_path):
+        config_paths = [
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), "equallens-project", "firebase_config.json"),
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), "firebase_config.json"),
+            os.path.join(os.getcwd(), "firebase_config.json")  # Try current working directory as well
+        ]
+        
+        firebase_config_path = None
+        for path in config_paths:
+            print(f"Checking for config at: {path}")
+            if os.path.exists(path):
+                firebase_config_path = path
+                print(f"Found Firebase config at: {path}")
+                break
+    else:
+        print(f"Using Firebase config from environment variable: {firebase_config_path}")
     
     if not firebase_config_path:
         raise FileNotFoundError("firebase_config.json file not found in any expected locations")
@@ -118,30 +130,49 @@ try:
     db = firestore.client()
     print("Firestore client initialized")
     
-    # Try multiple bucket naming patterns
-    bucket = None
-    bucket_options = [
-        f"{project_id}.appspot.com",  # Standard pattern
-        project_id,                    # Just project ID
-        f"gs://{project_id}.appspot.com", # Full gs:// URL
-        f"gs://{project_id}"           # Alternate gs:// URL
-    ]
-    
-    for bucket_name in bucket_options:
+    # Try to get bucket name from environment variable first
+    bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET")
+    if bucket_name:
+        print(f"Using bucket name from environment variable: {bucket_name}")
         try:
-            print(f"Trying to access bucket with name: {bucket_name}")
             bucket = storage.bucket(bucket_name)
             # Test if the bucket is accessible
             bucket_exists = bucket.exists()
-            if bucket_exists:
-                print(f"Found accessible bucket: {bucket.name}")
-                break
-            else:
-                print(f"Bucket {bucket_name} doesn't exist")
+            if not bucket_exists:
+                print(f"Bucket {bucket_name} from environment variable doesn't exist")
                 bucket = None
+            else:
+                print(f"Found accessible bucket from env var: {bucket.name}")
         except Exception as e:
-            print(f"Error accessing bucket {bucket_name}: {e}")
+            print(f"Error accessing bucket {bucket_name} from env var: {e}")
             bucket = None
+    
+    # If not set in .env or not accessible, use the fallback logic
+    if not bucket_name or bucket is None:
+        # Try multiple bucket naming patterns
+        bucket = None
+        bucket_options = [
+            f"{project_id}.appspot.com",  # Standard pattern
+            project_id,                    # Just project ID
+            f"gs://{project_id}.appspot.com", # Full gs:// URL
+            f"gs://{project_id}"           # Alternate gs:// URL
+        ]
+        
+        for bucket_name in bucket_options:
+            try:
+                print(f"Trying to access bucket with name: {bucket_name}")
+                bucket = storage.bucket(bucket_name)
+                # Test if the bucket is accessible
+                bucket_exists = bucket.exists()
+                if bucket_exists:
+                    print(f"Found accessible bucket: {bucket.name}")
+                    break
+                else:
+                    print(f"Bucket {bucket_name} doesn't exist")
+                    bucket = None
+            except Exception as e:
+                print(f"Error accessing bucket {bucket_name}: {e}")
+                bucket = None
     
     if bucket is None:
         print("WARNING: Could not access any Firebase Storage buckets")
@@ -216,16 +247,27 @@ async def upload_job(
             'languages': job_details.get('languages'),
             'minimumCGPA': job_details.get('minimumCGPA'),
             'skills': job_details.get('skills'),
-            'createdAt': current_time,  # Use string timestamp instead of SERVER_TIMESTAMP
+            'createdAt': current_time,
             'resumeCount': len(files)
         }
         
         print(f"Storing job with ID {job_id}: {job_doc}")
-        job_ref.set(job_doc)
+        try:
+            job_ref.set(job_doc)
+            print(f"✓ Successfully stored job document in Firestore")
+        except Exception as firestore_error:
+            print(f"ERROR: Failed to store job in Firestore: {firestore_error}")
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "error": str(firestore_error),
+                    "message": "Failed to store job in Firestore"
+                }
+            )
         
         # Upload and store file references
         resume_refs = []
-        resume_array = []  # Use an array instead of object for resumes
+        resume_array = []  # Use an array for resumes with simplified structure
         
         # Check if bucket is available before attempting file uploads
         if bucket is None:
@@ -235,7 +277,7 @@ async def upload_job(
             print("Using development mode for file handling...")
             
             # Save the job details in Firestore but use mock URLs for files
-            # Create mock resume objects similar to dev mode
+            # Create mock resume objects
             resume_refs = []
             resume_array = []
             
@@ -243,7 +285,7 @@ async def upload_job(
                 resume_number = i + 1
                 resume_id = f"resume_{resume_number}"
                 
-                # Create a mock resume object
+                # Create a mock resume object with only required fields
                 mock_url = f"https://storage.googleapis.com/mock-storage/{job_id}/{resume_id}.pdf"
                 
                 resume_obj = {
@@ -251,29 +293,16 @@ async def upload_job(
                     'contentType': file.content_type or 'application/pdf',
                     'storagePath': f"resumes/{job_id}/{resume_id}/mock.pdf",
                     'downloadUrl': mock_url,
-                    'uploadedAt': get_current_timestamp(),
-                    'resumeNumber': resume_number,
-                    'originalFilename': file.filename,
-                    'uploadSuccess': False,  # Mark as not successfully uploaded to real storage
-                    'extractedText': '',
-                    'skillsExtracted': [],
-                    'education': '',
-                    'experienceYears': 0,
-                    'certifications': []
                 }
                 
                 resume_array.append(resume_obj)
-                resume_ref = job_ref.collection('resumes').document(resume_id)
-                resume_doc = resume_obj.copy()
-                resume_doc['uploadedAt'] = firestore.SERVER_TIMESTAMP
-                resume_ref.set(resume_doc)
                 
                 # Add to resume references list for the response
                 resume_refs.append({
-                    'id': resume_id,
+                    'resumeId': resume_id,
                     'downloadUrl': mock_url,
-                    'resumeNumber': resume_number,
-                    'uploadSuccess': False
+                    'storagePath': f"resumes/{job_id}/{resume_id}/mock.pdf",
+                    'contentType': file.content_type or 'application/pdf'
                 })
             
             # Update job with resume array
@@ -350,69 +379,70 @@ async def upload_job(
                 download_url = f"https://storage.placeholder.com/resume-{resume_number}-upload-failed"
                 print(f"Using placeholder URL: {download_url}")
             
-            # Create resume object for array (avoid using SERVER_TIMESTAMP)
+            # Create simplified resume object for array
             resume_obj = {
                 'resumeId': resume_id,
-                'contentType': file.content_type or 'application/pdf',  # Provide a default
+                'contentType': file.content_type or 'application/pdf',
                 'storagePath': storage_path,
-                'downloadUrl': download_url,
-                'uploadedAt': current_time,  # Use string timestamp
-                'resumeNumber': resume_number,
-                'originalFilename': file.filename,
-                'uploadSuccess': upload_success,
-                # Add placeholder fields for future data extraction
-                'extractedText': '',
-                'skillsExtracted': [],
-                'education': '',
-                'experienceYears': 0,
-                'certifications': []
+                'downloadUrl': download_url
             }
             
             # Add to the resume array
             resume_array.append(resume_obj)
             
             # Store individual resume document
-            # It's safe to use SERVER_TIMESTAMP for direct document fields
             resume_doc = resume_obj.copy()
-            resume_doc['uploadedAt'] = firestore.SERVER_TIMESTAMP  # Replace string with actual SERVER_TIMESTAMP
+            resume_doc['uploadedAt'] = firestore.SERVER_TIMESTAMP
             
             resume_ref = job_ref.collection('resumes').document(resume_id)
             resume_ref.set(resume_doc)
             
-            # Create branches for future data processing
-            analysis_ref = resume_ref.collection('analysis').document('overview')
-            analysis_ref.set({
-                'processed': False,
-                'createdAt': firestore.SERVER_TIMESTAMP
-            })
-            
-            # Add placeholder documents for future processing stages
-            stages = ['extracted_text', 'skills', 'education', 'experience', 'matching_score']
-            for stage in stages:
-                stage_ref = resume_ref.collection('analysis').document(stage)
-                stage_ref.set({
-                    'processed': False,
-                    'createdAt': firestore.SERVER_TIMESTAMP
-                })
-            
             # Add to resume references list for the response
             resume_refs.append({
-                'id': resume_id,
+                'resumeId': resume_id,
                 'downloadUrl': download_url,
-                'resumeNumber': resume_number,
-                'uploadSuccess': upload_success
+                'storagePath': storage_path,
+                'contentType': file.content_type or 'application/pdf'
             })
         
         # Update the job document with the resume array
-        job_ref.update({
-            'resumes': resume_array
-        })
+        try:
+            print(f"Updating job with resume array (count: {len(resume_array)})")
+            job_ref.update({
+                'resumes': resume_array
+            })
+            print(f"✓ Successfully updated job with resume array in Firestore")
+        except Exception as update_error:
+            print(f"ERROR: Failed to update job with resume array: {update_error}")
+        
+        # Verify data was saved properly by reading it back
+        try:
+            job_verification = job_ref.get()
+            if job_verification.exists:
+                job_data = job_verification.to_dict()
+                saved_resume_count = len(job_data.get('resumes', []))
+                print(f"✓ Verification: Job exists in Firestore with {saved_resume_count} resumes")
+                
+                # Check if at least one resume document exists
+                resume_docs = job_ref.collection('resumes').limit(1).get()
+                if len(resume_docs) > 0:
+                    print(f"✓ Verification: At least one resume document exists in Firestore")
+                else:
+                    print(f"⚠️ Warning: No resume documents found in Firestore")
+            else:
+                print(f"⚠️ Warning: Job verification failed - job document not found")
+        except Exception as verify_error:
+            print(f"⚠️ Warning: Error during verification: {verify_error}")
         
         result = {
             "message": "Job and resumes uploaded successfully",
             "jobId": job_id,
             "resumeCount": len(files),
-            "resumes": resume_refs
+            "resumes": resume_refs,
+            "firestore": {
+                "jobSaved": True,
+                "resumesSaved": len(resume_array)
+            }
         }
         
         print(f"Upload successful: {result}")
@@ -449,25 +479,19 @@ async def upload_job_dev(
         job_id = generate_job_id(job_details.get('jobTitle'))
         print(f"DEV MODE: Generated job ID: {job_id}")
         
-        # Create response with an array of resume objects
+        # Create response with an array of simplified resume objects
         resume_array = []
         
         for i, file in enumerate(files):
             resume_number = i + 1
             resume_id = f"resume_{resume_number}"
             
-            # Create a mock resume object with the structure you want
+            # Create a simplified mock resume object
             resume_obj = {
                 "resumeId": resume_id,
                 "downloadUrl": f"https://storage.example.com/{job_id}/{resume_id}.pdf",
-                "uploadSuccess": True,
-                "extractedText": f"Sample extracted text for resume {resume_number}...",
-                "skillsExtracted": job_details.get("skills", [])[:min(3, len(job_details.get("skills", [])))],
-                "education": "Bachelor's in Computer Science",
-                "experienceYears": resume_number + 2,
-                "certifications": ["Sample Certification"],
-                "originalFilename": file.filename,
-                "uploadedAt": get_current_timestamp()
+                "storagePath": f"resumes/{job_id}/{resume_id}.pdf",
+                "contentType": file.content_type or 'application/pdf'
             }
             
             resume_array.append(resume_obj)
