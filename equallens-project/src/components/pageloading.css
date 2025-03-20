@@ -12,6 +12,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 3; /* Ensure it is above other elements */
 }
 
 /* Wrapper for both bar and ball */
@@ -22,7 +23,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    top: 165px;
+    top: 205px;
     animation: seesaw var(--animation-duration) ease-in-out infinite alternate both;
 }
 

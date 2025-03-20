@@ -10,6 +10,7 @@ const UploadCV = () => {
     
     // Add API state variables
     const [apiStatus, setApiStatus] = useState("idle"); // idle, loading, success, error
+    const [submitProgress, setSubmitProgress] = useState(0); // Track overall submission progress
     
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -19,6 +20,9 @@ const UploadCV = () => {
     const [isDragging, setIsDragging] = useState(false); 
     const fileInputRef = useRef(null);
     const uploadContainerRef = useRef(null);
+    
+    // Create animation frame reference at the component level
+    const progressAnimationRef = useRef(null);
     
     // Job details state
     const [jobTitle, setJobTitle] = useState("");
@@ -423,7 +427,17 @@ const UploadCV = () => {
         }
         
         try {
+            // Cancel any existing animation frame
+            if (progressAnimationRef.current) {
+                cancelAnimationFrame(progressAnimationRef.current);
+                progressAnimationRef.current = null;
+            }
+            
             setApiStatus("loading");
+            setSubmitProgress(5); // Start with 5% progress to show initial activity
+            
+            // Add a small delay to ensure loading animation starts properly
+            await new Promise(resolve => setTimeout(resolve, 400));
             
             // Create form data
             const formData = new FormData();
@@ -431,17 +445,58 @@ const UploadCV = () => {
             // Add job data as JSON string
             formData.append("job_data", JSON.stringify(jobData));
             
+            // Simulate early progress before actual upload starts
+            setSubmitProgress(0);
+
+            await new Promise(resolve => setTimeout(resolve, 2750));
+
+            setSubmitProgress(16);
+
+            await new Promise(resolve => setTimeout(resolve, 5450));
+            
             // Add all files
             selectedFiles.forEach(file => {
                 formData.append("files", file);
             });
             
-            // Send to backend API - use the endpoint variable
+            // Simulate some more progress before sending
+            setSubmitProgress(30);
+
+            await new Promise(resolve => setTimeout(resolve, 5450));
+
+            setSubmitProgress(65);
+            
+            // Function to simulate progress during waiting time - use requestAnimationFrame for smoother updates
+            let lastUpdateTime = Date.now();
+            const simulateProgress = () => {
+                if (apiStatus !== "loading") return; // Stop if no longer loading
+                
+                const now = Date.now();
+                // Only update every 800ms to reduce rendering load
+                if (now - lastUpdateTime >= 800) {
+                    setSubmitProgress(prev => {
+                        const newProgress = prev + (Math.random() * 1.5);
+                        return Math.min(newProgress, 90);
+                    });
+                    lastUpdateTime = now;
+                }
+                progressAnimationRef.current = requestAnimationFrame(simulateProgress);
+            };
+            
+            // Start progress simulation with requestAnimationFrame
+            progressAnimationRef.current = requestAnimationFrame(simulateProgress);
+            
+            // Send to backend API
             const response = await fetch(API_ENDPOINT, {
                 method: 'POST',
                 body: formData,
-                // No need to set Content-Type, it will be set automatically with boundary
             });
+            
+            // Clear the progress simulation
+            if (progressAnimationRef.current) {
+                cancelAnimationFrame(progressAnimationRef.current);
+                progressAnimationRef.current = null;
+            }
             
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
@@ -450,6 +505,9 @@ const UploadCV = () => {
             
             const responseData = await response.json();
             console.log("Server response:", responseData);
+            
+            // Set the final progress based on response (or 100 if not provided)
+            setSubmitProgress(responseData.progress || 100);
             
             // Add a delay to ensure animation completes nicely
             setTimeout(() => {
@@ -470,9 +528,16 @@ const UploadCV = () => {
                 setUploadProgress({});
                 setUploadQueue([]);
                 setApiStatus("idle");
+                setSubmitProgress(0);
             }, 1000);
             
         } catch (error) {
+            // Clear animation frame in case of error too
+            if (progressAnimationRef.current) {
+                cancelAnimationFrame(progressAnimationRef.current);
+                progressAnimationRef.current = null;
+            }
+            
             console.error("Error submitting job:", error);
             setApiStatus("error");
             alert(`Error submitting job: ${error.message}`);
@@ -480,10 +545,21 @@ const UploadCV = () => {
             // Reset API status after a short delay
             setTimeout(() => {
                 setApiStatus("idle");
+                setSubmitProgress(0);
             }, 3000);
         }
     };
 
+    // Clean up animation frame on component unmount
+    useEffect(() => {
+        return () => {
+            if (progressAnimationRef.current) {
+                cancelAnimationFrame(progressAnimationRef.current);
+                progressAnimationRef.current = null;
+            }
+        };
+    }, []);
+    
     // Language handlers
     const handleLanguageSelect = (language) => {
         if (!languages.includes(language)) {
@@ -502,13 +578,13 @@ const UploadCV = () => {
         }
     };
 
-    // Updated LoadingAnimation component that correctly uses the CSS from pageloading.css
+    // Updated LoadingAnimation component with cleaner structure
     const LoadingAnimation = () => {
         return (
             <div className="loading-animation">
                 <div className="seesaw-container">
-                    <div className="ball"></div>
                     <div className="bar"></div>
+                    <div className="ball"></div>
                 </div>
             </div>
         );
@@ -521,8 +597,17 @@ const UploadCV = () => {
             {apiStatus === "loading" && (
                 <div className="api-loading-overlay">
                     <div className="api-loading-content">
+                        {/* Keep the original loading animation from pageloading.css */}
                         <LoadingAnimation />
                         <p>Submitting job and uploading files...</p>
+                        {/* Progress bar positioned below the animation */}
+                        <div className="progress-bar-container">
+                            <div 
+                                className="progress-bar" 
+                                style={{ width: `${submitProgress}%` }}
+                            ></div>
+                            <span className="progress-text">{Math.round(submitProgress)}%</span>
+                        </div>
                     </div>
                 </div>
             )}

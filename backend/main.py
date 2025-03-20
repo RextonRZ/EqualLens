@@ -16,6 +16,8 @@ from pydantic import BaseModel
 import requests
 import base64
 from dotenv import load_dotenv
+from google.api_core.client_options import ClientOptions
+from google.cloud import documentai  # type: ignore
 
 # Load environment variables from .env file
 load_dotenv()
@@ -211,6 +213,43 @@ async def health_check():
     except Exception as e:
         return {"status": "healthy", "firebase": f"error: {str(e)}"}
 
+# Function to process document using Document AI
+def process_document(file_content: bytes, mime_type: str) -> dict:
+    """Processes a document using an existing Document AI processor and extracts structured data."""
+    project_id = os.getenv("DOCUMENTAI_PROJECT_ID", "default_project_id")
+    location = os.getenv("DOCUMENTAI_LOCATION", "us")  # "us" or "eu"
+    processor_id = os.getenv("DOCUMENTAI_PROCESSOR_ID", "default_processor_id")
+    processor_version = os.getenv("DOCUMENTAI_PROCESSOR_VERSION", "default_processor_version")
+
+    # Define API endpoint
+    opts = ClientOptions(api_endpoint=f"{location}-documentai.googleapis.com")
+
+    # Initialize the Document AI client
+    client = documentai.DocumentProcessorServiceClient(client_options=opts)
+
+    # Construct processor resource name with version
+    processor_name = f"projects/{project_id}/locations/{location}/processors/{processor_id}/processorVersions/{processor_version}"
+
+    # Create a raw document request
+    raw_document = documentai.RawDocument(content=file_content, mime_type=mime_type)
+
+    # Create a request using the existing processor
+    request = documentai.ProcessRequest(name=processor_name, raw_document=raw_document)
+
+    # Process the document
+    result = client.process_document(request=request)
+
+    # Extract structured data from the document
+    document = result.document
+    structured_data = {}
+
+    for entity in document.entities:
+        field_name = entity.type_  # Field name as defined in the processor
+        field_value = entity.mention_text  # Extracted value for the field
+        structured_data[field_name] = field_value
+
+    return structured_data
+
 @app.post("/upload-job")
 async def upload_job(
     job_data: str = Form(...),
@@ -321,6 +360,11 @@ async def upload_job(
             
             return JSONResponse(status_code=200, content=result)
         
+        # Calculate progress per file to track overall progress
+        total_files = len(files)
+        progress_per_file = 100 / total_files if total_files > 0 else 100
+        current_progress = 0
+        
         for i, file in enumerate(files):
             # Create unique file name to avoid collisions
             file_id = str(uuid.uuid4())
@@ -334,9 +378,14 @@ async def upload_job(
             storage_path = f"resumes/{job_id}/{resume_id}/{file_id}{file_extension}"
             
             print(f"Processing file {resume_number}/{len(files)}: {file.filename}")
+            print(f"Upload progress: {current_progress:.1f}%")
             
             # Read file content
             content = await file.read()
+            
+            # Increment progress after file read (25% of file's progress)
+            current_progress += progress_per_file * 0.25
+            print(f"Read file content, progress: {current_progress:.1f}%")
             
             download_url = None
             upload_success = False
@@ -355,6 +404,10 @@ async def upload_job(
                     # Upload with explicit content type
                     blob.upload_from_string(content, content_type=content_type)
                     print(f"Successfully uploaded content to blob")
+
+                    # Increment progress after file upload (50% of file's progress)
+                    current_progress += progress_per_file * 0.5
+                    print(f"Uploaded to storage, progress: {current_progress:.1f}%")
 
                     # Make file publicly accessible
                     blob.make_public()
@@ -379,13 +432,35 @@ async def upload_job(
                 download_url = f"https://storage.placeholder.com/resume-{resume_number}-upload-failed"
                 print(f"Using placeholder URL: {download_url}")
             
-            # Create simplified resume object for array
-            resume_obj = {
-                'resumeId': resume_id,
-                'contentType': file.content_type or 'application/pdf',
-                'storagePath': storage_path,
-                'downloadUrl': download_url
-            }
+            try:
+                # Extract structured data using Document AI
+                structured_data = process_document(content, file.content_type or "application/pdf")
+                print(f"Extracted structured data for resume {resume_number}: {structured_data}")
+
+                # Increment progress after data extraction (25% of file's progress)
+                current_progress += progress_per_file * 0.25
+                print(f"Extracted data, progress: {current_progress:.1f}%")
+
+                # Add structured data to the resume object
+                resume_obj = {
+                    'resumeId': resume_id,
+                    'contentType': file.content_type or 'application/pdf',
+                    'storagePath': storage_path,
+                    'downloadUrl': download_url,
+                    'extractedData': structured_data  # Save structured data here
+                }
+            except Exception as extraction_error:
+                print(f"Error extracting structured data for resume {resume_number}: {extraction_error}")
+                resume_obj = {
+                    'resumeId': resume_id,
+                    'contentType': file.content_type or 'application/pdf',
+                    'storagePath': storage_path,
+                    'downloadUrl': download_url,
+                    'extractedData': None  # Set to None if extraction fails
+                }
+                
+                # Still increment progress even if extraction fails
+                current_progress += progress_per_file * 0.25
             
             # Add to the resume array
             resume_array.append(resume_obj)
@@ -404,6 +479,10 @@ async def upload_job(
                 'storagePath': storage_path,
                 'contentType': file.content_type or 'application/pdf'
             })
+        
+        # Ensure progress is at 100% when complete
+        current_progress = 100.0
+        print(f"Upload complete, final progress: {current_progress:.1f}%")
         
         # Update the job document with the resume array
         try:
@@ -442,7 +521,8 @@ async def upload_job(
             "firestore": {
                 "jobSaved": True,
                 "resumesSaved": len(resume_array)
-            }
+            },
+            "progress": 100.0  # Return final progress with response
         }
         
         print(f"Upload successful: {result}")

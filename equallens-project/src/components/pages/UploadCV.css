@@ -754,7 +754,7 @@
     font-size: 1rem;
 }
 
-/* Loading overlay styles */
+/* Loading overlay styles - with more specific selectors to prevent conflicts */
 .api-loading-overlay {
     position: fixed;
     top: 0;
@@ -768,15 +768,154 @@
     z-index: 1000;
 }
 
-.api-loading-content {
+/* Use very specific selectors to avoid conflicts with pageloading.css */
+.api-loading-overlay .api-loading-content {
     text-align: center;
-    padding: 20px;
+    padding: 2rem;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
 }
 
-/* Container for the loading animation */
+.api-loading-overlay .api-loading-content p {
+    margin-top: 1.5rem;
+    font-size: 1.2rem;
+    color: #555;
+    margin-bottom: 1.5rem;
+}
+
+/* Gradient Progress Bar Styles - with more specific selectors */
+.api-loading-overlay .gradient-progress-container {
+    width: 100%;
+    height: 10px;
+    background-color: #f1f1f1;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    margin-top: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.api-loading-overlay .gradient-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, 
+        #F9645F 0%, 
+        #ff8783 25%, 
+        #fd7975 50%, 
+        #ff736e 75%, 
+        #fa7873 100%);
+    border-radius: 10px;
+    transition: width 0.5s ease;
+    position: relative;
+    /* Add animated gradient that moves */
+    background-size: 200% 100%;
+    animation: gradientShift 2s linear infinite;
+}
+
+.api-loading-overlay .gradient-progress-text {
+    position: absolute;
+    top: -25px;
+    right: 0;
+    font-size: 1rem;
+    color: #333;
+    font-weight: bold;
+}
+
+/* Animation for the gradient shift */
+@keyframes gradientShift {
+    0% { background-position: 0% 0; }
+    100% { background-position: 200% 0; }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .api-loading-overlay .gradient-progress-container {
+        width: 90%;
+        height: 8px;
+    }
+    
+    .api-loading-overlay .gradient-progress-text {
+        font-size: 0.9rem;
+        top: -22px;
+    }
+}
+
+/* Loading overlay styles - cleanup for better positioning */
+.api-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.api-loading-content {
+    text-align: center;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 400px;
+}
+
+/* Ensure proper spacing between animation and progress bar */
+.api-loading-content .loading-animation {
+    margin-bottom: 50px; /* Add enough space for the ball animation */
+}
+
+.api-loading-content p {
+    margin-top: 0; /* Remove additional space */
+    font-size: 1.2rem;
+    color: #555;
+    margin-bottom: 1.5rem;
+}
+
+/* Progress bar styling */
+.api-loading-overlay .progress-bar-container {
+    width: 100%;
+    height: 10px;
+    background-color: #f1f1f1;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    z-index: 1; /* Lower z-index than the loading animation */
+    margin-top: 0; /* Remove any margin that might push it up */
+}
+
+.api-loading-overlay .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, 
+        #F9645F 0%, 
+        #ff8783 25%, 
+        #fd7975 50%, 
+        #ff736e 75%, 
+        #fa7873 100%);
+    border-radius: 10px;
+    transition: width 0.5s ease;
+    background-size: 200% 100%;
+    animation: progressBarShift 2s linear infinite;
+}
+
+.api-loading-overlay .progress-text {
+    position: absolute;
+    top: -25px;
+    right: 0;
+    font-size: 1rem;
+    color: #333;
+    font-weight: bold;
+}
+
+/* Remove duplicate styles that might cause conflicts */
+/* Container for the loading animation - REMOVE THIS SECTION */
 .loading-animation {
     position: relative;
     width: 200px;
@@ -788,7 +927,7 @@
     justify-content: flex-end;
 }
 
-/* Fix for the ball animation container */
+/* Fix for the ball animation container - REMOVE THIS SECTION */
 .loading-animation .bar {
     position: absolute;
     bottom: 50px;
@@ -799,27 +938,202 @@
     bottom: 70px;
 }
 
-/* Remove the existing spinner */
-.api-spinner {
-    display: none;
-}
-
-/* Adjust the bar and ball to work within the overlay */
+/* Adjust the bar and ball to work within the overlay - REMOVE THIS SECTION */
 .loading-animation .bar {
     margin-top: 40px;
 }
 
+/* Animation for the progress bar gradient shift */
+@keyframes progressBarShift {
+    0% { background-position: 0% 0; }
+    100% { background-position: 200% 0; }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .api-loading-overlay .progress-bar-container {
+        width: 90%;
+        height: 8px;
+    }
+    
+    .api-loading-overlay .progress-text {
+        font-size: 0.9rem;
+        top: -22px;
+    }
+}
+
+/* Ensure no interference with pageloading.css */
+.loading-animation {
+    z-index: 3; /* Ensure it is above the progress bar */
+}
+
+/* Ensure no interference with pageloading.css */
+.loading-animation {
+    z-index: 2; /* Ensure it is above the progress bar */
+}
+
+/* Loading overlay styles - prevent animation conflicts */
+.api-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
 .api-loading-content {
+    text-align: center;
+    padding: 2rem;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    text-align: center;
-    padding: 2rem;
+    width: 100%;
+    max-width: 400px;
+    /* Create a separate stacking context to isolate animations */
+    transform: translateZ(0);
+    will-change: transform;
+}
+
+/* Add proper spacing between loading animation and progress bar */
+.api-loading-overlay .loading-animation {
+    margin-bottom: 80px !important; /* Add extra space to ensure animation has room */
+    /* Force hardware acceleration to prevent animation from stuttering */
+    transform: translateZ(0);
+    will-change: transform;
+    /* Override any conflicting styles */
+    animation-play-state: running !important;
+    z-index: 100 !important;
+}
+
+/* Make sure the seesaw animation isn't affected by progress updates */
+.api-loading-overlay .seesaw-container {
+    animation-play-state: running !important;
+    /* Force hardware acceleration for smoother animation */
+    transform: translateZ(0);
+    will-change: transform;
+}
+
+/* Same for the ball to ensure it keeps animating */
+.api-loading-overlay .ball {
+    animation-play-state: running !important;
+    /* Force hardware acceleration for smoother animation */
+    transform: translateZ(0);
+    will-change: transform;
+}
+
+/* Progress bar container positioned way below animation */
+.api-loading-overlay .progress-bar-container {
+    width: 100%;
+    height: 10px;
+    background-color: #f1f1f1;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    z-index: 1; /* Lower z-index than the loading animation */
+    margin-top: 20px; /* Add space between text and progress bar */
+    /* Create a separate stacking context for the progress bar */
+    transform: translateZ(0);
+    will-change: transform;
 }
 
 .api-loading-content p {
-    margin-top: 1.5rem;
+    margin: 0 0 20px 0; /* Adjust spacing */
     font-size: 1.2rem;
     color: #555;
+}
+
+/* Clean up the API loading overlay styles to remove duplicates and conflicts */
+.api-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.api-loading-content {
+    text-align: center;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 400px;
+    /* Force hardware acceleration */
+    transform: translateZ(0);
+}
+
+/* Custom classes for loading animation inside the overlay */
+.api-loading-overlay .loading-animation {
+    margin-bottom: 100px !important; /* Extra space for animation */
+    /* Ensure independent rendering */
+    position: relative;
+    z-index: 100;
+}
+
+.api-loading-overlay .seesaw-container,
+.api-loading-overlay .bar,
+.api-loading-overlay .ball {
+    /* Force animations to run */
+    animation-play-state: running !important;
+    will-change: transform;
+}
+
+/* Text between animation and progress */
+.api-loading-overlay .api-loading-content p {
+    margin: 0;
+    padding: 0 0 50px 0; /* Add space below the text */
+    font-size: 1.2rem;
+    color: #555;
+    position: relative; /* Create stacking context */
+    z-index: 50;
+}
+
+/* Progress bar container */
+.api-loading-overlay .progress-bar-container {
+    width: 100%;
+    height: 10px;
+    background-color: #f1f1f1;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    z-index: 20; /* Lower than animation */
+    margin: 0; /* Reset margins */
+}
+
+.api-loading-overlay .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, 
+        #F9645F 0%, 
+        #ff8783 25%, 
+        #fd7975 50%, 
+        #ff736e 75%, 
+        #fa7873 100%);
+    border-radius: 10px;
+    transition: width 0.5s ease;
+    background-size: 200% 100%;
+    animation: progressBarShift 2s linear infinite;
+}
+
+.api-loading-overlay .progress-text {
+    position: absolute;
+    top: -25px;
+    right: 0;
+    font-size: 1rem;
+    color: #333;
+    font-weight: bold;
 }
