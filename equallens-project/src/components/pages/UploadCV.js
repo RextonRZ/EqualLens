@@ -434,7 +434,7 @@ const UploadCV = () => {
             }
             
             setApiStatus("loading");
-            setSubmitProgress(5); // Start with 5% progress to show initial activity
+            setSubmitProgress(0); // Start with 0% progress 
             
             // Add a small delay to ensure loading animation starts properly
             await new Promise(resolve => setTimeout(resolve, 400));
@@ -446,7 +446,7 @@ const UploadCV = () => {
             formData.append("job_data", JSON.stringify(jobData));
             
             // Simulate early progress before actual upload starts
-            setSubmitProgress(0);
+            setSubmitProgress(7);
 
             await new Promise(resolve => setTimeout(resolve, 2750));
 
