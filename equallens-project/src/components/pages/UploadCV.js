@@ -514,6 +514,11 @@ const UploadCV = () => {
             
             // Add job data as JSON string
             formData.append("job_data", JSON.stringify(jobData));
+
+            // Add all files
+            selectedFiles.forEach(file => {
+                formData.append("files", file);
+            });
             
             // Simulate early progress before actual upload starts
             setSubmitProgress(7);
@@ -524,10 +529,6 @@ const UploadCV = () => {
 
             await new Promise(resolve => setTimeout(resolve, 5450));
             
-            // Add all files
-            selectedFiles.forEach(file => {
-                formData.append("files", file);
-            });
             
             // Simulate some more progress before sending
             setSubmitProgress(30);
