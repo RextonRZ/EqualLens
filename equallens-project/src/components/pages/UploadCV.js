@@ -29,9 +29,10 @@ const UploadCV = () => {
     const [jobTitleSuggestions, setJobTitleSuggestions] = useState([]);
     const [showJobTitleSuggestions, setShowJobTitleSuggestions] = useState(false);
     const [jobDescription, setJobDescription] = useState("");
-    const [searchLanguage, setSearchLanguage] = useState("");
-    const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
-    const [languages, setLanguages] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [departmentInput, setDepartmentInput] = useState("");
+    const [departmentSuggestions, setDepartmentSuggestions] = useState([]);
+    const [showDepartmentSuggestions, setShowDepartmentSuggestions] = useState(false);
     const [minimumCGPA, setMinimumCGPA] = useState(2.50);
     const [skillInput, setSkillInput] = useState("");
     const [skillSuggestions, setSkillSuggestions] = useState([]);
@@ -46,10 +47,10 @@ const UploadCV = () => {
         "Machine Learning Engineer", "Business Analyst", "Quality Assurance Engineer"
     ], []);
 
-    const languageOptions = useMemo(() => [
-        "English", "Mandarin","Malay", "Spanish", "French", "Arabic", "Russian",
-        "Portuguese", "Japanese", "German", "Hindi", "Korean", "Italian",
-        "Dutch", "Swedish", "Turkish", "Vietnamese", "Thai", "Greek"
+    const departmentOptions = useMemo(() => [
+        "Engineering", "Information Technology", "Marketing", "Finance", "Human Resources",
+        "Sales", "Operations", "Customer Support", "Research & Development", "Legal",
+        "Administration", "Design", "Product Management", "Business Development", "Data Science"
     ], []);
 
     const skillsOptions = useMemo(() => [
@@ -72,6 +73,18 @@ const UploadCV = () => {
             setShowJobTitleSuggestions(false);
         }
     }, [jobTitle, jobTitleOptions]);
+
+    useEffect(() => {
+        if (departmentInput) {
+            const filtered = departmentOptions.filter(
+                option => option.toLowerCase().includes(departmentInput.toLowerCase())
+            );
+            setDepartmentSuggestions(filtered);
+            setShowDepartmentSuggestions(filtered.length > 0);
+        } else {
+            setShowDepartmentSuggestions(false);
+        }
+    }, [departmentInput, departmentOptions]);
 
     useEffect(() => {
         if (skillInput) {
@@ -99,19 +112,13 @@ const UploadCV = () => {
         setShowSkillSuggestions(false);
     };
 
-    const filteredLanguages = searchLanguage
-        ? languageOptions.filter(lang => 
-            lang.toLowerCase().includes(searchLanguage.toLowerCase()))
-        : languageOptions;
-
     // Close suggestions when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (!event.target.closest('.suggestion-container') && 
-                !event.target.closest('.language-dropdown-container')) {
+            if (!event.target.closest('.suggestion-container')) {
                 setShowJobTitleSuggestions(false);
                 setShowSkillSuggestions(false);
-                setShowLanguageDropdown(false);
+                setShowDepartmentSuggestions(false);
             }
         };
 
@@ -344,10 +351,6 @@ const UploadCV = () => {
     };
 
     // Job details handlers
-    const removeLanguage = (language) => {
-        setLanguages(languages.filter(lang => lang !== language));
-    };
-
     const handleAddSkill = () => {
         if (skillInput.trim() && !skills.includes(skillInput.trim())) {
             setSkills([...skills, skillInput.trim()]);
@@ -366,14 +369,36 @@ const UploadCV = () => {
         }
     };
 
+    // Department handlers
+    const handleDepartmentSelect = (department) => {
+        if (!departments.includes(department)) {
+            setDepartments([...departments, department]);
+        }
+        setDepartmentInput("");
+        setShowDepartmentSuggestions(false);
+    };
+
+    const handleAddDepartment = () => {
+        if (departmentInput.trim() && !departments.includes(departmentInput.trim())) {
+            setDepartments([...departments, departmentInput.trim()]);
+            setDepartmentInput("");
+        }
+    };
+    
+    const handleDepartmentKeyPress = (e) => {
+        if (e.key === 'Enter' && departmentInput.trim()) {
+            e.preventDefault();
+            handleAddDepartment();
+        }
+    };
+
+    const removeDepartment = (department) => {
+        setDepartments(departments.filter(dept => dept !== department));
+    };
+
     const validateForm = () => {
         if (!jobTitle.trim()) {
             alert("Job Title is required");
-            return false;
-        }
-        
-        if (languages.length === 0) {
-            alert("At least one Language Requirement is required");
             return false;
         }
         
@@ -392,7 +417,7 @@ const UploadCV = () => {
             const jobDetails = {
                 jobTitle,
                 jobDescription,
-                languages,
+                department: departments,  // Changed from departments to department to match backend model
                 minimumCGPA,
                 skills
             };
@@ -520,7 +545,7 @@ const UploadCV = () => {
                 setCurrentStep("jobDetails");
                 setJobTitle("");
                 setJobDescription("");
-                setLanguages([]);
+                setDepartments([]);  // This remains the same as we're working with the state variable
                 setMinimumCGPA(2.50);
                 setSkills([]);
                 setSelectedFiles([]);
@@ -560,24 +585,6 @@ const UploadCV = () => {
         };
     }, []);
     
-    // Language handlers
-    const handleLanguageSelect = (language) => {
-        if (!languages.includes(language)) {
-            setLanguages([...languages, language]);
-        }
-        setSearchLanguage("");
-        setShowLanguageDropdown(false);
-    };
-
-    const handleLanguageSearch = (e) => {
-        const value = e.target.value;
-        setSearchLanguage(value);
-        // Show dropdown when typing
-        if (value.length > 0) {
-            setShowLanguageDropdown(true);
-        }
-    };
-
     // Updated LoadingAnimation component with cleaner structure
     const LoadingAnimation = () => {
         return (
@@ -666,59 +673,58 @@ const UploadCV = () => {
                             </div>
 
                             <div className="form-group">
-                                <label htmlFor="language" className="form-label">Language Requirements <span className="required">*</span></label>
-                                <div className="language-dropdown-container">
+                                <label htmlFor="department" className="form-label">Department</label>
+                                <div className="suggestion-container">
                                     <div className="input-group">
-                                        <div className="searchable-select">
-                                            <input 
-                                                type="text"
-                                                className="form-input"
-                                                value={searchLanguage}
-                                                onChange={handleLanguageSearch}
-                                                placeholder="Search or select a language"
-                                                onClick={() => setShowLanguageDropdown(true)}
-                                            />
-                                        </div>
+                                        <input
+                                            type="text"
+                                            id="department"
+                                            className="form-input"
+                                            value={departmentInput}
+                                            onChange={(e) => setDepartmentInput(e.target.value)}
+                                            onKeyPress={handleDepartmentKeyPress}
+                                            placeholder="Enter a department"
+                                            onBlur={() => {
+                                                // Hide suggestions with a small delay to allow click event to complete
+                                                setTimeout(() => {
+                                                    setShowDepartmentSuggestions(false);
+                                                }, 200);
+                                            }}
+                                        />
                                         <button 
                                             type="button" 
                                             className="add-button"
-                                            onClick={() => {
-                                                if (searchLanguage && !languages.includes(searchLanguage)) {
-                                                    setLanguages([...languages, searchLanguage]);
-                                                    setSearchLanguage("");
-                                                }
-                                            }}
-                                            disabled={!searchLanguage}
+                                            onClick={handleAddDepartment}
+                                            disabled={!departmentInput.trim()}
                                         >
                                             Add
                                         </button>
                                     </div>
-                                    {showLanguageDropdown && (
-                                        <ul className="language-dropdown-list">
-                                            {filteredLanguages.length > 0 ? (
-                                                filteredLanguages.map((language, index) => (
-                                                    <li 
-                                                        key={index}
-                                                        onClick={() => handleLanguageSelect(language)}
-                                                    >
-                                                        {language}
-                                                    </li>
-                                                ))
-                                            ) : (
-                                                <li className="no-results">No matching languages</li>
-                                            )}
+                                    {showDepartmentSuggestions && (
+                                        <ul className="suggestions-list">
+                                            {departmentSuggestions.map((suggestion, index) => (
+                                                <li 
+                                                    key={index} 
+                                                    onMouseDown={(e) => {
+                                                        e.preventDefault(); // Prevent input blur before click
+                                                        handleDepartmentSelect(suggestion);
+                                                    }}
+                                                >
+                                                    {suggestion}
+                                                </li>
+                                            ))}
                                         </ul>
                                     )}
                                 </div>
-                                {languages.length > 0 && (
+                                {departments.length > 0 && (
                                     <div className="tags-container">
-                                        {languages.map((language, index) => (
+                                        {departments.map((department, index) => (
                                             <div key={index} className="tag">
-                                                {language}
+                                                {department}
                                                 <button 
                                                     type="button"
                                                     className="tag-remove"
-                                                    onClick={() => removeLanguage(language)}
+                                                    onClick={() => removeDepartment(department)}
                                                 >
                                                     ×
                                                 </button>
