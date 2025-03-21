@@ -195,7 +195,7 @@ except Exception as e:
 class JobData(BaseModel):
     jobTitle: str
     jobDescription: str
-    department: List[str]
+    departments: List[str]
     minimumCGPA: float
     skills: List[str]
 
@@ -329,7 +329,7 @@ async def upload_job(
             'jobId': job_id,
             'jobTitle': job_details.get('jobTitle'),
             'jobDescription': job_details.get('jobDescription'),
-            'department': job_details.get('department'),
+            'departments': job_details.get('departments'),
             'minimumCGPA': job_details.get('minimumCGPA'),
             'createdAt': current_time,
             'applicationCount': 0  # Initialize with zero applications
