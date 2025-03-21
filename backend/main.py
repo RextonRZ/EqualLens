@@ -250,6 +250,52 @@ def process_document(file_content: bytes, mime_type: str) -> dict:
 
     return structured_data
 
+# New helper functions to generate proper 8-digit IDs for each collection
+def generate_formatted_id(prefix, db_client=None):
+    """Generate an ID with format {prefix}-{8_digit_number}"""
+    if db_client:
+        # Get the counter reference
+        counter_ref = db_client.collection('counters').document(f'{prefix}_counter')
+        
+        # Use atomic increment operation to update the counter
+        try:
+            # Atomically increment the counter by 1
+            counter_ref.set(
+                {'count': firestore.Increment(1)}, 
+                merge=True
+            )
+            
+            # Get the updated count
+            counter_doc = counter_ref.get()
+            if counter_doc.exists:
+                current_count = counter_doc.to_dict().get('count', 1)
+            else:
+                # This shouldn't happen due to merge=True above, but just in case
+                current_count = 1
+        except Exception as e:
+            print(f"Error generating ID with atomic increment: {e}")
+            # Fallback to random ID if atomic increment fails
+            import random
+            current_count = random.randint(1, 99999999)
+            
+        # Format as 8-digit number
+        formatted_number = f"{current_count:08d}"
+    else:
+        # Fallback to random 8-digit number when db isn't available
+        import random
+        formatted_number = f"{random.randint(1, 99999999):08d}"
+        
+    return f"{prefix}-{formatted_number}"
+
+def generate_job_id(db_client=None):
+    return generate_formatted_id("job", db_client)
+
+def generate_application_id(db_client=None):
+    return generate_formatted_id("app", db_client)
+
+def generate_candidate_id(db_client=None):
+    return generate_formatted_id("cand", db_client)
+
 @app.post("/upload-job")
 async def upload_job(
     job_data: str = Form(...),
@@ -262,8 +308,8 @@ async def upload_job(
         # Parse job data JSON string
         job_details = json.loads(job_data)
         
-        # Generate a readable job ID based on job title
-        job_id = generate_job_id(job_details.get('jobTitle'))
+        # Generate a formatted job ID
+        job_id = generate_job_id(db)
         print(f"Generated job ID: {job_id}")
         
         # Check if Firebase is properly initialized
@@ -278,16 +324,15 @@ async def upload_job(
         # Get current timestamp as a string
         current_time = get_current_timestamp()
         
-        # Store basic job details
+        # Store only job-related details in the jobs collection
         job_doc = {
             'jobId': job_id,
             'jobTitle': job_details.get('jobTitle'),
             'jobDescription': job_details.get('jobDescription'),
             'department': job_details.get('department'),
             'minimumCGPA': job_details.get('minimumCGPA'),
-            'skills': job_details.get('skills'),
             'createdAt': current_time,
-            'resumeCount': len(files)
+            'applicationCount': 0  # Initialize with zero applications
         }
         
         print(f"Storing job with ID {job_id}: {job_doc}")
@@ -304,9 +349,9 @@ async def upload_job(
                 }
             )
         
-        # Upload and store file references
-        resume_refs = []
-        resume_array = []  # Use an array for resumes with simplified structure
+        # Track resumes, applications, and candidates
+        application_refs = []
+        candidate_refs = []
         
         # Check if bucket is available before attempting file uploads
         if bucket is None:
@@ -315,46 +360,45 @@ async def upload_job(
             print(f"Visit https://console.firebase.google.com/project/{project_id}/storage to create the bucket.")
             print("Using development mode for file handling...")
             
-            # Save the job details in Firestore but use mock URLs for files
-            # Create mock resume objects
-            resume_refs = []
-            resume_array = []
-            
+            # Create mock applications and candidates
             for i, file in enumerate(files):
-                resume_number = i + 1
-                resume_id = f"resume_{resume_number}"
+                # Generate IDs
+                application_id = generate_application_id(db)
+                candidate_id = generate_candidate_id(db)
                 
                 # Create a mock resume object with only required fields
-                mock_url = f"https://storage.googleapis.com/mock-storage/{job_id}/{resume_id}.pdf"
+                mock_url = f"https://storage.googleapis.com/mock-storage/{job_id}/{candidate_id}.pdf"
                 
-                resume_obj = {
-                    'resumeId': resume_id,
-                    'contentType': file.content_type or 'application/pdf',
-                    'storagePath': f"resumes/{job_id}/{resume_id}/mock.pdf",
-                    'downloadUrl': mock_url,
+                # Create candidate record
+                candidate_doc = {
+                    'candidateId': candidate_id,
+                    'extractedText': f"Mock extracted text for {file.filename}",
+                    'resumeUrl': mock_url,
                 }
                 
-                resume_array.append(resume_obj)
+                # Create application record
+                application_doc = {
+                    'applicationId': application_id,
+                    'jobId': job_id,
+                    'candidateId': candidate_id,
+                    'applicationDate': current_time,
+                    'status': 'new'
+                }
                 
-                # Add to resume references list for the response
-                resume_refs.append({
-                    'resumeId': resume_id,
-                    'downloadUrl': mock_url,
-                    'storagePath': f"resumes/{job_id}/{resume_id}/mock.pdf",
-                    'contentType': file.content_type or 'application/pdf'
-                })
+                # Store records
+                db.collection('candidates').document(candidate_id).set(candidate_doc)
+                db.collection('applications').document(application_id).set(application_doc)
+                
+                # Track references for response
+                candidate_refs.append(candidate_doc)
+                application_refs.append(application_doc)
             
-            # Update job with resume array
-            job_ref.update({
-                'resumes': resume_array
-            })
-            
-            # Return response
+            # Return response with new structure
             result = {
                 "message": "Job stored successfully but resume uploads failed - Storage bucket not available",
                 "jobId": job_id,
                 "resumeCount": len(files),
-                "resumes": resume_refs,
+                "applications": application_refs,
                 "storageError": "Firebase Storage bucket does not exist. Please create it in the Firebase console."
             }
             
@@ -370,14 +414,14 @@ async def upload_job(
             file_id = str(uuid.uuid4())
             file_extension = os.path.splitext(file.filename)[1]
             
-            # Create a numeric identifier for this resume (1-based index)
-            resume_number = i + 1
-            resume_id = f"resume_{resume_number}"
+            # Generate IDs for application and candidate
+            application_id = generate_application_id(db)
+            candidate_id = generate_candidate_id(db)
             
             # Create hierarchical storage path
-            storage_path = f"resumes/{job_id}/{resume_id}/{file_id}{file_extension}"
+            storage_path = f"resumes/{job_id}/{candidate_id}/{file_id}{file_extension}"
             
-            print(f"Processing file {resume_number}/{len(files)}: {file.filename}")
+            print(f"Processing file {i+1}/{len(files)}: {file.filename}")
             print(f"Upload progress: {current_progress:.1f}%")
             
             # Read file content
@@ -392,136 +436,127 @@ async def upload_job(
             
             try:
                 # Only attempt upload if bucket is available
-                if bucket is not None:
-                    # Upload to Firebase Storage
-                    blob = bucket.blob(storage_path)
-                    print(f"Created blob at path: {storage_path}")
-                    
-                    # Explicitly set the content type before upload
-                    content_type = file.content_type or 'application/pdf'  # Default to PDF if not specified
-                    print(f"Using content type: {content_type}")
-                    
-                    # Upload with explicit content type
-                    blob.upload_from_string(content, content_type=content_type)
-                    print(f"Successfully uploaded content to blob")
+                # ...existing code for file upload...
+                
+                # Upload to Firebase Storage
+                blob = bucket.blob(storage_path)
+                print(f"Created blob at path: {storage_path}")
+                
+                # Explicitly set the content type before upload
+                content_type = file.content_type or 'application/pdf'  # Default to PDF if not specified
+                print(f"Using content type: {content_type}")
+                
+                # Upload with explicit content type
+                blob.upload_from_string(content, content_type=content_type)
+                print(f"Successfully uploaded content to blob")
 
-                    # Increment progress after file upload (50% of file's progress)
-                    current_progress += progress_per_file * 0.5
-                    print(f"Uploaded to storage, progress: {current_progress:.1f}%")
+                # Increment progress after file upload
+                current_progress += progress_per_file * 0.5
+                print(f"Uploaded to storage, progress: {current_progress:.1f}%")
 
-                    # Make file publicly accessible
-                    blob.make_public()
-                    print(f"Made blob public")
-                    
-                    # Get the download URL
-                    download_url = blob.public_url
-                    upload_success = True
-                    print(f"File uploaded successfully. URL: {download_url}")
-                else:
-                    # Create a mock URL if bucket is unavailable
-                    download_url = f"https://storage.googleapis.com/{project_id}.appspot.com/mock-{resume_number}"
-                    print(f"Using mock URL due to bucket unavailability: {download_url}")
-                    upload_success = False
+                # Make file publicly accessible
+                blob.make_public()
+                print(f"Made blob public")
+                
+                # Get the download URL
+                download_url = blob.public_url
+                upload_success = True
+                print(f"File uploaded successfully. URL: {download_url}")
             except Exception as storage_error:
                 print(f"Error uploading to Firebase Storage: {storage_error}")
-                print(f"Exception details: {str(storage_error)}")
-                import traceback
-                traceback.print_exc()
+                # ...existing code for error handling...
                 
                 # Use a placeholder URL if storage upload fails
-                download_url = f"https://storage.placeholder.com/resume-{resume_number}-upload-failed"
+                download_url = f"https://storage.placeholder.com/resume-{i+1}-upload-failed"
                 print(f"Using placeholder URL: {download_url}")
             
             try:
                 # Extract structured data using Document AI
                 structured_data = process_document(content, file.content_type or "application/pdf")
-                print(f"Extracted structured data for resume {resume_number}: {structured_data}")
+                print(f"Extracted structured data for candidate {candidate_id}: {structured_data}")
 
-                # Increment progress after data extraction (25% of file's progress)
+                # Increment progress after data extraction
                 current_progress += progress_per_file * 0.25
                 print(f"Extracted data, progress: {current_progress:.1f}%")
-
-                # Add structured data to the resume object
-                resume_obj = {
-                    'resumeId': resume_id,
-                    'contentType': file.content_type or 'application/pdf',
+                
+                # Create candidate record
+                candidate_doc = {
+                    'candidateId': candidate_id,
+                    'extractedText': structured_data,  # Store extracted text here
+                    'resumeUrl': download_url,
                     'storagePath': storage_path,
-                    'downloadUrl': download_url,
-                    'extractedData': structured_data  # Save structured data here
+                    'uploadedAt': current_time
                 }
+                
+                # Create application record 
+                application_doc = {
+                    'applicationId': application_id,
+                    'jobId': job_id,
+                    'candidateId': candidate_id,
+                    'applicationDate': current_time,
+                    'status': 'new'
+                }
+                
+                # Store records in their respective collections
+                db.collection('candidates').document(candidate_id).set(candidate_doc)
+                db.collection('applications').document(application_id).set(application_doc)
+                
+                # Add references to our tracking lists
+                candidate_refs.append(candidate_doc)
+                application_refs.append(application_doc)
+                
             except Exception as extraction_error:
-                print(f"Error extracting structured data for resume {resume_number}: {extraction_error}")
-                resume_obj = {
-                    'resumeId': resume_id,
-                    'contentType': file.content_type or 'application/pdf',
+                print(f"Error extracting structured data: {extraction_error}")
+                
+                # Create candidate record with minimal info
+                candidate_doc = {
+                    'candidateId': candidate_id,
+                    'extractedText': None,  # No extracted data
+                    'resumeUrl': download_url,
                     'storagePath': storage_path,
-                    'downloadUrl': download_url,
-                    'extractedData': None  # Set to None if extraction fails
+                    'uploadedAt': current_time
                 }
+                
+                # Create application record
+                application_doc = {
+                    'applicationId': application_id,
+                    'jobId': job_id,
+                    'candidateId': candidate_id,
+                    'applicationDate': current_time,
+                    'status': 'new'
+                }
+                
+                # Store records even if extraction failed
+                db.collection('candidates').document(candidate_id).set(candidate_doc)
+                db.collection('applications').document(application_id).set(application_doc)
+                
+                # Add references to our tracking lists
+                candidate_refs.append(candidate_doc)
+                application_refs.append(application_doc)
                 
                 # Still increment progress even if extraction fails
                 current_progress += progress_per_file * 0.25
-            
-            # Add to the resume array
-            resume_array.append(resume_obj)
-            
-            # Store individual resume document
-            resume_doc = resume_obj.copy()
-            resume_doc['uploadedAt'] = firestore.SERVER_TIMESTAMP
-            
-            resume_ref = job_ref.collection('resumes').document(resume_id)
-            resume_ref.set(resume_doc)
-            
-            # Add to resume references list for the response
-            resume_refs.append({
-                'resumeId': resume_id,
-                'downloadUrl': download_url,
-                'storagePath': storage_path,
-                'contentType': file.content_type or 'application/pdf'
-            })
         
         # Ensure progress is at 100% when complete
         current_progress = 100.0
         print(f"Upload complete, final progress: {current_progress:.1f}%")
         
-        # Update the job document with the resume array
+        # Update the job document with application count
         try:
-            print(f"Updating job with resume array (count: {len(resume_array)})")
+            print(f"Updating job with application count: {len(application_refs)}")
             job_ref.update({
-                'resumes': resume_array
+                'applicationCount': len(application_refs)
             })
-            print(f"✓ Successfully updated job with resume array in Firestore")
+            print(f"✓ Successfully updated job with application count in Firestore")
         except Exception as update_error:
-            print(f"ERROR: Failed to update job with resume array: {update_error}")
-        
-        # Verify data was saved properly by reading it back
-        try:
-            job_verification = job_ref.get()
-            if job_verification.exists:
-                job_data = job_verification.to_dict()
-                saved_resume_count = len(job_data.get('resumes', []))
-                print(f"✓ Verification: Job exists in Firestore with {saved_resume_count} resumes")
-                
-                # Check if at least one resume document exists
-                resume_docs = job_ref.collection('resumes').limit(1).get()
-                if len(resume_docs) > 0:
-                    print(f"✓ Verification: At least one resume document exists in Firestore")
-                else:
-                    print(f"⚠️ Warning: No resume documents found in Firestore")
-            else:
-                print(f"⚠️ Warning: Job verification failed - job document not found")
-        except Exception as verify_error:
-            print(f"⚠️ Warning: Error during verification: {verify_error}")
+            print(f"ERROR: Failed to update job with application count: {update_error}")
         
         result = {
-            "message": "Job and resumes uploaded successfully",
+            "message": "Job and applications created successfully",
             "jobId": job_id,
-            "resumeCount": len(files),
-            "resumes": resume_refs,
-            "firestore": {
-                "jobSaved": True,
-                "resumesSaved": len(resume_array)
-            },
+            "applicationCount": len(application_refs),
+            "applications": application_refs,
+            "candidates": candidate_refs,
             "progress": 100.0  # Return final progress with response
         }
         
@@ -555,33 +590,45 @@ async def upload_job_dev(
         # Parse job data JSON string to verify it's valid
         job_details = json.loads(job_data)
         
-        # Generate a readable job ID
-        job_id = generate_job_id(job_details.get('jobTitle'))
+        # Generate IDs
+        job_id = generate_job_id()
         print(f"DEV MODE: Generated job ID: {job_id}")
         
-        # Create response with an array of simplified resume objects
-        resume_array = []
+        # Create mock response with applications and candidates
+        application_array = []
+        candidate_array = []
+        
+        current_time = get_current_timestamp()
         
         for i, file in enumerate(files):
-            resume_number = i + 1
-            resume_id = f"resume_{resume_number}"
+            application_id = generate_application_id()
+            candidate_id = generate_candidate_id()
             
-            # Create a simplified mock resume object
-            resume_obj = {
-                "resumeId": resume_id,
-                "downloadUrl": f"https://storage.example.com/{job_id}/{resume_id}.pdf",
-                "storagePath": f"resumes/{job_id}/{resume_id}.pdf",
-                "contentType": file.content_type or 'application/pdf'
+            # Create mock objects
+            candidate_obj = {
+                "candidateId": candidate_id,
+                "extractedText": f"Mock extracted text for {file.filename}",
+                "resumeUrl": f"https://storage.example.com/{job_id}/{candidate_id}.pdf"
             }
             
-            resume_array.append(resume_obj)
+            application_obj = {
+                "applicationId": application_id,
+                "jobId": job_id,
+                "candidateId": candidate_id,
+                "applicationDate": current_time,
+                "status": "new"
+            }
+            
+            application_array.append(application_obj)
+            candidate_array.append(candidate_obj)
         
         # Return mock response
         return {
-            "message": "Job and resumes processed successfully (DEV MODE)",
+            "message": "Job and applications processed successfully (DEV MODE)",
             "jobId": job_id,
-            "resumeCount": len(files),
-            "resumes": resume_array
+            "applicationCount": len(files),
+            "applications": application_array,
+            "candidates": candidate_array
         }
         
     except Exception as e:
