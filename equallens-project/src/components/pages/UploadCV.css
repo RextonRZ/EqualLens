@@ -286,12 +286,18 @@
     align-items: center;
     justify-content: center;
     margin-bottom: 1rem;
+    position: relative;
+    overflow: hidden;
 }
   
 .upload-icon {
     width: 1.5rem;
     height: 1.5rem;
     color: #ff7a76;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
 }
   
 .upload-text {

@@ -130,39 +130,64 @@ const UploadCV = () => {
 
     // Process files and add to queue
     const processFiles = useCallback((files) => {
+        // If already processing files, don't allow new uploads
+        if (isLoading || processingFiles) {
+            alert("Please wait for the current file to complete uploading before adding new files.");
+            return;
+        }
+        
         let updatedFiles = [...selectedFiles];
         let newFiles = [];
-
-        for (const newFile of files) {
+        
+        // Process all files but upload one at a time
+        for (const fileToProcess of files) {
             // Check file format
-            const extension = newFile.name.split('.').pop().toLowerCase();
+            const extension = fileToProcess.name.split('.').pop().toLowerCase();
             const validExtensions = ['pdf', 'doc', 'docx'];
             
             if (!validExtensions.includes(extension)) {
-                alert(`${newFile.name} is not a supported file type. Please upload PDF, DOC, or DOCX files only.`);
-                continue; 
+                alert(`${fileToProcess.name} is not a supported file type. Please upload PDF, DOC, or DOCX files only.`);
+                continue;
             }
 
-            const existingIndex = updatedFiles.findIndex(file => file.name === newFile.name);
-
+            // Check if file with same name exists
+            const existingIndex = updatedFiles.findIndex(file => file.name === fileToProcess.name);
+            
             if (existingIndex !== -1) {
-                if (window.confirm(`A file named "${newFile.name}" already exists. Do you want to replace it?`)) {
-                    updatedFiles[existingIndex] = newFile;
+                // We need to use a synchronous approach here since we're in a loop
+                const confirmReplace = window.confirm(`A file named "${fileToProcess.name}" already exists. Do you want to replace it?`);
+                
+                if (confirmReplace) {
+                    // Replace the file in our updated array
+                    updatedFiles[existingIndex] = fileToProcess;
+                    
+                    // Mark this file to be added to the queue
+                    // If this is a replacement, we'll handle that when updating the queue
+                    newFiles.push(fileToProcess);
                 }
             } else {
-                newFiles.push(newFile);
-                updatedFiles.push(newFile);
+                // New file, add it to both arrays
+                updatedFiles.push(fileToProcess);
+                newFiles.push(fileToProcess);
             }
         }
 
-        if (newFiles.length > 0 || updatedFiles.length !== selectedFiles.length) {
+        if (newFiles.length > 0) {
             setProcessingFiles(true);
             setSelectedFiles(updatedFiles);
             
             // Add new files to the upload queue
-            setUploadQueue(prevQueue => [...prevQueue, ...newFiles]);
+            setUploadQueue(prevQueue => {
+                // Filter out any files from the queue that are being replaced
+                const filteredQueue = prevQueue.filter(queueFile => 
+                    !newFiles.some(newFile => newFile.name === queueFile.name)
+                );
+                
+                // Add all new files to the queue
+                return [...filteredQueue, ...newFiles];
+            });
         }
-    }, [selectedFiles]);
+    }, [selectedFiles, isLoading, processingFiles]);
 
     // Process upload queue sequentially
     useEffect(() => {
@@ -249,7 +274,7 @@ const UploadCV = () => {
     useEffect(() => {
         const handleDocumentDragOver = (event) => {
             event.preventDefault();
-            if (!isDragging) {
+            if (!isDragging && !isLoading && !processingFiles) {
                 setIsDragging(true);
             }
         };
@@ -267,6 +292,12 @@ const UploadCV = () => {
             event.preventDefault();
             setIsDragging(false);
             
+            // Prevent file drop during loading
+            if (isLoading || processingFiles) {
+                alert("Please wait for the current file to complete uploading before adding new files.");
+                return;
+            }
+            
             const files = Array.from(event.dataTransfer.files);
             if (files.length > 0) {
                 processFiles(files);
@@ -282,7 +313,7 @@ const UploadCV = () => {
             document.removeEventListener('dragleave', handleDocumentDragLeave);
             document.removeEventListener('drop', handleDocumentDrop);
         };
-    }, [isDragging, processFiles]);
+    }, [isDragging, processFiles, isLoading, processingFiles]);
 
     const handleFileChange = (event) => {
         const files = Array.from(event.target.files);
@@ -293,11 +324,25 @@ const UploadCV = () => {
 
     const handleDragOver = (event) => {
         event.preventDefault();
+        // Only show dragover effect if not currently loading
+        if (!isLoading && !processingFiles) {
+            event.dataTransfer.dropEffect = 'copy';
+        } else {
+            // Use 'none' to indicate dropping is not allowed
+            event.dataTransfer.dropEffect = 'none';
+        }
     };
 
     const handleDrop = (event) => {
         event.preventDefault();
         setIsDragging(false);
+        
+        // Prevent file drop during loading
+        if (isLoading || processingFiles) {
+            alert("Please wait for the current file to complete uploading before adding new files.");
+            return;
+        }
+        
         const files = Array.from(event.dataTransfer.files);
         if (files.length > 0) {
             processFiles(files);
@@ -417,7 +462,7 @@ const UploadCV = () => {
             const jobDetails = {
                 jobTitle,
                 jobDescription,
-                department: departments,  // Changed from departments to department to match backend model
+                departments,
                 minimumCGPA,
                 skills
             };
@@ -545,7 +590,7 @@ const UploadCV = () => {
                 setCurrentStep("jobDetails");
                 setJobTitle("");
                 setJobDescription("");
-                setDepartments([]);  // This remains the same as we're working with the state variable
+                setDepartments([]);
                 setMinimumCGPA(2.50);
                 setSkills([]);
                 setSelectedFiles([]);
@@ -828,7 +873,7 @@ const UploadCV = () => {
                         <div className="upload-card">
                             <div className="upload-dropzone-container">
                                 <div
-                                    className="upload-dropzone"
+                                    className={`upload-dropzone ${(isLoading || processingFiles) ? 'disabled-dropzone' : ''}`}
                                     onDragOver={handleDragOver}
                                     onDrop={handleDrop}
                                 >
@@ -837,7 +882,11 @@ const UploadCV = () => {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                                         </svg>
                                     </div>
-                                    <p className="upload-text">Drag and Drop files to upload</p>
+                                    <p className="upload-text">
+                                        {(isLoading || processingFiles) 
+                                            ? "Please wait for the current upload to complete" 
+                                            : "Drag and Drop files to upload"}
+                                    </p>
                                     <input
                                         ref={fileInputRef}
                                         type="file"
@@ -845,12 +894,16 @@ const UploadCV = () => {
                                         multiple
                                         onChange={handleFileChange}
                                         className="hidden-input"
+                                        disabled={isLoading || processingFiles}
                                     />
                                     <button
-                                        className="browse-button"
+                                        className={`browse-button ${(isLoading || processingFiles) ? 'disabled-button' : ''}`}
                                         onClick={handleChooseFile}
+                                        disabled={isLoading || processingFiles}
                                     >
-                                        Browse Files
+                                        {(isLoading || processingFiles) 
+                                            ? "Upload in Progress..." 
+                                            : "Browse Files"}
                                     </button>
                                     <p className="upload-subtext">Supports PDF, DOC, DOCX</p>
                                 </div>
