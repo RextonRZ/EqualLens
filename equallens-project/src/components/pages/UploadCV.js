@@ -1,9 +1,72 @@
-// Import the loading animation CSS
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo, useReducer } from "react";
 import "./UploadCV.css";
 import "../pageloading.css"; // Import the loading animation CSS
 
+// File upload reducer to manage file upload state more efficiently
+const fileUploadReducer = (state, action) => {
+    switch (action.type) {
+        case 'ADD_FILES':
+            return {
+                ...state,
+                selectedFiles: action.payload.updatedFiles,
+                uploadQueue: action.payload.newQueue,
+                processingFiles: true
+            };
+        case 'FILE_PROGRESS':
+            return {
+                ...state,
+                uploadProgress: {
+                    ...state.uploadProgress,
+                    [action.payload.fileName]: action.payload.progress
+                }
+            };
+        case 'PROCESS_NEXT':
+            return {
+                ...state,
+                isLoading: true
+            };
+        case 'FILE_COMPLETE':
+            return {
+                ...state,
+                uploadQueue: state.uploadQueue.slice(1)
+            };
+        case 'QUEUE_COMPLETE':
+            return {
+                ...state,
+                isLoading: false,
+                processingFiles: false
+            };
+        case 'REMOVE_FILE':
+            const fileToRemove = state.selectedFiles[action.payload.index];
+            return {
+                ...state,
+                selectedFiles: state.selectedFiles.filter((_, i) => i !== action.payload.index),
+                uploadQueue: fileToRemove ? 
+                    state.uploadQueue.filter(queueFile => queueFile.name !== fileToRemove.name) : 
+                    state.uploadQueue
+            };
+        case 'RESET':
+            return {
+                selectedFiles: [],
+                isLoading: false,
+                uploadProgress: {},
+                uploadQueue: [],
+                processingFiles: false
+            };
+        default:
+            return state;
+    }
+};
+
 const UploadCV = () => {
+    // Use reducer for file upload state management
+    const [fileState, fileDispatch] = useReducer(fileUploadReducer, {
+        selectedFiles: [],
+        isLoading: false,
+        uploadProgress: {},
+        uploadQueue: [],
+        processingFiles: false
+    });
   
     const [currentStep, setCurrentStep] = useState("jobDetails"); // "jobDetails" or "uploadCV"
     const [jobData, setJobData] = useState(null); // To store submitted job details
@@ -12,11 +75,6 @@ const UploadCV = () => {
     const [apiStatus, setApiStatus] = useState("idle"); // idle, loading, success, error
     const [submitProgress, setSubmitProgress] = useState(0); // Track overall submission progress
     
-    const [selectedFiles, setSelectedFiles] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState({});
-    const [uploadQueue, setUploadQueue] = useState([]);
-    const [processingFiles, setProcessingFiles] = useState(false);
     const [isDragging, setIsDragging] = useState(false); 
     const fileInputRef = useRef(null);
     const uploadContainerRef = useRef(null);
@@ -34,6 +92,8 @@ const UploadCV = () => {
     const [departmentSuggestions, setDepartmentSuggestions] = useState([]);
     const [showDepartmentSuggestions, setShowDepartmentSuggestions] = useState(false);
     const [minimumCGPA, setMinimumCGPA] = useState(2.50);
+    const [cgpaInputValue, setCgpaInputValue] = useState("2.50");
+    const [cgpaError, setCgpaError] = useState(false);
     const [skillInput, setSkillInput] = useState("");
     const [skillSuggestions, setSkillSuggestions] = useState([]);
     const [showSkillSuggestions, setShowSkillSuggestions] = useState(false);
@@ -128,15 +188,15 @@ const UploadCV = () => {
         };
     }, []);
 
-    // Process files and add to queue
+    // Process files and add to queue - optimized with useCallback and useReducer
     const processFiles = useCallback((files) => {
         // If already processing files, don't allow new uploads
-        if (isLoading || processingFiles) {
+        if (fileState.isLoading || fileState.processingFiles) {
             alert("Please wait for the current file to complete uploading before adding new files.");
             return;
         }
         
-        let updatedFiles = [...selectedFiles];
+        let updatedFiles = [...fileState.selectedFiles];
         let newFiles = [];
         
         // Process all files but upload one at a time
@@ -162,7 +222,6 @@ const UploadCV = () => {
                     updatedFiles[existingIndex] = fileToProcess;
                     
                     // Mark this file to be added to the queue
-                    // If this is a replacement, we'll handle that when updating the queue
                     newFiles.push(fileToProcess);
                 }
             } else {
@@ -173,39 +232,43 @@ const UploadCV = () => {
         }
 
         if (newFiles.length > 0) {
-            setProcessingFiles(true);
-            setSelectedFiles(updatedFiles);
-            
-            // Add new files to the upload queue
-            setUploadQueue(prevQueue => {
-                // Filter out any files from the queue that are being replaced
-                const filteredQueue = prevQueue.filter(queueFile => 
+            // Filter out any files from the queue that are being replaced
+            const newQueue = [
+                ...fileState.uploadQueue.filter(queueFile => 
                     !newFiles.some(newFile => newFile.name === queueFile.name)
-                );
-                
-                // Add all new files to the queue
-                return [...filteredQueue, ...newFiles];
+                ),
+                ...newFiles
+            ];
+            
+            fileDispatch({
+                type: 'ADD_FILES',
+                payload: { 
+                    updatedFiles, 
+                    newQueue 
+                }
             });
         }
-    }, [selectedFiles, isLoading, processingFiles]);
+    }, [fileState.selectedFiles, fileState.isLoading, fileState.processingFiles, fileState.uploadQueue]);
 
     // Process upload queue sequentially
     useEffect(() => {
-        if (uploadQueue.length === 0) {
-            setProcessingFiles(false);
+        if (fileState.uploadQueue.length === 0) {
+            if (fileState.processingFiles) {
+                fileDispatch({ type: 'QUEUE_COMPLETE' });
+            }
             return;
         }
 
         // Process one file at a time
         const processNextFile = async () => {
-            setIsLoading(true);
-            const fileToProcess = uploadQueue[0];
+            fileDispatch({ type: 'PROCESS_NEXT' });
+            const fileToProcess = fileState.uploadQueue[0];
             
             // Initialize progress for this file
-            setUploadProgress(prev => ({
-                ...prev,
-                [fileToProcess.name]: 0
-            }));
+            fileDispatch({
+                type: 'FILE_PROGRESS', 
+                payload: { fileName: fileToProcess.name, progress: 0 }
+            });
 
             // Simulate upload for current file
             await new Promise(resolve => {
@@ -214,10 +277,10 @@ const UploadCV = () => {
                     progress += Math.random() * 15;
                     if (progress > 100) progress = 100;
 
-                    setUploadProgress(prev => ({
-                        ...prev,
-                        [fileToProcess.name]: Math.floor(progress)
-                    }));
+                    fileDispatch({
+                        type: 'FILE_PROGRESS',
+                        payload: { fileName: fileToProcess.name, progress: Math.floor(progress) }
+                    });
 
                     if (progress === 100) {
                         clearInterval(interval);
@@ -229,18 +292,11 @@ const UploadCV = () => {
             });
 
             // Remove processed file from queue
-            setUploadQueue(prev => prev.slice(1));
+            fileDispatch({ type: 'FILE_COMPLETE' });
         };
 
         processNextFile();
-    }, [uploadQueue]);
-
-    // Check when the upload queue is empty to set loading state to false
-    useEffect(() => {
-        if (uploadQueue.length === 0 && processingFiles) {
-            setIsLoading(false);
-        }
-    }, [uploadQueue, processingFiles]);
+    }, [fileState.uploadQueue, fileState.processingFiles]);
 
     useEffect(() => {
         const uploadContainer = uploadContainerRef.current;
@@ -274,7 +330,7 @@ const UploadCV = () => {
     useEffect(() => {
         const handleDocumentDragOver = (event) => {
             event.preventDefault();
-            if (!isDragging && !isLoading && !processingFiles) {
+            if (!isDragging && !fileState.isLoading && !fileState.processingFiles) {
                 setIsDragging(true);
             }
         };
@@ -293,7 +349,7 @@ const UploadCV = () => {
             setIsDragging(false);
             
             // Prevent file drop during loading
-            if (isLoading || processingFiles) {
+            if (fileState.isLoading || fileState.processingFiles) {
                 alert("Please wait for the current file to complete uploading before adding new files.");
                 return;
             }
@@ -313,7 +369,7 @@ const UploadCV = () => {
             document.removeEventListener('dragleave', handleDocumentDragLeave);
             document.removeEventListener('drop', handleDocumentDrop);
         };
-    }, [isDragging, processFiles, isLoading, processingFiles]);
+    }, [isDragging, processFiles, fileState.isLoading, fileState.processingFiles]);
 
     const handleFileChange = (event) => {
         const files = Array.from(event.target.files);
@@ -325,7 +381,7 @@ const UploadCV = () => {
     const handleDragOver = (event) => {
         event.preventDefault();
         // Only show dragover effect if not currently loading
-        if (!isLoading && !processingFiles) {
+        if (!fileState.isLoading && !fileState.processingFiles) {
             event.dataTransfer.dropEffect = 'copy';
         } else {
             // Use 'none' to indicate dropping is not allowed
@@ -338,7 +394,7 @@ const UploadCV = () => {
         setIsDragging(false);
         
         // Prevent file drop during loading
-        if (isLoading || processingFiles) {
+        if (fileState.isLoading || fileState.processingFiles) {
             alert("Please wait for the current file to complete uploading before adding new files.");
             return;
         }
@@ -349,15 +405,21 @@ const UploadCV = () => {
         }
     };
 
-    const removeFile = (index) => {
-        const fileToRemove = selectedFiles[index];
-        
-        // If file is in upload queue, remove it from there too
-        if (fileToRemove) {
-            setUploadQueue(prev => prev.filter(queueFile => queueFile.name !== fileToRemove.name));
+    // Add this function to fix the error
+    const handleFileInputKeyDown = (e) => {
+        // Activate file input on Enter or Space
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            fileInputRef.current.click();
         }
-        
-        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    // Improved file remove function using reducer
+    const removeFile = (index) => {
+        fileDispatch({
+            type: 'REMOVE_FILE',
+            payload: { index }
+        });
     };
 
     const handleChooseFile = () => {
@@ -386,7 +448,7 @@ const UploadCV = () => {
                 <div className="drop-content">
                     <div className="file-preview">
                         <div className="file-icon-large pdf-icon-large">FILE</div>
-                        {selectedFiles.length > 0 && <div className="copy-badge">Copy</div>}
+                        {fileState.selectedFiles.length > 0 && <div className="copy-badge">Copy</div>}
                     </div>
                     <h2 className="drop-title">Drop files anywhere</h2>
                     <p className="drop-subtitle">Drop file(s) to upload it</p>
@@ -489,10 +551,137 @@ const UploadCV = () => {
     // const API_ENDPOINT = `${API_URL}/upload-job-dev`;
     const API_ENDPOINT = `${API_URL}/upload-job`;
 
-    // Add handler for final submission
+    // Clean up animation frame on component unmount
+    useEffect(() => {
+        return () => {
+            if (progressAnimationRef.current) {
+                cancelAnimationFrame(progressAnimationRef.current);
+                progressAnimationRef.current = null;
+            }
+        };
+    }, []);
+    
+    // Updated LoadingAnimation component with cleaner structure
+    const LoadingAnimation = () => {
+        return (
+            <div className="loading-animation">
+                <div className="seesaw-container">
+                    <div className="bar"></div>
+                    <div className="ball"></div>
+                </div>
+            </div>
+        );
+    };
+
+    // Add state for managing success and error modals
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [showErrorModal, setShowErrorModal] = useState(false);
+    const [errorMessage, setErrorMessage] = useState("");
+
+    // Success Modal Component with improved accessibility
+    const SuccessModal = () => (
+        <div 
+            className="status-modal-overlay" 
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="success-modal-title"
+        >
+            <div className="status-modal success-modal">
+                <div className="status-icon success-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                </div>
+                <h3 id="success-modal-title" className="status-title">Submission Complete!</h3>
+                <p className="status-description">
+                    <strong>Your files have been uploaded successfully</strong>
+                </p>
+                <div className="status-buttons">
+                    <button 
+                        className="status-button secondary-button" 
+                        onClick={handleUploadMoreJobs}
+                    >
+                        Upload More Job
+                    </button>
+                    <button 
+                        className="status-button primary-button" 
+                        onClick={handleGoToDashboard}
+                        autoFocus
+                    >
+                        Go to Dashboard
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    // Error Modal Component with improved accessibility
+    const ErrorModal = () => (
+        <div 
+            className="status-modal-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="error-modal-title"
+        >
+            <div className="status-modal error-modal">
+                <div className="status-icon error-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                </div>
+                <h3 id="error-modal-title" className="status-title">Submission Failed!</h3>
+                <p className="status-message">{errorMessage || "Please try again"}</p>
+                <div className="status-buttons">
+                    <button 
+                        className="status-button primary-button" 
+                        onClick={handleTryAgain}
+                        autoFocus
+                    >
+                        Try Again
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+    
+    // Button action handlers with full reset
+    const handleUploadMoreJobs = () => {
+        // Reset all form and file states
+        setCurrentStep("jobDetails");
+        setJobTitle("");
+        setJobDescription("");
+        setDepartments([]);
+        setMinimumCGPA(2.50);
+        setSkills([]);
+        setJobData(null);
+        fileDispatch({ type: 'RESET' });
+        setApiStatus("idle");
+        setSubmitProgress(0);
+        setShowSuccessModal(false);
+    };
+    
+    const handleGoToDashboard = () => {
+        // Navigate to dashboard - for now just close the modal
+        // You can replace this with actual navigation
+        setShowSuccessModal(false);
+        // window.location.href = "/dashboard"; // Uncomment when dashboard is ready
+    };
+    
+    const handleTryAgain = () => {
+        setShowErrorModal(false);
+        // Reset API state for retrying
+        setApiStatus("idle");
+        setSubmitProgress(0);
+    };
+
+    // Update the handleFinalSubmit function to use modals instead of alerts
     const handleFinalSubmit = async () => {
-        if (!selectedFiles || selectedFiles.length === 0) {
-            alert("Please upload at least one CV file");
+        if (!fileState.selectedFiles || fileState.selectedFiles.length === 0) {
+            setErrorMessage("Please upload at least one CV file");
+            setShowErrorModal(true);
             return;
         }
         
@@ -516,7 +705,7 @@ const UploadCV = () => {
             formData.append("job_data", JSON.stringify(jobData));
 
             // Add all files
-            selectedFiles.forEach(file => {
+            fileState.selectedFiles.forEach(file => {
                 formData.append("files", file);
             });
             
@@ -584,22 +773,7 @@ const UploadCV = () => {
             setTimeout(() => {
                 setApiStatus("success");
                 
-                // Show success message with job ID
-                alert(`Job details and CVs submitted successfully!\nJob ID: ${responseData.jobId || 'Unknown'}`);
-                
-                // Reset form for new submission
-                setCurrentStep("jobDetails");
-                setJobTitle("");
-                setJobDescription("");
-                setDepartments([]);
-                setMinimumCGPA(2.50);
-                setSkills([]);
-                setSelectedFiles([]);
-                setJobData(null);
-                setUploadProgress({});
-                setUploadQueue([]);
-                setApiStatus("idle");
-                setSubmitProgress(0);
+                setShowSuccessModal(true);
             }, 1000);
             
         } catch (error) {
@@ -611,36 +785,64 @@ const UploadCV = () => {
             
             console.error("Error submitting job:", error);
             setApiStatus("error");
-            alert(`Error submitting job: ${error.message}`);
+            setErrorMessage(error.message || "Error submitting job. Please try again.");
+            setShowErrorModal(true);
             
             // Reset API status after a short delay
             setTimeout(() => {
                 setApiStatus("idle");
                 setSubmitProgress(0);
-            }, 3000);
+            }, 1000);
         }
     };
 
-    // Clean up animation frame on component unmount
-    useEffect(() => {
-        return () => {
-            if (progressAnimationRef.current) {
-                cancelAnimationFrame(progressAnimationRef.current);
-                progressAnimationRef.current = null;
-            }
-        };
-    }, []);
+    // Handle direct CGPA input
+    const handleCGPAInputChange = (e) => {
+        const inputValue = e.target.value;
+        
+        // Allow empty field while typing
+        if (inputValue === "") {
+            setCgpaInputValue("");
+            setCgpaError(true);
+            return;
+        }
+        
+        // Only allow numeric input with decimal point
+        if (!/^\d*\.?\d*$/.test(inputValue)) {
+            return;
+        }
+        
+        setCgpaInputValue(inputValue);
+        
+        // Validate the input value
+        const numValue = parseFloat(inputValue);
+        if (!isNaN(numValue) && numValue >= 0 && numValue <= 4) {
+            setMinimumCGPA(numValue);
+            setCgpaError(false);
+        } else {
+            setCgpaError(true);
+        }
+    };
     
-    // Updated LoadingAnimation component with cleaner structure
-    const LoadingAnimation = () => {
-        return (
-            <div className="loading-animation">
-                <div className="seesaw-container">
-                    <div className="bar"></div>
-                    <div className="ball"></div>
-                </div>
-            </div>
-        );
+    // Handle when input field loses focus
+    const handleCGPABlur = () => {
+        // If the input is invalid or empty, reset to the current valid CGPA
+        if (cgpaError || cgpaInputValue === "") {
+            setCgpaInputValue(minimumCGPA.toFixed(2));
+            setCgpaError(false);
+        }
+        // Format the value with 2 decimal places when focus is lost
+        else {
+            setCgpaInputValue(parseFloat(cgpaInputValue).toFixed(2));
+        }
+    };
+    
+    // Update input value when slider changes
+    const handleCGPASliderChange = (e) => {
+        const newValue = parseFloat(e.target.value);
+        setMinimumCGPA(newValue);
+        setCgpaInputValue(newValue.toFixed(2));
+        setCgpaError(false);
     };
 
     return (
@@ -664,6 +866,10 @@ const UploadCV = () => {
                     </div>
                 </div>
             )}
+            
+            {/* Render success and error modals */}
+            {showSuccessModal && <SuccessModal />}
+            {showErrorModal && <ErrorModal />}
             
             {currentStep === "jobDetails" ? (
                 <div className="job-container">
@@ -790,11 +996,29 @@ const UploadCV = () => {
                                         max="4"
                                         step="0.01"
                                         value={minimumCGPA}
-                                        onChange={(e) => setMinimumCGPA(parseFloat(e.target.value))}
+                                        onChange={handleCGPASliderChange}
                                         className="cgpa-slider"
+                                        aria-valuemin="0"
+                                        aria-valuemax="4"
+                                        aria-valuenow={minimumCGPA}
+                                        aria-labelledby="cgpa-value"
                                     />
-                                    <span className="cgpa-value">{minimumCGPA.toFixed(2)}</span>
+                                    <input
+                                        id="cgpa-value"
+                                        type="text"
+                                        className={`cgpa-value ${cgpaError ? 'error' : ''}`}
+                                        value={cgpaInputValue}
+                                        onChange={handleCGPAInputChange}
+                                        onBlur={handleCGPABlur}
+                                        aria-label="CGPA value"
+                                        aria-invalid={cgpaError}
+                                    />
                                 </div>
+                                {cgpaError && (
+                                    <p className="error-message" role="alert">
+                                        Please enter a valid CGPA between 0 and 4
+                                    </p>
+                                )}
                             </div>
 
                             <div className="form-group">
@@ -874,9 +1098,14 @@ const UploadCV = () => {
                         <div className="upload-card">
                             <div className="upload-dropzone-container">
                                 <div
-                                    className={`upload-dropzone ${(isLoading || processingFiles) ? 'disabled-dropzone' : ''}`}
+                                    className={`upload-dropzone ${(fileState.isLoading || fileState.processingFiles) ? 'disabled-dropzone' : ''}`}
                                     onDragOver={handleDragOver}
                                     onDrop={handleDrop}
+                                    role="button"
+                                    tabIndex={fileState.isLoading || fileState.processingFiles ? -1 : 0}
+                                    aria-label="Upload files by dropping them here or press to select files"
+                                    aria-disabled={fileState.isLoading || fileState.processingFiles}
+                                    onKeyDown={handleFileInputKeyDown}
                                 >
                                     <div className="upload-icon-container">
                                         <svg className="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -884,7 +1113,7 @@ const UploadCV = () => {
                                         </svg>
                                     </div>
                                     <p className="upload-text">
-                                        {(isLoading || processingFiles) 
+                                        {(fileState.isLoading || fileState.processingFiles) 
                                             ? "Please wait for the current upload to complete" 
                                             : "Drag and Drop files to upload"}
                                     </p>
@@ -895,14 +1124,14 @@ const UploadCV = () => {
                                         multiple
                                         onChange={handleFileChange}
                                         className="hidden-input"
-                                        disabled={isLoading || processingFiles}
+                                        disabled={fileState.isLoading || fileState.processingFiles}
                                     />
                                     <button
-                                        className={`browse-button ${(isLoading || processingFiles) ? 'disabled-button' : ''}`}
+                                        className={`browse-button ${(fileState.isLoading || fileState.processingFiles) ? 'disabled-button' : ''}`}
                                         onClick={handleChooseFile}
-                                        disabled={isLoading || processingFiles}
+                                        disabled={fileState.isLoading || fileState.processingFiles}
                                     >
-                                        {(isLoading || processingFiles) 
+                                        {(fileState.isLoading || fileState.processingFiles) 
                                             ? "Upload in Progress..." 
                                             : "Browse Files"}
                                     </button>
@@ -913,15 +1142,23 @@ const UploadCV = () => {
                     </div>
                     
                     <div className="files-container">
-                        <h3 className="files-title">Uploaded Files</h3>
-                        {selectedFiles.length === 0 ? (
+                        <h3 className="files-title" id="uploaded-files-heading">Uploaded Files</h3>
+                        {fileState.selectedFiles.length === 0 ? (
                             <div className="no-files">
                                 <p className="no-files-text">No files uploaded yet</p>
                             </div>
                         ) : (
-                            <div className="files-list">
-                                {selectedFiles.map((file, index) => (
-                                    <div key={index} className="file-item">
+                            <div 
+                                className="files-list"
+                                role="list"
+                                aria-labelledby="uploaded-files-heading"
+                            >
+                                {fileState.selectedFiles.map((file, index) => (
+                                    <div 
+                                        key={index} 
+                                        className="file-item"
+                                        role="listitem"
+                                    >
                                         <div className="file-content">
                                             {getFileIcon(file.name)}
                                             <div className="file-details">
@@ -930,20 +1167,20 @@ const UploadCV = () => {
                                                     <button
                                                         onClick={() => removeFile(index)}
                                                         className="delete-button"
-                                                        aria-label="Remove file"
-                                                        disabled={isLoading || processingFiles}
+                                                        aria-label={`Remove file ${file.name}`}
+                                                        disabled={fileState.isLoading || fileState.processingFiles}
                                                     >
                                                         <svg className="delete-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
                                                         </svg>
                                                     </button>
                                                 </div>
-                                                {isLoading && uploadProgress[file.name] !== undefined && uploadProgress[file.name] < 100 ? (
+                                                {fileState.isLoading && fileState.uploadProgress[file.name] !== undefined && fileState.uploadProgress[file.name] < 100 ? (
                                                     <div className="progress-bar-container">
-                                                        <div className="progress-bar" style={{ width: `${uploadProgress[file.name]}%` }}></div>
-                                                        <span className="progress-text">{uploadProgress[file.name]}%</span>
+                                                        <div className="progress-bar" style={{ width: `${fileState.uploadProgress[file.name]}%` }}></div>
+                                                        <span className="progress-text">{fileState.uploadProgress[file.name]}%</span>
                                                     </div>
-                                                ) : processingFiles && uploadProgress[file.name] === undefined && uploadQueue && uploadQueue.some(queueFile => queueFile.name === file.name) ? (
+                                                ) : fileState.processingFiles && fileState.uploadProgress[file.name] === undefined && fileState.uploadQueue && fileState.uploadQueue.some(queueFile => queueFile.name === file.name) ? (
                                                     <div className="waiting-container">
                                                         <p className="waiting-text">Waiting to upload...</p>
                                                     </div>
@@ -961,9 +1198,9 @@ const UploadCV = () => {
                             <button 
                                 onClick={handleFinalSubmit} 
                                 className="submit-button final-submit"
-                                disabled={isLoading || processingFiles || apiStatus === "loading"}
+                                disabled={fileState.isLoading || fileState.processingFiles || apiStatus === "loading"}
                             >
-                                {isLoading || processingFiles ? 'Uploading Files...' : 
+                                {fileState.isLoading || fileState.processingFiles ? 'Uploading Files...' : 
                                  apiStatus === "loading" ? 'Submitting...' : 'Submit Job Details and CV'}
                             </button>
                         </div>
