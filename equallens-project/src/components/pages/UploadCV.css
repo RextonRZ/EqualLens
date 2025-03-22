@@ -41,41 +41,87 @@
     }
 }
 
-/* Job Details Section */
 .job-container {
-    padding: 1.5rem;
+    padding: 2rem;
     flex: 1;
     width: 100%;
-    max-width: 64rem;
+    max-width: 70rem;
     margin: 0 auto;
-    margin-top: 0.8rem;
+    margin-top: 3rem;
+    position: relative;
+    background-color: #ffffff;
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+    overflow: visible;
+    transition: all 0.3s ease;
+    border: 1px solid #f8fafc;
+}
+
+.job-container:hover {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+    transform: translateY(-3px);
+}
+
+/* Add a subtle background pattern */
+.job-container::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: radial-gradient(rgba(249, 100, 95, 0.03) 2px, transparent 2px);
+    background-size: 30px 30px;
+    opacity: 0.5;
+    z-index: -1;
 }
 
 .job-title-header {
-    font-size: 1.5rem;
-    font-weight: 500;
-    color: #374151;
-    margin-bottom: 0.5rem;
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 1.5rem;
+    position: relative;
+    display: inline-block;
 }
 
-.job-details-card {
-    background-color: #ffffff;
-    border-radius: 0.5rem;
-    padding: 1.5rem;
-    border: 1px solid #f1f5f9;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+.job-title-header::after {
+    content: "";
+    position: absolute;
+    bottom: -8px;
+    left: 0;
+    width: 40%;
+    height: 3px;
+    background: linear-gradient(to right, #F9645F, #ff8783);
+    border-radius: 2px;
 }
 
 .form-group {
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
+    margin-top: 1.5rem;
+    position: relative;
+    z-index: 5;
 }
+
+/* Create descending z-index for form groups to handle overlapping properly */
+.form-group:nth-child(1) { z-index: 50; }
+.form-group:nth-child(2) { z-index: 40; }
+.form-group:nth-child(3) { z-index: 30; }
+.form-group:nth-child(4) { z-index: 20; }
+.form-group:nth-child(5) { z-index: 10; }
 
 .form-label {
     display: block;
-    font-size: 0.875rem;
+    font-size: 0.95rem;
     color: #374151;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
     font-weight: 500;
+    letter-spacing: 0.01rem;
+    transition: color 0.2s;
+}
+
+.form-group:hover .form-label {
+    color: #F9645F;
 }
 
 .required {
@@ -85,35 +131,94 @@
 
 .form-input, .form-select, .form-textarea {
     width: 100%;
-    padding: 0.625rem;
-    border-radius: 0.375rem;
-    border: 1px solid #d1d5db;
-    font-size: 0.875rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid #e2e8f0;
+    font-size: 0.95rem;
     color: #374151;
     background-color: #ffffff;
-    transition: border-color 0.2s;
-}
-
-.form-textarea {
-    resize: vertical;
-    min-height: 100px;
-}
-
-.form-input:focus, .form-select:focus, .form-textarea:focus {
-    outline: none;
-    border-color: #F9645F;
-    box-shadow: 0 0 0 3px rgba(249, 100, 95, 0.1);
+    transition: all 0.25s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .form-input::placeholder,
 .form-textarea::placeholder {
     color: #9ca3af; 
     opacity: 0.7;  
+    font-size: 0.9rem;
+    font-style: normal;
 }
 
+.form-textarea {
+    resize: vertical;
+    min-height: 120px;
+}
+
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+    outline: none;
+    border-color: #F9645F;
+    box-shadow: 0 0 0 3px rgba(249, 100, 95, 0.15);
+    transform: translateY(-1px);
+}
+
+/* Ensure suggestion containers have proper z-index */
+.suggestion-container {
+    position: relative;
+    width: 100%;
+    z-index: 20; /* Increase z-index to ensure suggestions appear on top */
+}
+
+.suggestions-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    max-height: 200px;
+    overflow-y: auto;
+    background-color: white;
+    border: 1px solid #e2e8f0;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    z-index: 100; /* Higher z-index to ensure they appear above all form elements */
+    padding: 0;
+    margin: 0;
+    list-style-type: none;
+    animation: slideDown 0.2s ease-in-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.suggestions-list li {
+    padding: 12px 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 1px solid #f8fafc;
+}
+
+.suggestions-list li:hover {
+    background-color: #f8fafc;
+    color: #F9645F;
+    padding-left: 20px;
+}
+
+.suggestions-list li:last-child {
+    border-bottom: none;
+}
+
+/* Other form elements */
 .input-group {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.75rem;
 }
 
 .input-group .form-input,
@@ -125,118 +230,241 @@
     background-color: #F9645F;
     color: white;
     border: none;
-    padding: 0.625rem 1rem;
-    border-radius: 0.375rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.5rem;
     font-size: 0.875rem;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: all 0.25s;
+    box-shadow: 0 2px 4px rgba(249, 100, 95, 0.2);
+    position: relative;
+    overflow: hidden;
 }
 
 .add-button:hover {
     background-color: #ef402d;
+    box-shadow: 0 4px 8px rgba(249, 100, 95, 0.3);
+    transform: translateY(-2px);
+}
+
+.add-button:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.1);
+    opacity: 0;
+    transition: opacity 0.4s;
+}
+
+.add-button:hover:before {
+    opacity: 1;
 }
 
 .add-button:disabled {
     background-color: #d1d5db;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .tags-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: 0.625rem;
     margin-top: 0.75rem;
 }
 
 .tag {
     background-color: #ffeff3;
     color: #F9645F;
-    padding: 0.375rem 0.625rem;
-    border-radius: 0.25rem;
-    font-size: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
     display: flex;
     align-items: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s;
+}
+
+.tag:hover {
+    background-color: #ffe4eb;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08);
 }
 
 .tag-remove {
     background: none;
     border: none;
     color: #F9645F;
-    font-size: 1rem;
+    font-size: 1.125rem;
     cursor: pointer;
-    margin-left: 0.25rem;
+    margin-left: 0.375rem;
     padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     width: 1.25rem;
     height: 1.25rem;
+    transition: all 0.2s;
 }
 
 .tag-remove:hover {
     color: #ef402d;
+    transform: scale(1.2);
 }
 
+/* Form actions */
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 2.5rem;
+}
+
+.submit-button {
+    background-color: #F9645F;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.75rem;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.25s;
+    box-shadow: 0 4px 8px rgba(249, 100, 95, 0.25);
+    position: relative;
+    overflow: hidden;
+    margin-top: 0.4rem;
+    min-width: 120px;
+}
+
+.submit-button:hover {
+    background-color: #ef402d;
+    box-shadow: 0 6px 12px rgba(249, 100, 95, 0.35);
+    transform: translateY(-2px);
+}
+
+.submit-button:disabled {
+    background-color: #e5e7eb;
+    color: #9ca3af;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+/* Revert CGPA slider and container to original styling */
 .cgpa-container {
     display: flex;
     align-items: center;
     gap: 1rem;
+    margin-top: 0.5rem;
 }
 
+/* Improved slider styling */
 .cgpa-slider {
     flex: 1;
-    height: 0.5rem;
+    height: 0.5rem;  /* Thicker track */
     -webkit-appearance: none;
     appearance: none;
     background: #e5e7eb;
     border-radius: 0.25rem;
     outline: none;
+    position: relative;
+    overflow: visible;
 }
 
+/* Create a filled track effect */
+.cgpa-slider::-webkit-slider-runnable-track {
+    height: 0.5rem;
+    border-radius: 0.25rem;
+    background: linear-gradient(to right, #ff5e5e 0%, #ffa18e var(--slider-percentage, 50%), #ffffff var(--slider-percentage, 50%), #ffffff 100%);
+    cursor: pointer;
+}
+
+.cgpa-slider::-moz-range-track {
+    height: 0.5rem;
+    border-radius: 0.25rem;
+    background: #e5e7eb;
+    cursor: pointer;
+}
+
+/* Style the slider thumb for webkit browsers */
 .cgpa-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 1.25rem;
-    height: 1.25rem;
+    width: 1.5rem;
+    height: 1.5rem;
     border-radius: 50%;
-    background: #F9645F;
+    background: white;
+    border: 2px solid #F9645F;
     cursor: pointer;
+    position: relative;
+    margin-top: -0.5rem; /* Center thumb on track */
+    box-shadow: 0 2px 6px rgba(249, 100, 95, 0.3);
+    transition: all 0.2s ease;
+    z-index: 2;
 }
 
+/* Style the slider thumb for Firefox */
 .cgpa-slider::-moz-range-thumb {
-    width: 1.25rem;
-    height: 1.25rem;
+    width: 1.5rem;
+    height: 1.5rem;
     border-radius: 50%;
-    background: #F9645F;
+    background: white;
+    border: 2px solid #F9645F;
     cursor: pointer;
-    border: none;
+    position: relative;
+    box-shadow: 0 2px 6px rgba(249, 100, 95, 0.3);
+    transition: all 0.2s ease;
+    z-index: 2;
 }
 
+/* Add hover effects */
+.cgpa-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(249, 100, 95, 0.5);
+}
+
+.cgpa-slider::-moz-range-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(249, 100, 95, 0.5);
+}
+
+/* Active state */
+.cgpa-slider::-webkit-slider-thumb:active {
+    transform: scale(1.2);
+    box-shadow: 0 3px 10px rgba(249, 100, 95, 0.6);
+    background: #F9645F;
+}
+
+.cgpa-slider::-moz-range-thumb:active {
+    transform: scale(1.2);
+    box-shadow: 0 3px 10px rgba(249, 100, 95, 0.6);
+    background: #F9645F;
+}
+
+/* Style for value display */
 .cgpa-value {
     font-size: 0.875rem;
     color: #374151;
-    background-color: #f3f4f6;
-    padding: 0.375rem 0.75rem;
+    background-color: white;
+    padding: 0.5rem 0.75rem;
     border-radius: 0.25rem;
     min-width: 4rem;
     text-align: center;
-    border: 1px solid transparent;
+    border: 1px solid #d1d5db;
     transition: all 0.2s;
-    width: 4.5rem; /* Set a fixed width */
-}
-
-/* Add styles for the CGPA input field */
-.cgpa-value:focus {
-    outline: none;
-    border-color: #F9645F;
-    box-shadow: 0 0 0 3px rgba(249, 100, 95, 0.1);
-    background-color: #ffffff;
+    width: 4.5rem;
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .cgpa-value.error {
     border-color: #ef4444;
     background-color: #fee2e2;
 }
+
 
 .error-message {
     color: #ef4444;

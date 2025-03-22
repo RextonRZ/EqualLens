@@ -43,7 +43,13 @@ const fileUploadReducer = (state, action) => {
                 selectedFiles: state.selectedFiles.filter((_, i) => i !== action.payload.index),
                 uploadQueue: fileToRemove ? 
                     state.uploadQueue.filter(queueFile => queueFile.name !== fileToRemove.name) : 
-                    state.uploadQueue
+                    state.uploadQueue,
+                uploadProgress: fileToRemove ? 
+                    // Remove the progress entry for this file
+                    Object.fromEntries(
+                        Object.entries(state.uploadProgress).filter(([key]) => key !== fileToRemove.name)
+                    ) : 
+                    state.uploadProgress
             };
         case 'RESET':
             return {
@@ -210,14 +216,17 @@ const UploadCV = () => {
                 continue;
             }
 
-            // Check if file with same name exists
+            // Check if file with same name exists - log for debugging
+            console.log("Checking for duplicate file:", fileToProcess.name);
             const existingIndex = updatedFiles.findIndex(file => file.name === fileToProcess.name);
+            console.log("Existing file index:", existingIndex);
             
             if (existingIndex !== -1) {
                 // We need to use a synchronous approach here since we're in a loop
                 const confirmReplace = window.confirm(`A file named "${fileToProcess.name}" already exists. Do you want to replace it?`);
                 
                 if (confirmReplace) {
+                    console.log("Replacing file:", fileToProcess.name);
                     // Replace the file in our updated array
                     updatedFiles[existingIndex] = fileToProcess;
                     
@@ -225,6 +234,7 @@ const UploadCV = () => {
                     newFiles.push(fileToProcess);
                 }
             } else {
+                console.log("Adding new file:", fileToProcess.name);
                 // New file, add it to both arrays
                 updatedFiles.push(fileToProcess);
                 newFiles.push(fileToProcess);
@@ -232,6 +242,7 @@ const UploadCV = () => {
         }
 
         if (newFiles.length > 0) {
+            console.log("New files to process:", newFiles.map(f => f.name));
             // Filter out any files from the queue that are being replaced
             const newQueue = [
                 ...fileState.uploadQueue.filter(queueFile => 
@@ -239,6 +250,8 @@ const UploadCV = () => {
                 ),
                 ...newFiles
             ];
+            
+            console.log("New upload queue:", newQueue.map(f => f.name));
             
             fileDispatch({
                 type: 'ADD_FILES',
@@ -328,6 +341,9 @@ const UploadCV = () => {
     }, []);
     
     useEffect(() => {
+        // Only add document-level event listeners when on the upload CV page
+        if (currentStep !== "uploadCV") return;
+
         const handleDocumentDragOver = (event) => {
             event.preventDefault();
             if (!isDragging && !fileState.isLoading && !fileState.processingFiles) {
@@ -369,12 +385,14 @@ const UploadCV = () => {
             document.removeEventListener('dragleave', handleDocumentDragLeave);
             document.removeEventListener('drop', handleDocumentDrop);
         };
-    }, [isDragging, processFiles, fileState.isLoading, fileState.processingFiles]);
+    }, [isDragging, processFiles, fileState.isLoading, fileState.processingFiles, currentStep]); // Add currentStep to dependencies
 
     const handleFileChange = (event) => {
         const files = Array.from(event.target.files);
         if (files.length > 0) {
             processFiles(files);
+            // Reset the file input so the same file can be selected again
+            event.target.value = '';
         }
     };
 
@@ -664,10 +682,14 @@ const UploadCV = () => {
     };
     
     const handleGoToDashboard = () => {
-        // Navigate to dashboard - for now just close the modal
-        // You can replace this with actual navigation
+        // Close the modal first
         setShowSuccessModal(false);
-        // window.location.href = "/dashboard"; // Uncomment when dashboard is ready
+        
+        // Navigate to dashboard page
+        window.location.href = "/dashboard";
+        
+        // If you're using React Router, you could use navigate instead:
+        // navigate("/dashboard");
     };
     
     const handleTryAgain = () => {
@@ -819,6 +841,8 @@ const UploadCV = () => {
         if (!isNaN(numValue) && numValue >= 0 && numValue <= 4) {
             setMinimumCGPA(numValue);
             setCgpaError(false);
+            // Update the slider's fill percentage for direct input
+            updateSliderPercentage(numValue);
         } else {
             setCgpaError(true);
         }
@@ -843,7 +867,26 @@ const UploadCV = () => {
         setMinimumCGPA(newValue);
         setCgpaInputValue(newValue.toFixed(2));
         setCgpaError(false);
+        
+        // Update the slider's fill percentage
+        updateSliderPercentage(newValue);
     };
+
+    // Helper function to update the slider fill percentage CSS variable
+    const updateSliderPercentage = (value) => {
+        // Calculate percentage (value from 0-4 to 0-100%)
+        const percentage = (value / 4) * 100;
+        // Find the slider element and update its CSS variable
+        const sliderElement = document.getElementById('cgpa');
+        if (sliderElement) {
+            sliderElement.style.setProperty('--slider-percentage', `${percentage}%`);
+        }
+    };
+
+    // Initialize the slider percentage when component mounts
+    useEffect(() => {
+        updateSliderPercentage(minimumCGPA);
+    }, [minimumCGPA]);
 
     return (
         <div className="app-container">
@@ -874,211 +917,209 @@ const UploadCV = () => {
             {currentStep === "jobDetails" ? (
                 <div className="job-container">
                     <h3 className="job-title-header">Job Details</h3>
-                    <div className="job-details-card">
-                        <form onSubmit={handleSubmit}>
-                            <div className="form-group">
-                                <label htmlFor="jobTitle" className="form-label">Job Title <span className="required">*</span></label>
-                                <div className="suggestion-container">
+                    <form onSubmit={handleSubmit}>
+                        <div className="form-group">
+                            <label htmlFor="jobTitle" className="form-label">Job Title <span className="required">*</span></label>
+                            <div className="suggestion-container">
+                                <input
+                                    type="text"
+                                    id="jobTitle"
+                                    className="form-input"
+                                    value={jobTitle}
+                                    onChange={(e) => setJobTitle(e.target.value)}
+                                    placeholder="Enter job title"
+                                    required
+                                    onBlur={() => {
+                                        // Hide suggestions with a small delay to allow click event to complete
+                                        setTimeout(() => {
+                                            setShowJobTitleSuggestions(false);
+                                        }, 200);
+                                    }}
+                                />
+                                {showJobTitleSuggestions && (
+                                    <ul className="suggestions-list">
+                                        {jobTitleSuggestions.map((suggestion, index) => (
+                                            <li 
+                                                key={index} 
+                                                onMouseDown={(e) => {
+                                                    e.preventDefault(); // Prevent input blur before click
+                                                    handleJobTitleSelect(suggestion);
+                                                }}
+                                            >
+                                                {suggestion}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label htmlFor="jobDescription" className="form-label">Description</label>
+                            <textarea
+                                id="jobDescription"
+                                className="form-textarea"
+                                value={jobDescription}
+                                onChange={(e) => setJobDescription(e.target.value)}
+                                placeholder="Enter job description"
+                                rows="4"
+                            />
+                        </div>
+
+                        <div className="form-group">
+                            <label htmlFor="department" className="form-label">Department</label>
+                            <div className="suggestion-container">
+                                <div className="input-group">
                                     <input
                                         type="text"
-                                        id="jobTitle"
+                                        id="department"
                                         className="form-input"
-                                        value={jobTitle}
-                                        onChange={(e) => setJobTitle(e.target.value)}
-                                        placeholder="Enter job title"
-                                        required
+                                        value={departmentInput}
+                                        onChange={(e) => setDepartmentInput(e.target.value)}
+                                        onKeyPress={handleDepartmentKeyPress}
+                                        placeholder="Enter a department"
                                         onBlur={() => {
                                             // Hide suggestions with a small delay to allow click event to complete
                                             setTimeout(() => {
-                                                setShowJobTitleSuggestions(false);
+                                                setShowDepartmentSuggestions(false);
                                             }, 200);
                                         }}
                                     />
-                                    {showJobTitleSuggestions && (
-                                        <ul className="suggestions-list">
-                                            {jobTitleSuggestions.map((suggestion, index) => (
-                                                <li 
-                                                    key={index} 
-                                                    onMouseDown={(e) => {
-                                                        e.preventDefault(); // Prevent input blur before click
-                                                        handleJobTitleSelect(suggestion);
-                                                    }}
-                                                >
-                                                    {suggestion}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
+                                    <button 
+                                        type="button" 
+                                        className="add-button"
+                                        onClick={handleAddDepartment}
+                                        disabled={!departmentInput.trim()}
+                                    >
+                                        Add
+                                    </button>
                                 </div>
+                                {showDepartmentSuggestions && (
+                                    <ul className="suggestions-list">
+                                        {departmentSuggestions.map((suggestion, index) => (
+                                            <li 
+                                                key={index} 
+                                                onMouseDown={(e) => {
+                                                    e.preventDefault(); // Prevent input blur before click
+                                                    handleDepartmentSelect(suggestion);
+                                                }}
+                                            >
+                                                {suggestion}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
                             </div>
+                            {departments.length > 0 && (
+                                <div className="tags-container">
+                                    {departments.map((department, index) => (
+                                        <div key={index} className="tag">
+                                            {department}
+                                            <button 
+                                                type="button"
+                                                className="tag-remove"
+                                                onClick={() => removeDepartment(department)}
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
 
-                            <div className="form-group">
-                                <label htmlFor="jobDescription" className="form-label">Description</label>
-                                <textarea
-                                    id="jobDescription"
-                                    className="form-textarea"
-                                    value={jobDescription}
-                                    onChange={(e) => setJobDescription(e.target.value)}
-                                    placeholder="Enter job description"
-                                    rows="4"
+                        <div className="form-group">
+                            <label htmlFor="cgpa" className="form-label">Minimum CGPA</label>
+                            <div className="cgpa-container">
+                                <input
+                                    type="range"
+                                    id="cgpa"
+                                    min="0"
+                                    max="4"
+                                    step="0.01"
+                                    value={minimumCGPA}
+                                    onChange={handleCGPASliderChange}
+                                    className="cgpa-slider"
+                                    aria-valuemin="0"
+                                    aria-valuemax="4"
+                                    aria-valuenow={minimumCGPA}
+                                    aria-labelledby="cgpa-value"
+                                />
+                                <input
+                                    id="cgpa-value"
+                                    type="text"
+                                    className={`cgpa-value ${cgpaError ? 'error' : ''}`}
+                                    value={cgpaInputValue}
+                                    onChange={handleCGPAInputChange}
+                                    onBlur={handleCGPABlur}
+                                    aria-label="CGPA value"
+                                    aria-invalid={cgpaError}
                                 />
                             </div>
+                            {cgpaError && (
+                                <p className="error-message" role="alert">
+                                    Please enter a valid CGPA between 0 and 4
+                                </p>
+                            )}
+                        </div>
 
-                            <div className="form-group">
-                                <label htmlFor="department" className="form-label">Department</label>
-                                <div className="suggestion-container">
-                                    <div className="input-group">
-                                        <input
-                                            type="text"
-                                            id="department"
-                                            className="form-input"
-                                            value={departmentInput}
-                                            onChange={(e) => setDepartmentInput(e.target.value)}
-                                            onKeyPress={handleDepartmentKeyPress}
-                                            placeholder="Enter a department"
-                                            onBlur={() => {
-                                                // Hide suggestions with a small delay to allow click event to complete
-                                                setTimeout(() => {
-                                                    setShowDepartmentSuggestions(false);
-                                                }, 200);
-                                            }}
-                                        />
-                                        <button 
-                                            type="button" 
-                                            className="add-button"
-                                            onClick={handleAddDepartment}
-                                            disabled={!departmentInput.trim()}
-                                        >
-                                            Add
-                                        </button>
-                                    </div>
-                                    {showDepartmentSuggestions && (
-                                        <ul className="suggestions-list">
-                                            {departmentSuggestions.map((suggestion, index) => (
-                                                <li 
-                                                    key={index} 
-                                                    onMouseDown={(e) => {
-                                                        e.preventDefault(); // Prevent input blur before click
-                                                        handleDepartmentSelect(suggestion);
-                                                    }}
-                                                >
-                                                    {suggestion}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                </div>
-                                {departments.length > 0 && (
-                                    <div className="tags-container">
-                                        {departments.map((department, index) => (
-                                            <div key={index} className="tag">
-                                                {department}
-                                                <button 
-                                                    type="button"
-                                                    className="tag-remove"
-                                                    onClick={() => removeDepartment(department)}
-                                                >
-                                                    ×
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="form-group">
-                                <label htmlFor="cgpa" className="form-label">Minimum CGPA</label>
-                                <div className="cgpa-container">
+                        <div className="form-group">
+                            <label htmlFor="skills" className="form-label">Required Skills <span className="required">*</span></label>
+                            <div className="suggestion-container">
+                                <div className="input-group">
                                     <input
-                                        type="range"
-                                        id="cgpa"
-                                        min="0"
-                                        max="4"
-                                        step="0.01"
-                                        value={minimumCGPA}
-                                        onChange={handleCGPASliderChange}
-                                        className="cgpa-slider"
-                                        aria-valuemin="0"
-                                        aria-valuemax="4"
-                                        aria-valuenow={minimumCGPA}
-                                        aria-labelledby="cgpa-value"
-                                    />
-                                    <input
-                                        id="cgpa-value"
                                         type="text"
-                                        className={`cgpa-value ${cgpaError ? 'error' : ''}`}
-                                        value={cgpaInputValue}
-                                        onChange={handleCGPAInputChange}
-                                        onBlur={handleCGPABlur}
-                                        aria-label="CGPA value"
-                                        aria-invalid={cgpaError}
+                                        id="skills"
+                                        className="form-input"
+                                        value={skillInput}
+                                        onChange={(e) => setSkillInput(e.target.value)}
+                                        onKeyPress={handleSkillKeyPress}
+                                        placeholder="Enter a skill"
                                     />
+                                    <button 
+                                        type="button" 
+                                        className="add-button"
+                                        onClick={handleAddSkill}
+                                        disabled={!skillInput.trim()}
+                                    >
+                                        Add
+                                    </button>
                                 </div>
-                                {cgpaError && (
-                                    <p className="error-message" role="alert">
-                                        Please enter a valid CGPA between 0 and 4
-                                    </p>
-                                )}
-                            </div>
-
-                            <div className="form-group">
-                                <label htmlFor="skills" className="form-label">Required Skills <span className="required">*</span></label>
-                                <div className="suggestion-container">
-                                    <div className="input-group">
-                                        <input
-                                            type="text"
-                                            id="skills"
-                                            className="form-input"
-                                            value={skillInput}
-                                            onChange={(e) => setSkillInput(e.target.value)}
-                                            onKeyPress={handleSkillKeyPress}
-                                            placeholder="Enter a skill"
-                                        />
-                                        <button 
-                                            type="button" 
-                                            className="add-button"
-                                            onClick={handleAddSkill}
-                                            disabled={!skillInput.trim()}
-                                        >
-                                            Add
-                                        </button>
-                                    </div>
-                                    {showSkillSuggestions && (
-                                        <ul className="suggestions-list">
-                                            {skillSuggestions.map((suggestion, index) => (
-                                                <li 
-                                                    key={index} 
-                                                    onClick={() => handleSkillSelect(suggestion)}
-                                                >
-                                                    {suggestion}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                </div>
-                                {skills.length > 0 && (
-                                    <div className="tags-container">
-                                        {skills.map((skill, index) => (
-                                            <div key={index} className="tag">
-                                                {skill}
-                                                <button 
-                                                    type="button"
-                                                    className="tag-remove"
-                                                    onClick={() => removeSkill(skill)}
-                                                >
-                                                    ×
-                                                </button>
-                                            </div>
+                                {showSkillSuggestions && (
+                                    <ul className="suggestions-list">
+                                        {skillSuggestions.map((suggestion, index) => (
+                                            <li 
+                                                key={index} 
+                                                onClick={() => handleSkillSelect(suggestion)}
+                                            >
+                                                {suggestion}
+                                            </li>
                                         ))}
-                                    </div>
+                                    </ul>
                                 )}
                             </div>
+                            {skills.length > 0 && (
+                                <div className="tags-container">
+                                    {skills.map((skill, index) => (
+                                        <div key={index} className="tag">
+                                            {skill}
+                                            <button 
+                                                type="button"
+                                                className="tag-remove"
+                                                onClick={() => removeSkill(skill)}
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
 
-                            <div className="form-actions">
-                                <button type="submit" className="submit-button">Next</button>
-                            </div>
-                        </form>
-                    </div>
+                        <div className="form-actions">
+                            <button type="submit" className="submit-button">Next</button>
+                        </div>
+                    </form>
                 </div>
             ) : (
                 <>
@@ -1088,7 +1129,7 @@ const UploadCV = () => {
                                 <svg className="back-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
                                 </svg>
-                                Back to Job Details
+                                Back to Job Details 
                             </button>
                         </div>
                         <h3 className="job-title-header">Upload Candidate CVs for {jobData?.jobTitle}</h3>
