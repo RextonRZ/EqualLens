@@ -617,12 +617,6 @@ const UploadCV = () => {
                 </p>
                 <div className="status-buttons">
                     <button 
-                        className="status-button secondary-button" 
-                        onClick={handleUploadMoreJobs}
-                    >
-                        Upload More Job
-                    </button>
-                    <button 
                         className="status-button primary-button" 
                         onClick={handleGoToDashboard}
                         autoFocus
@@ -666,20 +660,20 @@ const UploadCV = () => {
     );
     
     // Button action handlers with full reset
-    const handleUploadMoreJobs = () => {
-        // Reset all form and file states
-        setCurrentStep("jobDetails");
-        setJobTitle("");
-        setJobDescription("");
-        setDepartments([]);
-        setMinimumCGPA(2.50);
-        setSkills([]);
-        setJobData(null);
-        fileDispatch({ type: 'RESET' });
-        setApiStatus("idle");
-        setSubmitProgress(0);
-        setShowSuccessModal(false);
-    };
+    // const handleUploadMoreJobs = () => {
+    //     // Reset all form and file states
+    //     setCurrentStep("jobDetails");
+    //     setJobTitle("");
+    //     setJobDescription("");
+    //     setDepartments([]);
+    //     setMinimumCGPA(2.50);
+    //     setSkills([]);
+    //     setJobData(null);
+    //     fileDispatch({ type: 'RESET' });
+    //     setApiStatus("idle");
+    //     setSubmitProgress(0);
+    //     setShowSuccessModal(false);
+    // };
     
     const handleGoToDashboard = () => {
         // Close the modal first

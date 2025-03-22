@@ -480,6 +480,7 @@ async def upload_job(
             'jobDescription': job_details.get('jobDescription'),
             'departments': job_details.get('departments'),
             'minimumCGPA': job_details.get('minimumCGPA'),
+            'requiredSkills': job_details.get('skills'),  # Add this field to store required skills
             'createdAt': current_time,
             'applicationCount': 0  # Initialize with zero applications
         }
@@ -799,6 +800,49 @@ async def upload_job_dev(
                 "message": "An error occurred in development mode"
             }
         )
+
+@app.get("/jobs")
+async def get_jobs():
+    try:
+        jobs_ref = db.collection('jobs').stream()
+        jobs = []
+        for doc in jobs_ref:
+            job = doc.to_dict()
+            # Optional: include the Firestore document ID if needed
+            job["jobId"] = doc.id
+            jobs.append(job)
+        return jobs
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/applicants")
+async def get_applicants(jobId: str):
+    try:
+        apps_ref = db.collection('applications').where("jobId", "==", jobId).stream()
+        results = []
+        for app_doc in apps_ref:
+            app_data = app_doc.to_dict()
+            candidateId = app_data.get("candidateId")
+            if candidateId:
+                candidate_doc = db.collection('candidates').document(candidateId).get()
+                if candidate_doc.exists:
+                    candidate_data = candidate_doc.to_dict()
+                    candidate_data["applicationId"] = app_data.get("applicationId")
+                    results.append(candidate_data)
+        return results
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.put("/jobs/{job_id}")
+async def update_job(job_id: str, job: dict):
+    try:
+        job_ref = db.collection("jobs").document(job_id)
+        job_ref.update(job)
+        updated_job = job_ref.get().to_dict()
+        updated_job["jobId"] = job_id
+        return updated_job
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 # Start the server
 if __name__ == "__main__":
