@@ -1,3 +1,4 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Home from './components/pages/Home';
@@ -8,6 +9,7 @@ import IDVerification from './components/pages/IDVerification';
 import InterviewQuestions from './components/pages/InterviewQuestions';
 import InterviewLinkGenerator from './components/pages/InterviewLinkGenerator';
 import InterviewReview from './components/pages/InterviewReview';
+import Dashboard from './components/pages/Dashboard';
 
 function App() {
   return (
@@ -28,6 +30,9 @@ function App() {
         <Route path="/interview/:interviewId/:linkCode" element={<InterviewLinkValidator />} />
         <Route path="/interview/:interviewId/:linkCode/id-verification" element={<IDVerification />} />
         <Route path="/interview/:interviewId/:linkCode/questions" element={<InterviewQuestions />} />
+
+        {/* Dashboard route */}
+        <Route path="/dashboard" element={<Dashboard />} />
       </Routes>
     </Router>
   );
