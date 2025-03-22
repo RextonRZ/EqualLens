@@ -43,7 +43,7 @@ function Navbar() {
               </li>
               <li className='nav-item'>
                 <Link to='/upload-cv' className='nav-links' onClick={closeMobileMenu}>
-                  Upload CV
+                  New job
                 </Link>
               </li>
               <li className='nav-item'>
