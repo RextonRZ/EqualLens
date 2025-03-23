@@ -568,10 +568,8 @@ const UploadCV = () => {
     };
 
     // API URL for backend
-    const API_URL = "http://localhost:8000"; // Update this with your FastAPI URL
-    // Uncomment this line to use the development endpoint if Firebase is not working
-    // const API_ENDPOINT = `${API_URL}/upload-job-dev`;
-    const API_ENDPOINT = `${API_URL}/upload-job`;
+    const API_URL = "http://localhost:8000"; // Your FastAPI URL
+    const API_ENDPOINT = `${API_URL}/upload-job`; // FIXED: removed /api/jobs prefix
 
     // Clean up animation frame on component unmount
     useEffect(() => {

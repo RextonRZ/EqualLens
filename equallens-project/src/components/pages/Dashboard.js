@@ -48,7 +48,7 @@ export default function Dashboard() {
         const fetchJobs = async () => {
             setIsLoading(true);
             try {
-                const response = await fetch('http://localhost:8000/jobs'); // Adjust endpoint as needed
+                const response = await fetch('http://localhost:8000/jobs'); // FIXED: removed /api prefix
                 if (!response.ok) {
                     throw new Error("Network response was not ok");
                 }
@@ -107,7 +107,7 @@ export default function Dashboard() {
     // Fetch applicants for a selected job from the backend API
     const fetchApplicants = async (jobId) => {
         try {
-            const response = await fetch(`http://localhost:8000/applicants?jobId=${jobId}`);
+            const response = await fetch(`http://localhost:8000/applicants?jobId=${jobId}`); // FIXED: removed /api/jobs prefix
             if (!response.ok) {
                 throw new Error("Network response was not ok");
             }
@@ -404,7 +404,7 @@ export default function Dashboard() {
                         <svg className="back-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
                         </svg>
-                        Back to Jobs
+                        Back
                     </button>
                     <div className="job-detail-header">
                         <h2>{selectedJob.jobTitle}</h2>
