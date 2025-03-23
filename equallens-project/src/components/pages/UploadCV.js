@@ -569,7 +569,7 @@ const UploadCV = () => {
 
     // API URL for backend
     const API_URL = "http://localhost:8000"; // Your FastAPI URL
-    const API_ENDPOINT = `${API_URL}/upload-job`; // FIXED: removed /api/jobs prefix
+    const API_ENDPOINT = `${API_URL}/jobs/upload-job`; // FIXED: updated to use correct endpoint
 
     // Clean up animation frame on component unmount
     useEffect(() => {

@@ -1,0 +1,124 @@
+from fastapi import APIRouter, HTTPException, Form, File, UploadFile
+from fastapi.responses import JSONResponse
+from typing import List, Optional
+import json
+import logging
+from datetime import datetime
+import uuid
+
+from models.job import JobCreate, JobResponse, JobUpdate
+from services.job_service import JobService
+from services.candidate_service import CandidateService
+
+router = APIRouter()
+logger = logging.getLogger(__name__)
+
+@router.get("/", response_model=List[JobResponse])
+async def get_jobs():
+    """Get all jobs."""
+    try:
+        jobs = JobService.get_jobs()
+        # Ensure each job has the required fields for the response model
+        for job in jobs:
+            if 'requiredSkills' in job and 'skills' not in job:
+                job['skills'] = job['requiredSkills']
+            elif 'skills' not in job:
+                job['skills'] = []
+                
+        return jobs
+    except Exception as e:
+        logger.error(f"Error getting jobs: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get jobs: {str(e)}")
+
+@router.get("/{job_id}", response_model=JobResponse)
+async def get_job(job_id: str):
+    """Get a job by ID."""
+    job = JobService.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+        
+    # Ensure job has the required fields for the response model
+    if 'requiredSkills' in job and 'skills' not in job:
+        job['skills'] = job['requiredSkills']
+    elif 'skills' not in job:
+        job['skills'] = []
+        
+    return job
+
+@router.put("/{job_id}", response_model=JobResponse)
+async def update_job(job_id: str, job: JobUpdate):
+    """Update a job."""
+    existing_job = JobService.get_job(job_id)
+    if not existing_job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    
+    success = JobService.update_job(job_id, job)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to update job")
+    
+    updated_job = JobService.get_job(job_id)
+    return updated_job
+
+@router.post("/upload-job")
+async def upload_job(
+    job_data: str = Form(...),
+    files: List[UploadFile] = File(...)
+):
+    """Upload a job with candidate resumes."""
+    try:
+        # Parse job data JSON string
+        job_details = json.loads(job_data)
+        
+        # Create job
+        job_obj = JobCreate(
+            jobTitle=job_details.get("jobTitle"),
+            jobDescription=job_details.get("jobDescription", ""),
+            departments=job_details.get("departments", []),
+            minimumCGPA=job_details.get("minimumCGPA", 0),
+            skills=job_details.get("skills", [])
+        )
+        
+        job_id = JobService.create_job(job_obj)
+        if not job_id:
+            raise HTTPException(status_code=500, detail="Failed to create job")
+        
+        # Process files and create candidates
+        candidates = []
+        for file in files:
+            content = await file.read()
+            candidate_data = CandidateService.create_candidate(
+                job_id=job_id,
+                file_content=content,
+                file_name=file.filename,
+                content_type=file.content_type or "application/pdf"
+            )
+            
+            if candidate_data:
+                candidates.append(candidate_data)
+        
+        # Create applications for candidates
+        applications = CandidateService.process_applications(job_id, candidates)
+        
+        # Return response
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": "Job and applications created successfully",
+                "jobId": job_id,
+                "applicationCount": len(applications),
+                "applications": applications,
+                "candidates": candidates,
+                "progress": 100.0
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error uploading job: {e}")
+        logger.exception("Exception details:")
+        return JSONResponse(
+            status_code=500, 
+            content={
+                "error": str(e),
+                "type": str(type(e).__name__),
+                "message": "An error occurred while processing your request"
+            }
+        )
