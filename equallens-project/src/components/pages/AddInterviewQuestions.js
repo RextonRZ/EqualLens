@@ -22,6 +22,10 @@ const AddInterviewQuestions = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [isNavigatingBack, setIsNavigatingBack] = useState(false);
+    // New state variables for applicant selection
+    const [applicants, setApplicants] = useState([]);
+    const [selectedApplicant, setSelectedApplicant] = useState("");
+    const [isLoadingApplicants, setIsLoadingApplicants] = useState(false);
     
     // Get job ID from URL query params
     const location = useLocation();
@@ -52,6 +56,29 @@ const AddInterviewQuestions = () => {
         };
         
         fetchJobDetails();
+    }, [jobId]);
+
+    // Fetch applicants for the job
+    useEffect(() => {
+        const fetchApplicants = async () => {
+            if (!jobId) return;
+            
+            setIsLoadingApplicants(true);
+            try {
+                const response = await fetch(`http://localhost:8000/api/candidates/applicants?jobId=${jobId}`);
+                if (!response.ok) {
+                    throw new Error("Failed to fetch applicants");
+                }
+                const data = await response.json();
+                setApplicants(data);
+            } catch (error) {
+                console.error("Error fetching applicants:", error);
+            } finally {
+                setIsLoadingApplicants(false);
+            }
+        };
+        
+        fetchApplicants();
     }, [jobId]);
 
     const handleAddSection = () => {
@@ -85,6 +112,12 @@ const AddInterviewQuestions = () => {
         setSections(updatedSections);
     };
 
+    const handleViewProfile = () => {
+        // Placeholder for view profile functionality
+        console.log("View profile for candidate:", selectedApplicant);
+        // This would typically navigate to a candidate profile page
+    };
+
     const handleSave = async () => {
         // Filter out empty questions
         const validSections = sections.map(section => ({
@@ -96,6 +129,7 @@ const AddInterviewQuestions = () => {
             // Mock API call
             console.log("Saving interview questions:", {
                 jobId,
+                candidateId: selectedApplicant === "all" ? "all" : selectedApplicant,
                 sections: validSections
             });
             
@@ -193,25 +227,8 @@ const AddInterviewQuestions = () => {
         setSections(aiGeneratedSections);
     };
 
-    // Show loading when navigating back
-    if (isNavigatingBack) {
-        return (
-            <div className="dashboard-container" style={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                minHeight: '80vh' 
-            }}>
-                <div className="loading-indicator" style={{ textAlign: 'center' }}>
-                    <LoadingAnimation />
-                    <p style={{ marginTop: '20px' }}>Loading job details...</p>
-                </div>
-            </div>
-        );
-    }
-
-    // Show loading while initially fetching job details
-    if (isLoading) {
+    // Show loading when navigating back or initially fetching job details
+    if (isNavigatingBack || isLoading) {
         return (
             <div className="dashboard-container" style={{ 
                 display: 'flex', 
@@ -231,103 +248,164 @@ const AddInterviewQuestions = () => {
         <div className="add-interview-questions-container">
             {showSuccessModal && <SuccessModal />}
             
-            <div className="header">
-                <div className="header-content">
-                    <button className="back-button" onClick={handleGoBackToJobDetails}>
-                        <svg className="back-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
-                        </svg>
-                        Back to Job Details
-                    </button>
+            {/* Header section with back button and title */}
+            <div className="page-header">
+                <button className="back-button" onClick={handleGoBackToJobDetails}>
+                    <svg className="back-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    Back to Job Details
+                </button>
+                <div className="title-container">
                     <h1>Interview Questions</h1>
                     {jobDetails && <p className="job-title-reference">for {jobDetails.jobTitle}</p>}
                 </div>
-                <button className="ai-generate-button" onClick={handleAIGenerate}>
-                    <svg className="ai-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                    </svg>
-                    AI Generate
-                </button>
             </div>
             
-            <div className="new-section-container">
-                <input
-                    type="text"
-                    className="new-section-input"
-                    placeholder="Enter section title (e.g., Technical Skills, Work Experience)"
-                    value={newSectionTitle}
-                    onChange={(e) => setNewSectionTitle(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && handleAddSection()}
-                />
-                <button className="add-section-button" onClick={handleAddSection}>
-                    Add Section
-                </button>
-            </div>
-
-            {sections.length === 0 ? (
-                <div className="no-sections">
-                    <p>No interview question sections added yet. Add a section to get started or use AI Generate.</p>
-                </div>
-            ) : (
-                <div className="sections-container">
-                    {sections.map((section, sectionIndex) => (
-                        <div key={sectionIndex} className="section">
-                            <div className="section-header">
-                                <h2 className="section-title">{section.title}</h2>
+            {/* Main content area */}
+            <div className="interview-content">
+                {/* Controls panel */}
+                <div className="controls-panel">
+                    <div className="applicant-selector">
+                        <label htmlFor="applicant-select">Select an applicant:</label>
+                        <div className="select-actions">
+                            <select 
+                                id="applicant-select" 
+                                value={selectedApplicant}
+                                onChange={(e) => setSelectedApplicant(e.target.value)}
+                                disabled={isLoadingApplicants}
+                                title={selectedApplicant}
+                            >
+                                <option value="">-- Select applicant --</option>
+                                <option value="all">Apply to all</option>
+                                {applicants.map(app => (
+                                    <option key={app.candidateId} value={app.candidateId} title={app.candidateId}>
+                                        {app.candidateId}
+                                    </option>
+                                ))}
+                            </select>
+                            
+                            {selectedApplicant && selectedApplicant !== "all" && (
                                 <button 
-                                    className="remove-section-button"
-                                    onClick={() => handleRemoveSection(sectionIndex)}
-                                    aria-label={`Remove section ${section.title}`}
+                                    className="view-profile-button" 
+                                    onClick={handleViewProfile}
+                                    aria-label="View applicant profile"
                                 >
-                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    View Profile
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    
+                    <div className="ai-generate-button-container">
+                        <div className="butterfly"></div>
+                        <div className="butterfly"></div>
+                        <div className="butterfly"></div>
+                        <div className="butterfly"></div>
+                        <button className="ai-generate-button" onClick={handleAIGenerate}>
+                            <svg className="ai-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            AI Generate Questions
+                        </button>
+                    </div>
+                </div>
+                
+                {/* Section creator */}
+                <div className="section-creator">
+                    <h2>Add New Section</h2>
+                    <div className="section-input-group">
+                        <input
+                            type="text"
+                            className="section-title-input"
+                            placeholder="Enter section title (e.g., Technical Skills, Work Experience)"
+                            value={newSectionTitle}
+                            onChange={(e) => setNewSectionTitle(e.target.value)}
+                            onKeyPress={(e) => e.key === "Enter" && handleAddSection()}
+                        />
+                        <button className="add-section-button" onClick={handleAddSection}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="add-icon">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
+                            Add Section
+                        </button>
+                    </div>
+                </div>
+                
+                {/* Sections container */}
+                {sections.length === 0 ? (
+                    <div className="no-sections">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="empty-icon">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+                        </svg>
+                        <p>No interview question sections added yet.</p>
+                        <p>Add a section to get started or use AI Generate.</p>
+                    </div>
+                ) : (
+                    <div className="sections-container">
+                        {sections.map((section, sectionIndex) => (
+                            <div key={sectionIndex} className="section-card">
+                                <div className="section-header">
+                                    <h2 className="section-title">{section.title}</h2>
+                                    <button 
+                                        className="remove-section-button"
+                                        onClick={() => handleRemoveSection(sectionIndex)}
+                                        aria-label={`Remove section ${section.title}`}
+                                    >
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                                
+                                <div className="questions-container">
+                                    {section.questions.map((question, questionIndex) => (
+                                        <div key={questionIndex} className="question-item">
+                                            <textarea
+                                                className="question-textarea"
+                                                placeholder="Enter interview question"
+                                                value={question}
+                                                onChange={(e) =>
+                                                    handleQuestionChange(sectionIndex, questionIndex, e.target.value)
+                                                }
+                                            />
+                                            <button 
+                                                className="remove-question-button"
+                                                onClick={() => handleRemoveQuestion(sectionIndex, questionIndex)}
+                                                aria-label="Remove question"
+                                            >
+                                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                                
+                                <button
+                                    className="add-question-button"
+                                    onClick={() => handleAddQuestion(sectionIndex)}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="add-q-icon">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                                     </svg>
+                                    Add Question
                                 </button>
                             </div>
-                            
-                            <div className="questions-container">
-                                {section.questions.map((question, questionIndex) => (
-                                    <div key={questionIndex} className="question-item">
-                                        <textarea
-                                            className="question-textarea"
-                                            placeholder="Enter interview question"
-                                            value={question}
-                                            onChange={(e) =>
-                                                handleQuestionChange(sectionIndex, questionIndex, e.target.value)
-                                            }
-                                        />
-                                        <button 
-                                            className="remove-question-button"
-                                            onClick={() => handleRemoveQuestion(sectionIndex, questionIndex)}
-                                            aria-label="Remove question"
-                                        >
-                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                            
-                            <button
-                                className="add-question-button"
-                                onClick={() => handleAddQuestion(sectionIndex)}
-                            >
-                                + Add Question
-                            </button>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
+                )}
+                
+                {/* Save button container */}
+                <div className="save-container">
+                    <button 
+                        className="save-button" 
+                        onClick={handleSave}
+                        disabled={sections.length === 0 || !selectedApplicant}
+                    >
+                        Save Questions
+                    </button>
                 </div>
-            )}
-            
-            <div className="save-container">
-                <button 
-                    className="save-button" 
-                    onClick={handleSave}
-                    disabled={sections.length === 0}
-                >
-                    Save Questions
-                </button>
             </div>
         </div>
     );
