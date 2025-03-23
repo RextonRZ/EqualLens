@@ -253,13 +253,22 @@
   margin-top: 0.375rem;
 }
 
+/* Job Card Skills Tags - Make similar to Department Tags */
 .skill-tag {
-  background-color: #ffeff3;
-  color: #F9645F;
-  padding: 0.375rem 0.625rem;
-  border-radius: 0.375rem;
-  font-size: 0.8rem;
-  font-weight: 500;
+  background-color: #f8f0ff;  /* Light purple background, similar to departments but distinct */
+  color: #8250c8;             /* Purple text color */
+  padding: 0.4rem 0.8rem;     /* Same padding as department tags */
+  border-radius: 20px;        /* Same rounded corners as department tags */
+  font-size: 0.8rem;          /* Same font size as department tags */
+  font-weight: 500;           /* Same font weight as department tags */
+}
+
+/* Update Skills Display in job details view to match departments display */
+.skills-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
 }
 
 /* Responsive adjustments for job cards */
@@ -421,16 +430,27 @@
   background-color: #e1e1e1;
 }
 
+/* Change job detail content layout from grid to column */
 .job-detail-content {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 2rem;
+  width: 100%;
 }
 
-@media (max-width: 768px) {
-  .job-detail-content {
-    grid-template-columns: 1fr;
-  }
+/* Adjust containers for the new stacked layout */
+.job-info-container, .applicants-container {
+  background-color: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  border: 1px solid #f1f1f1;
+  width: 100%; /* Ensure full width */
+}
+
+/* Add a little extra space after job details container */
+.job-info-container {
+  margin-bottom: 1rem;
 }
 
 .job-info-container, .applicants-container {
@@ -452,71 +472,130 @@
 .job-info {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
 .info-group {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.5rem; /* More space between info groups */
+  padding-bottom: 0.5rem; /* Add padding at the bottom of each group */
 }
 
 .info-label {
-  font-weight: 500;
-  color: #555;
-  margin-bottom: 0.25rem;
+  font-weight: 600; /* Bolder labels */
+  color: #444;
+  margin-bottom: 0.5rem; /* More space between label and value */
+  font-size: 1rem; /* Slightly larger label */
 }
 
 .info-value {
+  color: #333;
+  line-height: 1.5; /* Better line height for readability */
+  padding: 0.25rem 0; /* Add some padding around values */
+  font-size: 1rem;
+}
+
+/* Special styling for the description section - more subtle and clean */
+.description-group {
+  margin-top: 0.5rem;           /* More space above description */
+  border-top: 1px solid #eee; /* Solid light separator instead of dashed */
+  padding-top: 1rem;          /* Add padding after separator */
+}
+
+.description-group .info-label {
   color: #333;
 }
 
 .description-group .info-value {
   white-space: pre-line;
-  line-height: 1.5;
-}
-
-.departments-display, .skills-display {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+  line-height: 1.6;          /* Keep the good line height */
+  background-color: #fcfcfc; /* Very light background, almost white */
+  padding: 1rem;             /* Keep padding for readability */
+  border-radius: 4px;        /* Keep rounded corners */
+  border: 1px solid #eee;    /* Light border instead of red accent */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); /* Very subtle shadow */
 }
 
 /* Job Edit Form */
 .job-edit-form {
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
+  margin-bottom: 0.5rem;
 }
 
 .form-group label {
-  font-weight: 500;
-  margin-bottom: 0.1rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
   color: #333;
+  font-size: 1rem;
 }
 
-.form-group input, .form-group textarea {
-  padding: 0.75rem;
+
+.form-group input, 
+.form-group textarea,
+.form-group .form-input {
+  padding: 0.65rem; 
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 1rem;
+  line-height: 1.5;
+  color: #374151; 
   transition: border-color 0.2s;
+  background-color: #fcfcfc;
+  margin-top: 0.15rem;
+  font-family: inherit;
 }
 
-.form-group input:focus, .form-group textarea:focus {
+
+.form-group .auto-resize-textarea {
+  min-height: 100px;
+  resize: none;
+  overflow-y: hidden;
+  line-height: 1.5;
+  padding: 0.65rem;
+  font-size: 1rem; 
+  color: #374151;
+}
+
+.form-group input:focus, 
+.form-group textarea:focus,
+.form-group .form-input:focus {
   border-color: #F9645F;
   outline: none;
   box-shadow: 0 0 0 2px rgba(249, 100, 95, 0.2);
+  background-color: white; 
 }
 
-.helper-text {
+
+.form-group textarea,
+.form-group input[type="text"],
+.form-group input[type="number"] {
+  font-weight: normal;
+  color: #374151;
+}
+
+
+.job-edit-form .departments-container .tag,
+.job-edit-form .skills-container .tag {
   font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+}
+
+
+/* Update the form input style to match the rest of the form */
+.helper-text {
+  font-size: 0.85rem; 
   color: #666;
-  margin-top: 0.25rem;
+  margin-top: 0.5rem; 
   margin-bottom: 0.5rem;
+  font-style: italic;
 }
 
 /* Applicants Section */
@@ -551,7 +630,7 @@
 
 .status-badge {
   padding: 0.3rem 0.7rem;
-  font-size: 0.8rem; /* slightly larger than before */
+  font-size: 0.8rem; 
   border-radius: 20px;
   font-weight: 600;
   text-transform: capitalize;
@@ -614,15 +693,15 @@
 }
 
 .view-profile-button {
-  font-size: 0.9rem;  /* Reduced from 1rem */
-  padding: 0.4rem 0.8rem;  /* Reduced padding */
+  font-size: 0.9rem; 
+  padding: 0.4rem 0.8rem;
   border-radius: 4px;
   background-color: #f1f1f1;
   color: #333;
   border: none;
   cursor: pointer;
   transition: background-color 0.2s;
-  min-width: 100px;  /* Reduced min-width */
+  min-width: 100px; 
 }
 .view-profile-button:hover {
   background-color: #e1e1e1;
@@ -669,7 +748,7 @@
 /* Make status badge larger */
 .status-badge {
   padding: 0.3rem 0.7rem;
-  font-size: 0.8rem; /* slightly larger than before */
+  font-size: 0.8rem; 
   border-radius: 20px;
   font-weight: 600;
   text-transform: capitalize;
@@ -677,15 +756,15 @@
 
 /* Increase Full Profile button size and adjust spacing */
 .view-profile-button {
-  font-size: 0.9rem;  /* Reduced from 1rem */
-  padding: 0.4rem 0.8rem;  /* Reduced padding */
+  font-size: 0.9rem;  
+  padding: 0.4rem 0.8rem;
   border-radius: 4px;
   background-color: #f1f1f1;
   color: #333;
   border: none;
   cursor: pointer;
   transition: background-color 0.2s;
-  min-width: 100px;  /* Reduced min-width */
+  min-width: 100px; 
 }
 .view-profile-button:hover {
   background-color: #e1e1e1;
@@ -693,26 +772,255 @@
 
 /* New container for the "Upload More CV" button */
 .upload-more-cv-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
   margin: 1rem 0;
-  text-align: center;
+  padding: 1.5rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px dashed #e2e8f0;
 }
 
-/* Styling for the new button */
+/* Updated styling for the button */
 .upload-more-cv-button {
   background-color: #F9645F;
   color: white;
   border: none;
-  padding: 0.65rem 1.25rem;
+  padding: 0.6rem 1.2rem;
   border-radius: 4px;
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.25s ease;
+  transition: all 0.3s ease;
+  margin-left: 1rem;
+  box-shadow: 0 2px 4px rgba(249, 100, 95, 0.2);
 }
+
 .upload-more-cv-button:hover {
   background-color: #ef402d;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(249, 100, 95, 0.3);
 }
 
 .job-actions button {
   margin-right: 0.75rem;
+}
+
+/* Job edit form suggestion dropdowns and tags */
+.job-edit-form .suggestion-container {
+  position: relative;
+  width: 100%;
+  z-index: 20;
+}
+
+.job-edit-form .input-group {
+  display: flex;
+  gap: 0.3rem; /* Reduced from 0.5rem */
+  margin-bottom: 0.15rem; /* Reduced from 0.3rem */
+}
+
+.job-edit-form .input-group .form-input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  color: #374151;
+  background-color: #fcfcfc;
+  transition: all 0.25s;
+}
+
+.job-edit-form .input-group .form-input:focus {
+  border-color: #F9645F;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(249, 100, 95, 0.15);
+  background-color: white;
+}
+
+.job-edit-form .suggestions-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  padding: 0;
+  margin: 0;
+  list-style-type: none;
+  animation: slideDown 0.2s ease-in-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.job-edit-form .suggestions-list li {
+  padding: 8px 12px; /* Reduced from 12px 15px */
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 1px solid #f8fafc;
+}
+
+.job-edit-form .suggestions-list li:hover {
+  background-color: #f8fafc;
+  color: #F9645F;
+  padding-left: 20px;
+}
+
+.job-edit-form .add-button {
+  background-color: #F9645F;
+  color: white;
+  border: none;
+  padding: 0.6rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.25s;
+  box-shadow: 0 2px 4px rgba(249, 100, 95, 0.2);
+  min-width: 80px;
+}
+
+.job-edit-form .add-button:hover {
+  background-color: #ef402d;
+  box-shadow: 0 4px 8px rgba(249, 100, 95, 0.3);
+}
+
+.job-edit-form .add-button:disabled {
+  background-color: #d1d5db;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.job-edit-form .tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem; 
+  margin-top: 0.5rem;
+}
+
+.job-edit-form .tag {
+  background-color: #ffeff3;
+  color: #F9645F;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s;
+}
+
+.job-edit-form .tag-remove {
+  background: none;
+  border: none;
+  color: #F9645F;
+  font-size: 1.125rem;
+  cursor: pointer;
+  margin-left: 0.375rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  transition: all 0.2s;
+}
+
+.job-edit-form .tag-remove:hover {
+  color: #ef402d;
+  transform: scale(1.2);
+}
+
+/* Style for department tags in edit mode */
+.job-edit-form .departments-container .tag {
+  background-color: #f0f7ff;  
+  color: #0066cc;            
+  border-radius: 20px;  
+}
+
+/* Style for skill tags in edit mode */
+.job-edit-form .skills-container .tag {
+  background-color: #f8f0ff; 
+  color: #8250c8;            
+  border-radius: 20px;     
+}
+
+/* Style for the remove button that should adapt to parent tag color */
+.job-edit-form .departments-container .tag-remove {
+  color: #0066cc; 
+}
+
+.job-edit-form .skills-container .tag-remove {
+  color: #8250c8; 
+}
+
+.job-edit-form .departments-container .tag-remove:hover {
+  color: #004c99; 
+}
+
+.job-edit-form .skills-container .tag-remove:hover {
+  color: #663da3; 
+}
+
+/* Warning icon for confirmation modal */
+.warning-icon {
+  background-color: rgba(255, 193, 7, 0.1);
+  color: #ff9800;
+  animation: pulse 2s infinite;
+  width: 80px;
+  height: 80px;
+}
+
+/* Add styles for the applicants header with flexbox layout */
+.applicants-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #eee;
+}
+
+.applicants-header h3 {
+  margin-bottom: 0; 
+  padding-bottom: 0; 
+  border-bottom: none; 
+}
+
+/* Update styling for the Upload More CV button */
+.upload-more-cv-button {
+  background-color: #F9645F;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(249, 100, 95, 0.2);
+}
+
+.upload-more-cv-button:hover {
+  background-color: #ef402d;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(249, 100, 95, 0.3);
+}
+
+
+.upload-more-cv-container {
+  display: none; 
 }

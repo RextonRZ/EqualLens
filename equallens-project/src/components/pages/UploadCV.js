@@ -535,6 +535,7 @@ const UploadCV = () => {
         return true;
     };
 
+    // When submitting the form, make sure we're using requiredSkills consistently
     const handleSubmit = (e) => {
         e.preventDefault();
         if (validateForm()) {
@@ -544,7 +545,8 @@ const UploadCV = () => {
                 jobDescription,
                 departments,
                 minimumCGPA,
-                skills
+                skills: skills, // Keep skills field for backward compatibility
+                requiredSkills: skills // Add requiredSkills explicitly for API consistency
             };
             
             console.log("Job details saved:", jobDetails);
@@ -722,11 +724,18 @@ const UploadCV = () => {
             // Add a small delay to ensure loading animation starts properly
             await new Promise(resolve => setTimeout(resolve, 400));
             
-            // Create form data
+            // Create form data with both skills and requiredSkills fields
             const formData = new FormData();
             
-            // Add job data as JSON string
-            formData.append("job_data", JSON.stringify(jobData));
+            // Add job data as JSON string with both field names to ensure compatibility
+            const submissionData = {
+                ...jobData,
+                // Ensure both field names are present
+                skills: jobData.skills || [],
+                requiredSkills: jobData.requiredSkills || jobData.skills || []
+            };
+            
+            formData.append("job_data", JSON.stringify(submissionData));
 
             // Add all files
             fileState.selectedFiles.forEach(file => {

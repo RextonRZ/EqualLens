@@ -21,15 +21,14 @@ class JobService:
             # Get current timestamp as a string
             current_time = datetime.now().isoformat()
             
-            # Create job document data
+            # Create job document data with only requiredSkills - no more skills field
             job_doc = {
                 'jobId': job_id,
                 'jobTitle': job_data.jobTitle,
                 'jobDescription': job_data.jobDescription,
                 'departments': job_data.departments,
                 'minimumCGPA': job_data.minimumCGPA,
-                'requiredSkills': job_data.skills,  # Store as requiredSkills in Firestore
-                'skills': job_data.skills,  # Also store as skills for model compatibility
+                'requiredSkills': job_data.requiredSkills,
                 'createdAt': current_time,
                 'applicationCount': 0
             }
@@ -51,14 +50,6 @@ class JobService:
         try:
             # Query Firestore for all jobs
             jobs = firebase_client.get_collection('jobs')
-            
-            # Ensure each job has a 'skills' field for frontend compatibility
-            for job in jobs:
-                if 'requiredSkills' in job and 'skills' not in job:
-                    job['skills'] = job['requiredSkills']
-                elif 'skills' not in job:
-                    job['skills'] = []
-            
             return jobs
         except Exception as e:
             logger.error(f"Error getting jobs: {e}")
@@ -70,13 +61,6 @@ class JobService:
         try:
             # Query Firestore for a job by ID
             job = firebase_client.get_document('jobs', job_id)
-            
-            # Ensure job has a 'skills' field for frontend compatibility
-            if job and 'requiredSkills' in job and 'skills' not in job:
-                job['skills'] = job['requiredSkills']
-            elif job and 'skills' not in job:
-                job['skills'] = []
-                
             return job
         except Exception as e:
             logger.error(f"Error getting job {job_id}: {e}")
@@ -96,9 +80,8 @@ class JobService:
                 logger.warning("No fields to update")
                 return False
             
-            # If skills are being updated, also update requiredSkills for backward compatibility
-            if 'skills' in update_data:
-                update_data['requiredSkills'] = update_data['skills']
+            # Add debugging to track what we're sending to the database
+            logger.info(f"Update data for job {job_id}: {update_data}")
             
             # Update job in Firestore
             success = firebase_client.update_document('jobs', job_id, update_data)

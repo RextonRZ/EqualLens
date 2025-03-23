@@ -18,13 +18,6 @@ async def get_jobs():
     """Get all jobs."""
     try:
         jobs = JobService.get_jobs()
-        # Ensure each job has the required fields for the response model
-        for job in jobs:
-            if 'requiredSkills' in job and 'skills' not in job:
-                job['skills'] = job['requiredSkills']
-            elif 'skills' not in job:
-                job['skills'] = []
-                
         return jobs
     except Exception as e:
         logger.error(f"Error getting jobs: {e}")
@@ -36,13 +29,6 @@ async def get_job(job_id: str):
     job = JobService.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
-        
-    # Ensure job has the required fields for the response model
-    if 'requiredSkills' in job and 'skills' not in job:
-        job['skills'] = job['requiredSkills']
-    elif 'skills' not in job:
-        job['skills'] = []
-        
     return job
 
 @router.put("/{job_id}", response_model=JobResponse)
@@ -51,6 +37,10 @@ async def update_job(job_id: str, job: JobUpdate):
     existing_job = JobService.get_job(job_id)
     if not existing_job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    
+    # Debug - log what we received
+    job_dict = job.dict(exclude_unset=True)
+    logger.info(f"Updating job {job_id} with data: {job_dict}")
     
     success = JobService.update_job(job_id, job)
     if not success:
@@ -68,15 +58,23 @@ async def upload_job(
     try:
         # Parse job data JSON string
         job_details = json.loads(job_data)
+        logger.info(f"Received job details: {job_details}")
         
-        # Create job
+        # Create job with consistent field names
+        # Check if skills field exists, and map it properly to requiredSkills
+        skills = job_details.get("skills", [])
+        required_skills = job_details.get("requiredSkills", skills)  # Fallback to skills if requiredSkills not present
+        
         job_obj = JobCreate(
             jobTitle=job_details.get("jobTitle"),
             jobDescription=job_details.get("jobDescription", ""),
             departments=job_details.get("departments", []),
             minimumCGPA=job_details.get("minimumCGPA", 0),
-            skills=job_details.get("skills", [])
+            requiredSkills=required_skills  # Ensure we always use requiredSkills in the model
         )
+        
+        # Log the job object being created for debugging
+        logger.info(f"Creating job with data: {job_obj.dict()}")
         
         job_id = JobService.create_job(job_obj)
         if not job_id:

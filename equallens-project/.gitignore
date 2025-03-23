@@ -6,6 +6,11 @@ venv/
 backend/.env
 
 firebase_config.json
+backend/firebase_config.json
+backend/api/__pycache__/
+backend/core/__pycache__/
+backend/models/__pycache__/
+backend/services/__pycache__/
 
 # Dependencies
 node_modules/

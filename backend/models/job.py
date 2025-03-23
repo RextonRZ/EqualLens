@@ -9,7 +9,7 @@ class JobBase(BaseModel):
     jobDescription: str
     departments: List[str]
     minimumCGPA: float
-    skills: List[str]
+    requiredSkills: List[str]  # Use a single field name consistently
 
 
 class JobCreate(JobBase):
@@ -22,7 +22,6 @@ class JobResponse(JobBase):
     jobId: str
     createdAt: datetime
     applicationCount: int = 0
-    requiredSkills: Optional[List[str]] = None  # Add this field for backward compatibility
     
     class Config:
         schema_extra = {
@@ -32,7 +31,7 @@ class JobResponse(JobBase):
                 "jobDescription": "We are looking for a software engineer...",
                 "departments": ["Engineering", "Technology"],
                 "minimumCGPA": 3.0,
-                "skills": ["Python", "JavaScript", "React"],
+                "requiredSkills": ["Python", "JavaScript", "React"],
                 "createdAt": "2023-06-15T10:30:00",
                 "applicationCount": 5
             }
@@ -45,4 +44,4 @@ class JobUpdate(BaseModel):
     jobDescription: Optional[str] = None
     departments: Optional[List[str]] = None
     minimumCGPA: Optional[float] = None
-    skills: Optional[List[str]] = None
+    requiredSkills: Optional[List[str]] = None

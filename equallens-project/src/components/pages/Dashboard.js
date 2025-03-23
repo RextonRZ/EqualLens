@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import './Dashboard.css';
 import '../pageloading.css'; // Import the loading animation CSS
 
@@ -26,6 +26,32 @@ export default function Dashboard() {
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [showErrorModal, setShowErrorModal] = useState(false);
     const [modalMessage, setModalMessage] = useState("");
+    const descriptionTextareaRef = useRef(null); // Add reference for the textarea
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    
+    // Add state for department and skill editing
+    const [departmentInput, setDepartmentInput] = useState("");
+    const [departmentSuggestions, setDepartmentSuggestions] = useState([]);
+    const [showDepartmentSuggestions, setShowDepartmentSuggestions] = useState(false);
+    
+    const [skillInput, setSkillInput] = useState("");
+    const [skillSuggestions, setSkillSuggestions] = useState([]);
+    const [showSkillSuggestions, setShowSkillSuggestions] = useState(false);
+
+    // Sample data for suggestions - wrapped in useMemo to avoid recreation on each render
+    const departmentOptions = useMemo(() => [
+        "Engineering", "Information Technology", "Marketing", "Finance", "Human Resources",
+        "Sales", "Operations", "Customer Support", "Research & Development", "Legal",
+        "Administration", "Design", "Product Management", "Business Development", "Data Science"
+    ], []);
+
+    const skillsOptions = useMemo(() => [
+        "JavaScript", "Python", "Java", "React", "Node.js", "SQL", "AWS", "Docker",
+        "DevOps", "Machine Learning", "Data Analysis", "Agile", "Scrum",
+        "Project Management", "UI/UX Design", "TypeScript", "Go", "Ruby", 
+        "Communication", "Leadership", "Problem Solving", "C#", "PHP", "Angular",
+        "Vue.js", "MongoDB", "GraphQL", "REST API", "Git"
+    ], []);
 
     // Search functionality
     const [searchTerm, setSearchTerm] = useState('');
@@ -142,27 +168,60 @@ export default function Dashboard() {
         }, 300);
     };
 
+    // Modify handleEditToggle to reset input fields when starting to edit
     const handleEditToggle = () => {
+        // If we're starting to edit
+        if (!isEditing) {
+            // Reset the state to the current job data
+            setEditedJob(selectedJob);
+            
+            // Clear any pending input in department and skill fields
+            setDepartmentInput("");
+            setSkillInput("");
+            
+            // Schedule the textarea resize after render
+            setTimeout(() => {
+                adjustTextareaHeight();
+            }, 0);
+        }
+        
         setIsEditing(!isEditing);
     };
 
+    // Function to adjust textarea height based on content
+    const adjustTextareaHeight = () => {
+        if (descriptionTextareaRef.current) {
+            descriptionTextareaRef.current.style.height = 'auto';
+            descriptionTextareaRef.current.style.height = `${descriptionTextareaRef.current.scrollHeight}px`;
+        }
+    };
+
+    // Ensure the handleSaveChanges function properly formats the data before sending
     const handleSaveChanges = async () => {
         try {
             // Ensure minimumCGPA is formatted to 2 decimal places
             const updatedJobData = {
                 ...editedJob,
-                minimumCGPA: Number(parseFloat(editedJob.minimumCGPA).toFixed(2))
+                minimumCGPA: Number(parseFloat(editedJob.minimumCGPA).toFixed(2)),
+                requiredSkills: editedJob.requiredSkills || []
             };
+
+            console.log("Sending job update:", updatedJobData);
 
             const response = await fetch(`http://localhost:8000/jobs/${updatedJobData.jobId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(updatedJobData)
             });
+            
             if (!response.ok) {
-                throw new Error("Failed to update job");
+                const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
+                throw new Error(errorData.detail || "Failed to update job");
             }
+            
             const updatedJob = await response.json();
+            console.log("Received updated job:", updatedJob); // Debug: check what we received back
+            
             setJobs(jobs.map(job => job.jobId === updatedJob.jobId ? updatedJob : job));
             setSelectedJob(updatedJob);
             setIsEditing(false);
@@ -181,6 +240,11 @@ export default function Dashboard() {
             ...editedJob,
             [name]: value
         });
+        
+        // Adjust height when job description changes
+        if (name === 'jobDescription' && descriptionTextareaRef.current) {
+            setTimeout(() => adjustTextareaHeight(), 0);
+        }
     };
 
     const handleSearchChange = (e) => {
@@ -261,6 +325,199 @@ export default function Dashboard() {
         </div>
     );
 
+    // Create the confirmation modal component
+    const ConfirmModal = () => (
+        <div className="status-modal-overlay" role="dialog" aria-modal="true">
+            <div className="status-modal">
+                <div className="status-icon warning-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </div>
+                <h3 className="status-title">Discard Changes?</h3>
+                <p className="status-description">Are you sure you want to discard your unsaved changes?</p>
+                <div className="status-buttons">
+                    <button className="status-button secondary-button" onClick={handleCancelDiscard}>
+                        No, Keep Editing
+                    </button>
+                    <button className="status-button primary-button" onClick={handleConfirmDiscard}>
+                        Yes, Discard Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    // Function to check if any changes were made to the job
+    const hasChanges = () => {
+        if (!selectedJob || !editedJob) return false;
+        
+        // Check basic fields
+        if (selectedJob.jobTitle !== editedJob.jobTitle) return true;
+        if (selectedJob.jobDescription !== editedJob.jobDescription) return true;
+        if (selectedJob.minimumCGPA !== editedJob.minimumCGPA) return true;
+        
+        // Check arrays (departments and skills)
+        if (selectedJob.departments.length !== editedJob.departments.length) return true;
+        if (selectedJob.requiredSkills.length !== editedJob.requiredSkills.length) return true;
+        
+        // Check if departments have changed
+        for (let i = 0; i < selectedJob.departments.length; i++) {
+            if (!editedJob.departments.includes(selectedJob.departments[i])) return true;
+        }
+        
+        // Check if required skills have changed
+        for (let i = 0; i < selectedJob.requiredSkills.length; i++) {
+            if (!editedJob.requiredSkills.includes(selectedJob.requiredSkills[i])) return true;
+        }
+        
+        return false;
+    };
+
+    const handleCancelClick = () => {
+        if (hasChanges()) {
+            setShowConfirmModal(true);
+        } else {
+            // No changes, just exit edit mode
+            handleCancelEdit();
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditing(false);
+        setEditedJob(selectedJob); // Reset changes to original job
+        setDepartmentInput("");
+        setSkillInput("");
+    };
+
+    const handleConfirmDiscard = () => {
+        setShowConfirmModal(false);
+        handleCancelEdit();
+    };
+
+    const handleCancelDiscard = () => {
+        setShowConfirmModal(false);
+        // Stay in edit mode, do nothing
+    };
+
+    // Filter suggestions based on input
+    useEffect(() => {
+        if (departmentInput && isEditing) {
+            const filtered = departmentOptions.filter(
+                option => option.toLowerCase().includes(departmentInput.toLowerCase())
+            );
+            setDepartmentSuggestions(filtered);
+            setShowDepartmentSuggestions(filtered.length > 0);
+        } else {
+            setShowDepartmentSuggestions(false);
+        }
+    }, [departmentInput, departmentOptions, isEditing]);
+
+    useEffect(() => {
+        if (skillInput && isEditing) {
+            const filtered = skillsOptions.filter(
+                option => option.toLowerCase().includes(skillInput.toLowerCase())
+            );
+            setSkillSuggestions(filtered);
+            setShowSkillSuggestions(filtered.length > 0);
+        } else {
+            setShowSkillSuggestions(false);
+        }
+    }, [skillInput, skillsOptions, isEditing]);
+
+    // Close suggestions when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (!event.target.closest('.suggestion-container')) {
+                setShowDepartmentSuggestions(false);
+                setShowSkillSuggestions(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
+
+    // Department handlers
+    const handleDepartmentSelect = (department) => {
+        if (!editedJob.departments.includes(department)) {
+            setEditedJob({
+                ...editedJob,
+                departments: [...editedJob.departments, department]
+            });
+        }
+        setDepartmentInput("");
+        setShowDepartmentSuggestions(false);
+    };
+
+    const handleAddDepartment = () => {
+        if (departmentInput.trim() && !editedJob.departments.includes(departmentInput.trim())) {
+            setEditedJob({
+                ...editedJob,
+                departments: [...editedJob.departments, departmentInput.trim()]
+            });
+            setDepartmentInput("");
+        }
+    };
+    
+    const handleDepartmentKeyPress = (e) => {
+        if (e.key === 'Enter' && departmentInput.trim()) {
+            e.preventDefault();
+            handleAddDepartment();
+        }
+    };
+
+    const removeDepartment = (department) => {
+        setEditedJob({
+            ...editedJob,
+            departments: editedJob.departments.filter(dept => dept !== department)
+        });
+    };
+
+    // Skill handlers
+    const handleSkillSelect = (skill) => {
+        if (!editedJob.requiredSkills.includes(skill)) {
+            const updatedSkills = [...editedJob.requiredSkills, skill];
+            setEditedJob({
+                ...editedJob,
+                requiredSkills: updatedSkills
+            });
+        }
+        setSkillInput("");
+        setShowSkillSuggestions(false);
+    };
+
+    const handleAddSkill = () => {
+        if (skillInput.trim() && !editedJob.requiredSkills.includes(skillInput.trim())) {
+            const updatedSkills = [...editedJob.requiredSkills, skillInput.trim()];
+            setEditedJob({
+                ...editedJob,
+                requiredSkills: updatedSkills
+            });
+            setSkillInput("");
+        }
+    };
+
+    const handleSkillKeyPress = (e) => {
+        if (e.key === 'Enter' && skillInput.trim()) {
+            e.preventDefault();
+            handleAddSkill();
+        }
+    };
+
+    const removeSkill = (skill) => {
+        const updatedSkills = editedJob.requiredSkills.filter(s => s !== skill);
+        setEditedJob({
+            ...editedJob,
+            requiredSkills: updatedSkills
+        });
+        console.log("After removing skill:", editedJob.requiredSkills); // Debug logging
+    };
+
     if (isLoading) {
         return (
             <div className="dashboard-container" style={{ 
@@ -310,6 +567,7 @@ export default function Dashboard() {
         <div className="dashboard-container">
             {showSuccessModal && <SuccessModal />}
             {showErrorModal && <ErrorModal />}
+            {showConfirmModal && <ConfirmModal />}
             {!selectedJob ? (
                 <>
                     <div className="dashboard-header">
@@ -414,16 +672,13 @@ export default function Dashboard() {
                                     <button className="edit-job-button" onClick={handleEditToggle}>
                                         Edit Job
                                     </button>
-                                    <button className="upload-more-cv-button" onClick={handleUploadMoreCV}>
-                                        Upload More CV
-                                    </button>
                                 </>
                             ) : (
                                 <>
-                                    <button className="cancel-button" onClick={() => {
-                                        setIsEditing(false);
-                                        setEditedJob(selectedJob); // Reset changes
-                                    }}>
+                                    <button 
+                                        className="cancel-button" 
+                                        onClick={handleCancelClick}
+                                    >
                                         Cancel
                                     </button>
                                     <button className="save-button" onClick={handleSaveChanges}>
@@ -455,7 +710,8 @@ export default function Dashboard() {
                                             name="jobDescription"
                                             value={editedJob.jobDescription}
                                             onChange={handleInputChange}
-                                            rows="4"
+                                            ref={descriptionTextareaRef}
+                                            className="auto-resize-textarea"
                                         />
                                     </div>
                                     
@@ -473,15 +729,126 @@ export default function Dashboard() {
                                         />
                                     </div>
 
-                                    {/* Departments would need a more complex editor component */}
+                                    {/* Editable departments field */}
                                     <div className="form-group">
                                         <label>Departments</label>
-                                        <p className="helper-text">Editing departments is not available in this view</p>
-                                        <div className="departments-display">
-                                            {editedJob.departments?.map((dept, index) => (
-                                                <span key={index} className="department-tag">{dept}</span>
-                                            ))}
+                                        <div className="suggestion-container">
+                                            <div className="input-group">
+                                                <input
+                                                    type="text"
+                                                    className="form-input"
+                                                    value={departmentInput}
+                                                    onChange={(e) => setDepartmentInput(e.target.value)}
+                                                    onKeyPress={handleDepartmentKeyPress}
+                                                    placeholder="Enter a department"
+                                                    onBlur={() => {
+                                                        setTimeout(() => {
+                                                            setShowDepartmentSuggestions(false);
+                                                        }, 200);
+                                                    }}
+                                                />
+                                                <button 
+                                                    type="button" 
+                                                    className="add-button"
+                                                    onClick={handleAddDepartment}
+                                                    disabled={!departmentInput.trim()}
+                                                >
+                                                    Add
+                                                </button>
+                                            </div>
+                                            {showDepartmentSuggestions && (
+                                                <ul className="suggestions-list">
+                                                    {departmentSuggestions.map((suggestion, index) => (
+                                                        <li 
+                                                            key={index} 
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                handleDepartmentSelect(suggestion);
+                                                            }}
+                                                        >
+                                                            {suggestion}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
                                         </div>
+                                        {editedJob.departments && editedJob.departments.length > 0 && (
+                                            <div className="tags-container departments-container">
+                                                {editedJob.departments.map((department, index) => (
+                                                    <div key={index} className="tag">
+                                                        {department}
+                                                        <button 
+                                                            type="button"
+                                                            className="tag-remove"
+                                                            onClick={() => removeDepartment(department)}
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Editable required skills field */}
+                                    <div className="form-group">
+                                        <label>Required Skills</label>
+                                        <div className="suggestion-container">
+                                            <div className="input-group">
+                                                <input
+                                                    type="text"
+                                                    className="form-input"
+                                                    value={skillInput}
+                                                    onChange={(e) => setSkillInput(e.target.value)}
+                                                    onKeyPress={handleSkillKeyPress}
+                                                    placeholder="Enter a skill"
+                                                    onBlur={() => {
+                                                        setTimeout(() => {
+                                                            setShowSkillSuggestions(false);
+                                                        }, 200);
+                                                    }}
+                                                />
+                                                <button 
+                                                    type="button" 
+                                                    className="add-button"
+                                                    onClick={handleAddSkill}
+                                                    disabled={!skillInput.trim()}
+                                                >
+                                                    Add
+                                                </button>
+                                            </div>
+                                            {showSkillSuggestions && (
+                                                <ul className="suggestions-list">
+                                                    {skillSuggestions.map((suggestion, index) => (
+                                                        <li 
+                                                            key={index} 
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                handleSkillSelect(suggestion);
+                                                            }}
+                                                        >
+                                                            {suggestion}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                        {editedJob.requiredSkills && editedJob.requiredSkills.length > 0 && (
+                                            <div className="tags-container skills-container">
+                                                {editedJob.requiredSkills.map((skill, index) => (
+                                                    <div key={index} className="tag">
+                                                        {skill}
+                                                        <button 
+                                                            type="button"
+                                                            className="tag-remove"
+                                                            onClick={() => removeSkill(skill)}
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ) : (
@@ -523,7 +890,15 @@ export default function Dashboard() {
                         </div>
                         
                         <div className="applicants-container">
-                            <h3>Applicants ({applicants.length})</h3>
+                            <div className="applicants-header">
+                                <h3>Applicants ({applicants.length})</h3>
+                                {!isEditing && (
+                                    <button className="upload-more-cv-button" onClick={handleUploadMoreCV}>
+                                        Upload More CV
+                                    </button>
+                                )}
+                            </div>
+                            
                             {applicants.length === 0 ? (
                                 <div className="no-applicants">
                                     <p>No applications have been received for this job yet.</p>
