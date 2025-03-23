@@ -10,6 +10,7 @@ import InterviewQuestions from './components/pages/InterviewQuestions';
 import InterviewLinkGenerator from './components/pages/InterviewLinkGenerator';
 import InterviewReview from './components/pages/InterviewReview';
 import Dashboard from './components/pages/Dashboard';
+import AddInterviewQuestions from "./components/pages/AddInterviewQuestions";
 
 function App() {
   return (
@@ -33,6 +34,9 @@ function App() {
 
         {/* Dashboard route */}
         <Route path="/dashboard" element={<Dashboard />} />
+
+        {/* Add Interview Questions route */}
+        <Route path="/add-interview-questions" element={<AddInterviewQuestions />} />
       </Routes>
     </Router>
   );

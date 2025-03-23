@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import './Dashboard.css';
 import '../pageloading.css'; // Import the loading animation CSS
 import UploadMoreCVModal from '../UploadMoreCVModal';
@@ -73,6 +74,31 @@ export default function Dashboard() {
     // Add state for Upload CV modal
     const [showUploadCVModal, setShowUploadCVModal] = useState(false);
 
+    // Get location to check for state from navigation
+    const location = useLocation();
+    const navigate = useNavigate();
+    
+    // Extract URL parameters
+    const queryParams = new URLSearchParams(location.search);
+    const urlJobId = queryParams.get('jobId');
+    
+    // Check for direct navigation state from AddInterviewQuestions
+    const directNavigation = location.state?.directToJobDetails;
+    const stateJobId = location.state?.jobId;
+    
+    // Combined job ID from either source, with state taking priority
+    const targetJobId = stateJobId || urlJobId;
+    
+    // On first render, if we have state, clear it from history
+    // to prevent issues on page refresh
+    useEffect(() => {
+        if (location.state?.directToJobDetails) {
+            // Replace the current URL without the state to keep the URL clean
+            navigate(location.pathname + (targetJobId ? `?jobId=${targetJobId}` : ''), 
+                { replace: true, state: {} });
+        }
+    }, []);
+
     // Fetch jobs when component mounts
     useEffect(() => {
         const fetchJobs = async () => {
@@ -84,6 +110,31 @@ export default function Dashboard() {
                 }
                 const dbJobs = await response.json();
                 setJobs(dbJobs); // Assuming dbJobs is an array of job objects
+                
+                // If there's a jobId in URL or state, select that job automatically
+                // We use the combined targetJobId here
+                if (targetJobId && dbJobs.length > 0) {
+                    setJobDetailLoading(true); // Show loading state immediately
+                    
+                    const jobToSelect = dbJobs.find(job => job.jobId === targetJobId);
+                    if (jobToSelect) {
+                        // If coming from interview questions page via direct navigation,
+                        // let's select the job right away to avoid the glitch
+                        if (directNavigation) {
+                            setSelectedJob(jobToSelect);
+                            setEditedJob(jobToSelect);
+                            fetchApplicants(jobToSelect.jobId).then(() => {
+                                setJobDetailLoading(false);
+                            });
+                        } else {
+                            // Otherwise use the original delayed approach
+                            handleJobSelect(jobToSelect);
+                        }
+                    } else {
+                        setJobDetailLoading(false);
+                    }
+                }
+
                 setIsLoading(false);
             } catch (err) {
                 setError("Failed to fetch jobs. Please try again.");
@@ -92,7 +143,7 @@ export default function Dashboard() {
             }
         };
         fetchJobs();
-    }, []);
+    }, [targetJobId, directNavigation]); // Add dependencies
 
     // Filter jobs based on search term and category
     const filteredJobs = jobs.filter(job => {
@@ -272,7 +323,7 @@ export default function Dashboard() {
         let hours = date.getHours();
         const ampm = hours >= 12 ? 'PM' : 'AM';
         hours = hours % 12;
-        hours = hours ? hours : 12; // the hour '0' should be '12'
+        hours = hours ? 12 : 12; // the hour '0' should be '12'
         const minutes = date.getMinutes().toString().padStart(2, '0');
         const seconds = date.getSeconds().toString().padStart(2, '0');
         
@@ -741,7 +792,10 @@ export default function Dashboard() {
                             <div className="section-header">
                                 <h3>Job Details</h3>
                                 {!isEditing && (
-                                    <button className="interview-questions-button" onClick={() => window.location.href=`/interviews?jobId=${selectedJob.jobId}`}>
+                                    <button
+                                        className="interview-questions-button"
+                                        onClick={() => window.location.href = `/add-interview-questions?jobId=${selectedJob.jobId}`}
+                                    >
                                         Interview Questions
                                     </button>
                                 )}
