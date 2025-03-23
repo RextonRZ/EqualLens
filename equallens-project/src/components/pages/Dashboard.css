@@ -784,7 +784,7 @@
 
 /* Updated styling for the button */
 .upload-more-cv-button {
-  background-color: #F9645F;
+  background-color: #f95f79;
   color: white;
   border: none;
   padding: 0.6rem 1.2rem;
@@ -798,7 +798,7 @@
 }
 
 .upload-more-cv-button:hover {
-  background-color: #ef402d;
+  background-color: #ef2d71;
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(249, 100, 95, 0.3);
 }
@@ -1002,7 +1002,7 @@
 
 /* Update styling for the Upload More CV button */
 .upload-more-cv-button {
-  background-color: #F9645F;
+  background-color: #f96e5f;
   color: white;
   border: none;
   padding: 0.6rem 1.2rem;
@@ -1015,7 +1015,7 @@
 }
 
 .upload-more-cv-button:hover {
-  background-color: #ef402d;
+  background-color: #d82f40;
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(249, 100, 95, 0.3);
 }
@@ -1023,4 +1023,76 @@
 
 .upload-more-cv-container {
   display: none; 
+}
+
+/* Add new section header styles for job details with interview questions button */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #eee;
+}
+
+.section-header h3 {
+  margin-bottom: 0; /* Override previous margin to prevent extra space */
+  padding-bottom: 0; /* Override previous padding */
+  border-bottom: none; /* Remove the border since it's now on the container */
+}
+
+/* Style for the Interview Questions button - updated to match Upload More CV button */
+.interview-questions-button {
+  background-color: #f96e5f; /* Updated to match Upload More CV button color */
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(249, 100, 95, 0.2);
+  display: flex;
+  align-items: center;
+}
+
+.interview-questions-button:hover {
+  background-color: #d82f40; /* Match hover state of Upload More CV */
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(249, 100, 95, 0.3);
+}
+
+/* Remove old styling for h3 in job-info-container that will now be handled by section-header */
+.job-info-container h3 {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+/* Add styles for the applicants-actions container */
+.applicants-actions {
+  display: flex;
+  gap: 0.75rem; /* Space between the buttons */
+  align-items: center;
+}
+
+/* Style for the Rank button */
+.rank-button {
+  background-color: #ff8c4e;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(249, 100, 95, 0.2);
+}
+
+.rank-button:hover {
+  background-color: #ed663d;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(249, 100, 95, 0.3);
 }

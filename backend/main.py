@@ -41,8 +41,8 @@ app.add_middleware(
 
 # Include the API routers
 app.include_router(interviews.router, prefix="/api/interviews", tags=["interviews"])
-app.include_router(jobs.router, prefix="/jobs", tags=["jobs"])
-app.include_router(candidates.router, prefix="", tags=["candidates"])
+app.include_router(jobs.router, prefix="/api/jobs", tags=["jobs"])  # Fixed prefix to match `/api/jobs`
+app.include_router(candidates.router, prefix="/api/candidates", tags=["candidates"])
 
 @app.get("/")
 async def root():

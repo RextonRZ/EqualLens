@@ -571,7 +571,8 @@ const UploadCV = () => {
 
     // API URL for backend
     const API_URL = "http://localhost:8000"; // Your FastAPI URL
-    const API_ENDPOINT = `${API_URL}/jobs/upload-job`; // FIXED: updated to use correct endpoint
+    const API_ENDPOINT = `${API_URL}/api/jobs/upload-job`; // Ensure the correct endpoint is used
+    const UPLOAD_MORE_CV_ENDPOINT = `${API_URL}/api/jobs/upload-more-cv`; // Add endpoint for upload-more-cv
 
     // Clean up animation frame on component unmount
     useEffect(() => {
@@ -919,6 +920,29 @@ const UploadCV = () => {
         setApiStatus("idle");
         setSubmitProgress(0);
         setShowSuccessModal(false);
+    };
+
+    // Example usage for upload-more-cv
+    const handleUploadMoreCV = async (jobId, files) => {
+        const formData = new FormData();
+        formData.append("job_id", jobId);
+        files.forEach(file => formData.append("files", file));
+
+        try {
+            const response = await fetch(UPLOAD_MORE_CV_ENDPOINT, {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error(`Server responded with ${response.status}: ${await response.text()}`);
+            }
+
+            const data = await response.json();
+            console.log("Upload more CV response:", data);
+        } catch (error) {
+            console.error("Error uploading more CVs:", error);
+        }
     };
 
     return (

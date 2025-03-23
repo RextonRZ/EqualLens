@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import './Dashboard.css';
 import '../pageloading.css'; // Import the loading animation CSS
+import UploadMoreCVModal from '../UploadMoreCVModal';
 
 // LoadingAnimation component for consistent loading UI across the application
 const LoadingAnimation = () => {
@@ -69,12 +70,15 @@ export default function Dashboard() {
         // navigate("/upload-cv");
     };
 
+    // Add state for Upload CV modal
+    const [showUploadCVModal, setShowUploadCVModal] = useState(false);
+
     // Fetch jobs when component mounts
     useEffect(() => {
         const fetchJobs = async () => {
             setIsLoading(true);
             try {
-                const response = await fetch('http://localhost:8000/jobs'); // FIXED: removed /api prefix
+                const response = await fetch('http://localhost:8000/api/jobs'); // FIXED: updated to /api/jobs
                 if (!response.ok) {
                     throw new Error("Network response was not ok");
                 }
@@ -133,14 +137,17 @@ export default function Dashboard() {
     // Fetch applicants for a selected job from the backend API
     const fetchApplicants = async (jobId) => {
         try {
-            const response = await fetch(`http://localhost:8000/applicants?jobId=${jobId}`); // FIXED: removed /api/jobs prefix
+            // Fix the API endpoint to match the backend API structure
+            const response = await fetch(`http://localhost:8000/api/candidates/applicants?jobId=${jobId}`);
             if (!response.ok) {
-                throw new Error("Network response was not ok");
+                throw new Error(`Network response was not ok: ${response.status}`);
             }
             const applicantsData = await response.json();
+            console.log("Fetched applicants data:", applicantsData); // Debug: log the received data
             setApplicants(applicantsData);
         } catch (err) {
             console.error("Error fetching applicants:", err);
+            setApplicants([]);  // Set empty array on error to prevent undefined issues
         }
     };
 
@@ -208,7 +215,7 @@ export default function Dashboard() {
 
             console.log("Sending job update:", updatedJobData);
 
-            const response = await fetch(`http://localhost:8000/jobs/${updatedJobData.jobId}`, {
+            const response = await fetch(`http://localhost:8000/api/jobs/${updatedJobData.jobId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(updatedJobData)
@@ -274,7 +281,38 @@ export default function Dashboard() {
 
     // Add new handler for "Upload More CV"
     const handleUploadMoreCV = () => {
-        // window.location.href = `/upload-cv?jobId=${selectedJob.jobId}`;
+        setShowUploadCVModal(true);
+    };
+
+    // Handle upload complete event
+    const handleUploadComplete = (count) => {
+        // Close the upload CV modal first
+        setShowUploadCVModal(false);
+        
+        // Refresh applicants data when upload is complete
+        if (selectedJob && count > 0) {
+            fetchApplicants(selectedJob.jobId);
+            
+            // Update the local job object with the new application count
+            const updatedJob = {
+                ...selectedJob,
+                applicationCount: (selectedJob.applicationCount || 0) + count
+            };
+            
+            // Update the job in both selectedJob and jobs array
+            setSelectedJob(updatedJob);
+            setJobs(prevJobs => prevJobs.map(job => 
+                job.jobId === updatedJob.jobId ? updatedJob : job
+            ));
+            
+            // Show success message
+            setModalMessage(`${count} new CV${count !== 1 ? 's' : ''} uploaded successfully.`);
+            
+            // Use setTimeout to ensure modal appears after the upload modal is closed
+            setTimeout(() => {
+                setShowSuccessModal(true);
+            }, 300);
+        }
     };
 
     const handleMinimumCGPABlur = () => {
@@ -568,6 +606,15 @@ export default function Dashboard() {
             {showSuccessModal && <SuccessModal />}
             {showErrorModal && <ErrorModal />}
             {showConfirmModal && <ConfirmModal />}
+            {showUploadCVModal && (
+                <UploadMoreCVModal  // Updated component name
+                    isOpen={showUploadCVModal}
+                    onClose={() => setShowUploadCVModal(false)}
+                    jobId={selectedJob?.jobId}
+                    jobTitle={selectedJob?.jobTitle}
+                    onUploadComplete={handleUploadComplete}
+                />
+            )}
             {!selectedJob ? (
                 <>
                     <div className="dashboard-header">
@@ -691,7 +738,15 @@ export default function Dashboard() {
                     
                     <div className="job-detail-content">
                         <div className="job-info-container">
-                            <h3>Job Details</h3>
+                            <div className="section-header">
+                                <h3>Job Details</h3>
+                                {!isEditing && (
+                                    <button className="interview-questions-button" onClick={() => window.location.href=`/interviews?jobId=${selectedJob.jobId}`}>
+                                        Interview Questions
+                                    </button>
+                                )}
+                            </div>
+                            
                             {isEditing ? (
                                 <div className="job-edit-form">
                                     <div className="form-group">
@@ -893,9 +948,14 @@ export default function Dashboard() {
                             <div className="applicants-header">
                                 <h3>Applicants ({applicants.length})</h3>
                                 {!isEditing && (
-                                    <button className="upload-more-cv-button" onClick={handleUploadMoreCV}>
-                                        Upload More CV
-                                    </button>
+                                    <div className="applicants-actions">
+                                        <button className="rank-button" onClick={() => window.location.href=`/rank?jobId=${selectedJob.jobId}`}>
+                                            Rank Applicants
+                                        </button>
+                                        <button className="upload-more-cv-button" onClick={handleUploadMoreCV}>
+                                            Upload More CV
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                             
@@ -908,22 +968,15 @@ export default function Dashboard() {
                                     {applicants.map((applicant) => (
                                         <div key={applicant.applicationId} className="applicant-card">
                                             <div className="applicant-info">
-                                                <h4>
-                                                    { applicant.candidateInfo?.name ||
-                                                      applicant.extractedText?.applicant_name ||
-                                                      "Candidate Name Not Available" }
-                                                </h4>
-                                                <p className="applicant-email">
-                                                    { applicant.candidateInfo?.email ||
-                                                      applicant.extractedText?.applicant_mail ||
-                                                      "Email Not Available" }
-                                                </p>
+                                                <h4>{renderApplicantName(applicant)}</h4>
+                                                <p className="applicant-email">{renderApplicantEmail(applicant)}</p>
                                             </div>
                                             <div className="applicant-status-actions">
                                                 <span className={`status-badge ${applicant.status || 'new'}`}>
-                                                    { applicant.status || 'new' }
+                                                    {applicant.status || 'new'}
                                                 </span>
-                                                <button className="view-profile-button">
+                                                <button className="view-profile-button" 
+                                                        onClick={() => console.log("Full profile for:", applicant)}>
                                                     Full Profile
                                                 </button>
                                             </div>
@@ -938,3 +991,52 @@ export default function Dashboard() {
         </div>
     );
 }
+
+// Improved applicant data rendering with fallbacks and debugging
+const renderApplicantName = (applicant) => {
+    // Check if there's candidate info directly in the application
+    if (applicant.candidateInfo && applicant.candidateInfo.name) {
+        return applicant.candidateInfo.name;
+    }
+    
+    // Try to get data from extractedText with more fallback options
+    if (applicant.extractedText) {
+        // Check multiple possible field names that might contain the name
+        const nameFields = ['applicant_name', 'name', 'Name', 'full_name', 'fullName'];
+        for (const field of nameFields) {
+            if (applicant.extractedText[field]) {
+                return applicant.extractedText[field];
+            }
+        }
+    }
+    
+    // If candidateId is available, at least show something meaningful
+    if (applicant.candidateId) {
+        return `Applicant ${applicant.candidateId}`;
+    }
+    
+    // Debug what data we actually have
+    console.log("Applicant data structure:", applicant);
+    
+    return "Candidate Name Not Available";
+};
+
+const renderApplicantEmail = (applicant) => {
+    // Check if there's candidate info directly in the application
+    if (applicant.candidateInfo && applicant.candidateInfo.email) {
+        return applicant.candidateInfo.email;
+    }
+    
+    // Try to get data from extractedText with more fallback options
+    if (applicant.extractedText) {
+        // Check multiple possible field names that might contain the email
+        const emailFields = ['applicant_mail', 'email', 'Email', 'email_address', 'emailAddress'];
+        for (const field of emailFields) {
+            if (applicant.extractedText[field]) {
+                return applicant.extractedText[field];
+            }
+        }
+    }
+    
+    return "Email Not Available";
+};

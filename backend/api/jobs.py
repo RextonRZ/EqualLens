@@ -120,3 +120,62 @@ async def upload_job(
                 "message": "An error occurred while processing your request"
             }
         )
+
+@router.post("/upload-more-cv")
+async def upload_more_cv(
+    job_id: str = Form(...),
+    files: List[UploadFile] = File(...)
+):
+    """Upload additional candidate resumes for an existing job."""
+    try:
+        # Check if job exists
+        job = JobService.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+        logger.info(f"Uploading additional CVs for job {job_id}, file count: {len(files)}")
+        
+        # Process files and create candidates
+        candidates = []
+        for file in files:
+            content = await file.read()
+            candidate_data = CandidateService.create_candidate(
+                job_id=job_id,
+                file_content=content,
+                file_name=file.filename,
+                content_type=file.content_type or "application/pdf"
+            )
+            
+            if candidate_data:
+                candidates.append(candidate_data)
+        
+        # Create applications for candidates
+        applications = CandidateService.process_applications(job_id, candidates)
+        
+        # Update application count for the job
+        job = JobService.get_job(job_id)
+        
+        # Return response
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": "Additional CVs uploaded successfully",
+                "jobId": job_id,
+                "applicationCount": len(applications),
+                "applications": applications,
+                "candidates": candidates,
+                "progress": 100.0,
+                "totalApplications": job.get("applicationCount", 0)
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error uploading additional CVs: {e}")
+        logger.exception("Exception details:")
+        return JSONResponse(
+            status_code=500, 
+            content={
+                "error": str(e),
+                "type": str(type(e).__name__),
+                "message": "An error occurred while processing your request"
+            }
+        )

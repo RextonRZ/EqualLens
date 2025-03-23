@@ -9,9 +9,10 @@ logger = logging.getLogger(__name__)
 
 @router.get("/applicants")
 async def get_applicants(jobId: str = Query(..., description="Job ID to get applicants for")):
-    """Get applicants for a job."""
+    logger.info(f"Fetching applicants for jobId: {jobId}")
     try:
         applications = JobService.get_applications_for_job(jobId)
+        logger.info(f"Applications fetched: {applications}")
         return applications
     except Exception as e:
         logger.error(f"Error getting applicants: {e}")
