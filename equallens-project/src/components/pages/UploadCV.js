@@ -561,6 +561,10 @@ const UploadCV = () => {
         setCurrentStep("jobDetails");
         // Scroll to top of the page
         window.scrollTo({ top: 0, behavior: 'smooth' });
+        // Reapply slider fill percentage to fix CGPA slider color issue
+        setTimeout(() => {
+            updateSliderPercentage(minimumCGPA);
+        }, 100);
     };
 
     // API URL for backend
@@ -616,6 +620,12 @@ const UploadCV = () => {
                     <strong>Your files have been uploaded successfully</strong>
                 </p>
                 <div className="status-buttons">
+                    <button 
+                        className="status-button secondary-button" 
+                        onClick={handleCreateMoreJob}
+                    >
+                        Create More Job
+                    </button>
                     <button 
                         className="status-button primary-button" 
                         onClick={handleGoToDashboard}
@@ -882,6 +892,28 @@ const UploadCV = () => {
         updateSliderPercentage(minimumCGPA);
     }, [minimumCGPA]);
 
+    // Add auto-resize function for the job description textarea
+    const handleJobDescriptionInput = (e) => {
+        e.target.style.height = "auto";
+        e.target.style.height = `${e.target.scrollHeight}px`;
+    };
+
+    // Add this new function for creating more jobs
+    const handleCreateMoreJob = () => {
+        // Reset the form and navigate back to job details
+        setCurrentStep("jobDetails");
+        setJobTitle("");
+        setJobDescription("");
+        setDepartments([]);
+        setMinimumCGPA(2.50);
+        setSkills([]);
+        setJobData(null);
+        fileDispatch({ type: 'RESET' });
+        setApiStatus("idle");
+        setSubmitProgress(0);
+        setShowSuccessModal(false);
+    };
+
     return (
         <div className="app-container">
             {getFullPageOverlay()}
@@ -955,6 +987,7 @@ const UploadCV = () => {
                                 className="form-textarea"
                                 value={jobDescription}
                                 onChange={(e) => setJobDescription(e.target.value)}
+                                onInput={handleJobDescriptionInput} // Added auto-resize handler
                                 placeholder="Enter job description"
                                 rows="4"
                             />
