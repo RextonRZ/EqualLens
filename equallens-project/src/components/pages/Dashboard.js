@@ -16,6 +16,24 @@ const LoadingAnimation = () => {
     );
 };
 
+// Helper function to format dates consistently throughout the application
+const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    
+    // Convert to 12-hour format with AM/PM
+    let hours = date.getHours();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // the hour '0' should be '12'
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    
+    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds} ${ampm}`;
+};
+
 export default function Dashboard() {
     const [jobs, setJobs] = useState([]);
     const [selectedJob, setSelectedJob] = useState(null);
@@ -311,23 +329,6 @@ export default function Dashboard() {
 
     const handleCategoryChange = (e) => {
         setSearchCategory(e.target.value);
-    };
-
-    const formatDate = (dateString) => {
-        const date = new Date(dateString);
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const year = date.getFullYear();
-        
-        // Convert to 12-hour format with AM/PM
-        let hours = date.getHours();
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        hours = hours % 12;
-        hours = hours ? 12 : 12; // the hour '0' should be '12'
-        const minutes = date.getMinutes().toString().padStart(2, '0');
-        const seconds = date.getSeconds().toString().padStart(2, '0');
-        
-        return `${day}/${month}/${year} ${hours}:${minutes}:${seconds} ${ampm}`;
     };
 
     // Add new handler for "Upload More CV"
@@ -1022,8 +1023,8 @@ export default function Dashboard() {
                                     {applicants.map((applicant) => (
                                         <div key={applicant.applicationId} className="applicant-card">
                                             <div className="applicant-info">
-                                                <h4>{renderApplicantName(applicant)}</h4>
-                                                <p className="applicant-email">{renderApplicantEmail(applicant)}</p>
+                                                <h4>{renderApplicantID(applicant)}</h4>
+                                                <p className="applicant-email">{'CV Uploaded on ' +(renderApplicantSubmitDate(applicant))}</p>
                                             </div>
                                             <div className="applicant-status-actions">
                                                 <span className={`status-badge ${applicant.status || 'new'}`}>
@@ -1047,50 +1048,48 @@ export default function Dashboard() {
 }
 
 // Improved applicant data rendering with fallbacks and debugging
-const renderApplicantName = (applicant) => {
-    // Check if there's candidate info directly in the application
-    if (applicant.candidateInfo && applicant.candidateInfo.name) {
-        return applicant.candidateInfo.name;
-    }
-    
-    // Try to get data from extractedText with more fallback options
-    if (applicant.extractedText) {
-        // Check multiple possible field names that might contain the name
-        const nameFields = ['applicant_name', 'name', 'Name', 'full_name', 'fullName'];
-        for (const field of nameFields) {
-            if (applicant.extractedText[field]) {
-                return applicant.extractedText[field];
-            }
-        }
-    }
-    
-    // If candidateId is available, at least show something meaningful
-    if (applicant.candidateId) {
-        return `Applicant ${applicant.candidateId}`;
-    }
-    
-    // Debug what data we actually have
-    console.log("Applicant data structure:", applicant);
-    
-    return "Candidate Name Not Available";
+const renderApplicantID = (applicant) => {
+    // Directly return candidateId instead of name
+    return applicant.candidateId || "ID Not Available";
 };
 
-const renderApplicantEmail = (applicant) => {
-    // Check if there's candidate info directly in the application
-    if (applicant.candidateInfo && applicant.candidateInfo.email) {
-        return applicant.candidateInfo.email;
-    }
+const renderApplicantSubmitDate = (applicant) => {
+    // Check multiple possible locations for the upload date
+    let uploadDate = null;
     
-    // Try to get data from extractedText with more fallback options
-    if (applicant.extractedText) {
-        // Check multiple possible field names that might contain the email
-        const emailFields = ['applicant_mail', 'email', 'Email', 'email_address', 'emailAddress'];
-        for (const field of emailFields) {
-            if (applicant.extractedText[field]) {
-                return applicant.extractedText[field];
-            }
+    // Try direct uploadedAt property
+    if (applicant.uploadedAt) {
+        uploadDate = applicant.uploadedAt;
+    }
+    // Try applicationDate property (often used for timestamps in applications)
+    else if (applicant.applicationDate) {
+        uploadDate = applicant.applicationDate;
+    }
+    // Try nested locations
+    else if (applicant.candidateInfo && applicant.candidateInfo.uploadedAt) {
+        uploadDate = applicant.candidateInfo.uploadedAt;
+    }
+    // Try extracted text data
+    else if (applicant.extractedText && applicant.extractedText.uploadedAt) {
+        uploadDate = applicant.extractedText.uploadedAt;
+    }
+    // Look for Firebase timestamp format (could be in seconds or milliseconds)
+    else if (applicant.timestamp) {
+        // Firebase timestamps can be objects with seconds and nanoseconds
+        if (typeof applicant.timestamp === 'object' && applicant.timestamp.seconds) {
+            uploadDate = new Date(applicant.timestamp.seconds * 1000).toISOString();
+        } else {
+            uploadDate = applicant.timestamp;
         }
     }
     
-    return "Email Not Available";
+    // If we found a date value, format it
+    if (uploadDate) {
+        return formatDate(uploadDate);
+    }
+    
+    // For debugging, log the full applicant object to see its structure
+    console.log("Applicant structure for debugging upload date:", applicant);
+    
+    return "Upload Date Not Available";
 };

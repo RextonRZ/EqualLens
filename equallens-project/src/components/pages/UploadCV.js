@@ -973,7 +973,7 @@ const UploadCV = () => {
             
             {currentStep === "jobDetails" ? (
                 <div className="job-container">
-                    <h3 className="job-title-header">Job Details</h3>
+                    <h3 className="job-title-header">Create New Job</h3>
                     <form onSubmit={handleSubmit}>
                         <div className="form-group">
                             <label htmlFor="jobTitle" className="form-label">Job Title <span className="required">*</span></label>
