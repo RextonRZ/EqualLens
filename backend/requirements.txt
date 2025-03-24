@@ -10,3 +10,7 @@ httpx>=0.25.0
 reportlab>=3.6.0
 python-docx>=0.8.11
 chardet>=4.0.0
+google-cloud-vision>=3.4.0
+google-cloud-speech>=2.20.0
+pillow>=10.0.0
+numpy>=1.23.0
