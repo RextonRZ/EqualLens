@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./AddInterviewQuestions.css";
 import '../pageloading.css'; // Import the loading animation CSS
+import axios from "axios"; // Add axios for API calls
 
 // Add LoadingAnimation component for consistency
 const LoadingAnimation = () => {
@@ -40,12 +41,27 @@ const AddInterviewQuestions = () => {
     const [totalInterviewTime, setTotalInterviewTime] = useState({ minutes: 0, seconds: 0 });
     // Add new state for navigation confirmation modal
     const [showNavigationModal, setShowNavigationModal] = useState(false);
-    // Add state for AI generate confirmation modal
-    const [showAIConfirmModal, setShowAIConfirmModal] = useState(false);
     // Add state to track if AI generate has been used already
     const [aiGenerateUsed, setAiGenerateUsed] = useState(false);
     // Add state for showing success message when AI sections are added
     const [showAISuccess, setShowAISuccess] = useState(false);
+    // Add a new state to track if changes have been saved
+    const [changesSaved, setChangesSaved] = useState(true);
+    // Add a ref to track if sections were loaded from DB or changed by user
+    const [sectionsLoadedFromDB, setSectionsLoadedFromDB] = useState(false);
+    // Add a new state for the apply-to-all confirmation modal
+    const [showApplyToAllModal, setShowApplyToAllModal] = useState(false);
+    const [applyToAllStatus, setApplyToAllStatus] = useState(null);
+    // Add state for reset confirmation modal
+    const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
+    // Add new state for reset success modal
+    const [showResetSuccessModal, setShowResetSuccessModal] = useState(false);
+    // Add state to track what operation is being performed
+    const [loadingOperation, setLoadingOperation] = useState("Saving");
+    // Add these new state variables
+    const [showCandidateSwitchModal, setShowCandidateSwitchModal] = useState(false);
+    const [pendingCandidateId, setPendingCandidateId] = useState(null);
+    const [showUnsavedResetModal, setShowUnsavedResetModal] = useState(false);
     
     // Get job ID from URL query params
     const location = useLocation();
@@ -101,6 +117,138 @@ const AddInterviewQuestions = () => {
         fetchApplicants();
     }, [jobId]);
 
+    const resetUI = (keepSelectedApplicant = false) => {
+        // Reset all fields to their initial state
+        setSections([]);
+        setNewSectionTitle("");
+        if (!keepSelectedApplicant) {
+            setSelectedApplicant("");
+        }
+        setEditingSectionIndex(null);
+        setEditedSectionTitle("");
+        setShowErrorModal(false);
+        setErrorMessage("");
+        setShowConfirmModal(false);
+        setSectionToDelete(null);
+        setShowSaveConfirmModal(false);
+        setTotalInterviewTime({ minutes: 0, seconds: 0 });
+        setShowNavigationModal(false);
+        setAiGenerateUsed(false);
+        setShowAISuccess(false);
+    };
+
+    // Fetch previously saved InterviewQuestionSet when the component mounts
+    useEffect(() => {
+        const fetchSavedQuestions = async () => {
+            if (!jobId || !selectedApplicant) return;
+
+            try {
+                const response = await axios.get(
+                    `http://localhost:8000/api/interview-questions/question-set/${selectedApplicant}`
+                );
+                const data = response.data;
+                if (data) {
+                    setSections(data.sections);
+                    setSectionsLoadedFromDB(true); // Mark that sections were loaded from DB
+                    setChangesSaved(true); // Data just loaded is considered saved
+                }
+            } catch (error) {
+                console.error("Error fetching saved questions:", error);
+
+                // If 404, just clear sections but keep the selected applicant
+                if (error.response && error.response.status === 404) {
+                    // This is normal for new applicants - just start with empty sections
+                    setSections([]);
+                    setSectionsLoadedFromDB(true); // Empty sections are also "loaded"
+                    setChangesSaved(true); // Empty state is considered saved
+                }
+            }
+        };
+
+        fetchSavedQuestions();
+    }, [jobId, selectedApplicant]);
+
+    // Fetch previously saved InterviewQuestionSet when the selected applicant changes
+    useEffect(() => {
+        const fetchSavedQuestions = async () => {
+            if (!jobId || !selectedApplicant) {
+                resetUI(); // Reset UI if no applicant is selected
+                return;
+            }
+
+            // Skip fetching for "Apply to All" option
+            if (selectedApplicant === "all") {
+                // Just reset the sections but keep the selection
+                setSections([]);
+                setSectionsLoadedFromDB(true);
+                setChangesSaved(true);
+                return;
+            }
+
+            // Clear sections immediately to avoid showing stale data
+            setSections([]);
+
+            try {
+                const response = await axios.get(
+                    `http://localhost:8000/api/interview-questions/question-set/${selectedApplicant}`
+                );
+                const data = response.data;
+                if (data) {
+                    // Process sections to ensure isAIModified flag is correctly interpreted
+                    const processedSections = data.sections.map(section => ({
+                        ...section,
+                        questions: section.questions.map(question => {
+                            // If question is marked as modified in the saved data, preserve that state
+                            const processedQuestion = { ...question };
+                            if (processedQuestion.isAIGenerated && processedQuestion.isAIModified) {
+                                // Ensure isAIModified flag is set correctly
+                                processedQuestion.isAIModified = true;
+                            }
+                            return processedQuestion;
+                        })
+                    }));
+                    
+                    setSections(processedSections);
+                } else {
+                    // Only clear the sections, not the selected applicant
+                    setSections([]);
+                }
+            } catch (error) {
+                console.error("Error fetching saved questions:", error);
+
+                // If 404, just clear sections but keep the selected applicant
+                if (error.response && error.response.status === 404) {
+                    console.log("No question set found for this applicant. Starting with a blank slate.");
+                    setSections([]);
+                } else {
+                    // For other errors, show an error message but don't reset UI
+                    setErrorMessage(`Error loading questions: ${error.message}`);
+                    setShowErrorModal(true);
+                }
+            }
+        };
+
+        fetchSavedQuestions();
+    }, [jobId, selectedApplicant]);
+
+    // Add effect to mark changes as unsaved whenever sections change
+    useEffect(() => {
+        if (sectionsLoadedFromDB) {
+            // If this is the initial load from DB, don't mark as unsaved
+            setSectionsLoadedFromDB(false);
+            setChangesSaved(true); // Explicitly mark as saved after load
+        } else if (sections.length > 0) {
+            // Only mark as unsaved if this change wasn't from DB load and there's actual content
+            setChangesSaved(false);
+        }
+    }, [sections, sectionsLoadedFromDB]);
+
+    // Reset aiGenerateUsed state when component mounts
+    useEffect(() => {
+        // Reset AI generate used flag when component mounts
+        setAiGenerateUsed(false);
+    }, []);
+
     const handleAddSection = () => {
         if (newSectionTitle.trim()) {
             setSections([...sections, { 
@@ -112,6 +260,8 @@ const AddInterviewQuestions = () => {
                 }
             }]);
             setNewSectionTitle("");
+            // No need to call setChangesSaved(false) here as the sections change 
+            // will trigger the useEffect that handles it
         }
     };
 
@@ -131,6 +281,34 @@ const AddInterviewQuestions = () => {
         const updatedSections = [...sections];
         updatedSections.splice(sectionIndex, 1);
         setSections(updatedSections);
+    };
+
+    // New function to handle confirmed candidate switch
+    const handleConfirmCandidateSwitch = () => {
+        setShowCandidateSwitchModal(false);
+        setSelectedApplicant(pendingCandidateId);
+        setPendingCandidateId(null);
+    };
+
+    // New function to cancel candidate switch
+    const handleCancelCandidateSwitch = () => {
+        setShowCandidateSwitchModal(false);
+        setPendingCandidateId(null);
+    };
+
+    // New function to handle applicant change with unsaved changes check
+    const handleApplicantChange = (e) => {
+        const newValue = e.target.value;
+        
+        // Check if there are unsaved changes and sections exist with actual changes
+        if (!changesSaved && sections.length > 0 && selectedApplicant) {
+            // Store the pending candidate ID and show confirmation modal
+            setPendingCandidateId(newValue);
+            setShowCandidateSwitchModal(true);
+        } else {
+            // If no unsaved changes or no sections, switch directly
+            setSelectedApplicant(newValue);
+        }
     };
 
     // Handle confirmation modal actions
@@ -454,8 +632,8 @@ const AddInterviewQuestions = () => {
         setTotalInterviewTime({ minutes, seconds });
     }, [sections]);
 
-    // Update the handleSave function to validate interview time
-    const handleSave = () => {
+    // Modify the handleSave function to save the question set and then generate actual questions
+    const handleSave = async () => {
         // Check if total interview time is less than 5 minutes
         const totalMinutes = totalInterviewTime.minutes + (totalInterviewTime.seconds > 0 ? 1 : 0); // Round up if there are seconds
         if (totalMinutes < 5) {
@@ -466,56 +644,132 @@ const AddInterviewQuestions = () => {
             setShowErrorModal(true);
             return;
         }
-        
-        // Validate before showing confirmation
+
+        // Validate before saving
         if (!validateSections()) {
             return;
         }
-        
+
         if (sections.length === 0 || !selectedApplicant) {
+            setErrorMessage("Please add at least one section with questions and select an applicant before saving.");
+            setShowErrorModal(true);
+            return;
+        }
+
+        setIsLoading(true); // Show loading animation
+        setLoadingOperation("Saving"); // Set the loading operation
+
+        try {
+            // Prepare the payload - making sure to correctly include isAIModified flags
+            const validSections = sections.map(section => ({
+                ...section,
+                sectionId: section.sectionId || `sect-${Date.now()}`, // Generate sectionId if missing
+                questions: section.questions.map(question => {
+                    // Create a new question object to avoid mutation
+                    const processedQuestion = {
+                        ...question,
+                        questionId: question.questionId || `ques-${Date.now()}`, // Generate questionId if missing
+                    };
+                    
+                    // Ensure the isAIModified flag is included if present
+                    if (processedQuestion.isAIGenerated && processedQuestion.isAIModified) {
+                        processedQuestion.isAIModified = true;
+                    }
+                    
+                    return processedQuestion;
+                })
+            })).filter(section => section.questions.length > 0);
+
+            const payload = {
+                applicationId: selectedApplicant, // Ensure correct applicationId is used
+                candidateId: selectedApplicant === "all" ? "all" : selectedApplicant,
+                sections: validSections
+            };
+
+            // Check if a question set already exists for the selected candidate
+            let questionSetId = null;
+            try {
+                const checkResponse = await axios.get(
+                    `http://localhost:8000/api/interview-questions/question-set/${selectedApplicant}`
+                );
+                if (checkResponse.data) {
+                    questionSetId = checkResponse.data.questionSetId; // Extract the existing questionSetId
+                    console.log("Found existing question set with ID:", questionSetId);
+                }
+            } catch (error) {
+                // Only log error, don't return - we can still create a new question set
+                if (error.response && error.response.status === 404) {
+                    console.log("No existing question set found, will create a new one.");
+                } else {
+                    console.error("Error checking existing question set:", error);
+                }
+            }
+
+            // If a question set exists, include the `questionSetId` in the payload
+            if (questionSetId) {
+                payload.questionSetId = questionSetId;
+            }
+
+            console.log("Saving InterviewQuestionSet with payload:", payload);
+
+            const saveResponse = await axios.post(
+                "http://localhost:8000/api/interview-questions/save-question-set",
+                payload
+            );
+
+            console.log("Save response:", saveResponse);
+
+            if (saveResponse.status === 200 || saveResponse.status === 201) {
+                console.log("Questions saved successfully:", saveResponse.data);
+                setChangesSaved(true); // Mark changes as saved after successful save
+                setShowSuccessModal(true); // Show success modal
+            } else {
+                console.error("Unexpected response status:", saveResponse.status);
+                setErrorMessage("Failed to save questions. Please try again.");
+                setShowErrorModal(true);
+            }
+        } catch (error) {
+            console.error("Error saving questions:", error);
+            let errorMsg = "An error occurred while saving questions. Please try again.";
+            
+            if (error.response) {
+                console.error("Error response data:", error.response.data);
+                errorMsg = `Server error: ${error.response.data.detail || error.message}`;
+            }
+            
+            setErrorMessage(errorMsg);
+            setShowErrorModal(true);
+        } finally {
+            setIsLoading(false); // Hide loading animation
+        }
+    };
+
+    // Add a function to handle initiating the save process with confirmation
+    const handleInitiateSave = () => {
+        if (sections.length === 0 || !selectedApplicant) {
+            setErrorMessage("Please add at least one section with questions and select an applicant before saving.");
+            setShowErrorModal(true);
             return;
         }
         
-        // Show confirmation modal
-        setShowSaveConfirmModal(true);
-    };
-    
-    // New function to actually save after confirmation
-    const handleConfirmSave = async () => {
-        // Hide the confirmation modal
-        setShowSaveConfirmModal(false);
-        
-        try {
-            // Filter out any potential empty questions
-            const validSections = sections.map(section => ({
-                ...section,
-                questions: section.questions.filter(q => q.text.trim() !== "")
-            })).filter(section => section.questions.length > 0);
-            
-            // Mock API call
-            console.log("Saving interview questions:", {
-                jobId,
-                candidateId: selectedApplicant === "all" ? "all" : selectedApplicant,
-                sections: validSections
-            });
-            
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            setShowSuccessModal(true);
-        } catch (error) {
-            console.error("Error saving questions:", error);
+        // Check if this is an "Apply to All" case
+        if (selectedApplicant === "all") {
+            // Show the Apply to All confirmation modal
+            setShowApplyToAllModal(true);
+        } else {
+            // Regular case - show the standard save confirmation
+            setShowSaveConfirmModal(true);
         }
     };
 
     // Modify handleGoBackToJobDetails to check for unsaved changes
     const handleGoBackToJobDetails = () => {
-        // Check if there are any unsaved changes
-        if (sections.length > 0) {
+        // Check if there are unsaved changes
+        if (!changesSaved && sections.length > 0) {
             // Show confirmation modal
             setShowNavigationModal(true);
         } else {
-            // No changes, navigate directly
+            // No changes or changes saved, navigate directly
             navigateToJobDetails();
         }
     };
@@ -554,6 +808,154 @@ const AddInterviewQuestions = () => {
         setShowNavigationModal(false);
     };
 
+    // This function gets triggered when the user selects "Apply to All" from the dropdown
+    useEffect(() => {
+        // Empty effect that doesn't do anything special when "Apply to All" is selected
+        // No need to try loading templates from other candidates
+    }, [selectedApplicant]);
+
+    // Function to apply questions to all candidates
+    const handleApplyToAll = async (overwriteExisting = true) => {
+        if (sections.length === 0) {
+            setErrorMessage("Please create interview questions before applying to all candidates.");
+            setShowErrorModal(true);
+            return;
+        }
+
+        setIsLoading(true);
+        setLoadingOperation("Applying"); // Set the loading operation
+        setShowApplyToAllModal(false); // Close the modal
+        
+        try {
+            // First get all candidates for this job
+            const candidatesResponse = await axios.get(
+                `http://localhost:8000/api/candidates/applicants?jobId=${jobId}`
+            );
+            
+            if (!candidatesResponse.data || candidatesResponse.data.length === 0) {
+                setErrorMessage("No candidates found for this job.");
+                setShowErrorModal(true);
+                setIsLoading(false);
+                return;
+            }
+            
+            // Prepare the question set data
+            const questionSet = {
+                sections: sections.map(section => ({
+                    ...section,
+                    sectionId: section.sectionId || `sect-${Date.now()}`,
+                    questions: section.questions.map(question => ({
+                        ...question,
+                        questionId: question.questionId || `ques-${Date.now()}`
+                    }))
+                }))
+            };
+            
+            // Send request to apply to all
+            const payload = {
+                jobId: jobId,
+                questionSet: questionSet,
+                candidates: candidatesResponse.data,
+                overwriteExisting: overwriteExisting
+            };
+            
+            const response = await axios.post(
+                "http://localhost:8000/api/interview-questions/apply-to-all",
+                payload
+            );
+            
+            // Set status to show in completion modal
+            setApplyToAllStatus({
+                successful: response.data.successful.length,
+                failed: response.data.failed.length,
+                skipped: response.data.skipped.length,
+                total: candidatesResponse.data.length
+            });
+            
+            // Mark as saved and show success modal
+            setChangesSaved(true);
+            setShowSuccessModal(true);
+        } catch (error) {
+            console.error("Error applying questions to all candidates:", error);
+            setErrorMessage(`Failed to apply questions to all candidates: ${error.message}`);
+            setShowErrorModal(true);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Function to handle the reset action
+    const handleResetQuestions = async () => {
+        if (!selectedApplicant || selectedApplicant === "all") {
+            setErrorMessage("Please select a specific applicant to reset their questions.");
+            setShowErrorModal(true);
+            return;
+        }
+
+        try {
+            // Check if there's a saved question set for this candidate
+            const response = await axios.get(
+                `http://localhost:8000/api/interview-questions/question-set/${selectedApplicant}`
+            );
+            
+            // There is a saved question set - show standard reset confirmation
+            setShowResetConfirmModal(true);
+            
+        } catch (error) {
+            // If 404, no saved question set exists
+            if (error.response && error.response.status === 404) {
+                // Check if there are unsaved changes in the UI
+                if (sections.length > 0 && !changesSaved) {
+                    // Show unsaved reset confirmation modal
+                    setShowUnsavedResetModal(true);
+                } else {
+                    setErrorMessage("No interview questions found for this applicant.");
+                    setShowErrorModal(true);
+                }
+            } else {
+                setErrorMessage(`Error checking question set: ${error.message || "Unknown error"}`);
+                setShowErrorModal(true);
+            }
+        }
+    };
+
+    // Function to perform the actual reset after confirmation
+    const performReset = async () => {
+        setShowResetConfirmModal(false);
+        setIsLoading(true);
+        setLoadingOperation("Resetting"); // Set the loading operation to "Resetting"
+
+        try {
+            const response = await axios.delete(
+                `http://localhost:8000/api/interview-questions/question-set/${selectedApplicant}`
+            );
+
+            if (response.status === 200) {
+                // Clear the sections in the UI
+                setSections([]);
+                setChangesSaved(true);
+                
+                // Show success modal instead of error modal
+                setShowResetSuccessModal(true);
+            } else {
+                throw new Error("Unexpected response status");
+            }
+        } catch (error) {
+            console.error("Error resetting questions:", error);
+
+            // If 404, show message that there are no questions to delete
+            if (error.response && error.response.status === 404) {
+                setErrorMessage("No interview questions found for this applicant.");
+                setShowErrorModal(true);
+            } else {
+                setErrorMessage(`Error resetting questions: ${error.message || "Unknown error"}`);
+                setShowErrorModal(true);
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const SuccessModal = () => (
         <div className="status-modal-overlay" role="dialog" aria-modal="true">
             <div className="status-modal success-modal">
@@ -563,18 +965,43 @@ const AddInterviewQuestions = () => {
                         <polyline points="22 4 12 14.01 9 11.01"></polyline>
                     </svg>
                 </div>
-                <h3 className="status-title">Questions Saved!</h3>
-                <p className="status-description">Your interview questions have been saved successfully.</p>
+                <h3 className="status-title">
+                    {selectedApplicant === "all" && applyToAllStatus 
+                        ? "Questions Applied to All Candidates" 
+                        : "Questions Saved!"}
+                </h3>
+                {selectedApplicant === "all" && applyToAllStatus ? (
+                    <div className="status-description">
+                        <p>Applied to {applyToAllStatus.successful} out of {applyToAllStatus.total} candidates.</p>
+                        {applyToAllStatus.skipped > 0 && (
+                            <p>Skipped {applyToAllStatus.skipped} candidates with existing questions.</p>
+                        )}
+                        {applyToAllStatus.failed > 0 && (
+                            <p className="error-text">Failed for {applyToAllStatus.failed} candidates.</p>
+                        )}
+                    </div>
+                ) : (
+                    <p className="status-description">Your interview questions have been saved successfully.</p>
+                )}
                 <div className="status-buttons">
                     <button 
                         className="status-button primary-button" 
-                        onClick={() => setShowSuccessModal(false)}
+                        onClick={() => {
+                            setShowSuccessModal(false);
+                            if (selectedApplicant === "all") {
+                                // After applying to all, reset to empty selection
+                                setSelectedApplicant("");
+                            }
+                        }}
                     >
-                        Add More Questions
+                        {selectedApplicant === "all" ? "Continue" : "Add More Questions"}
                     </button>
                     <button 
                         className="status-button secondary-button" 
-                        onClick={handleGoBackToJobDetails}
+                        onClick={() => {
+                            // Since we know changes are saved, navigate directly
+                            navigateToJobDetails();
+                        }}
                     >
                         Return to Job Details
                     </button>
@@ -651,7 +1078,13 @@ const AddInterviewQuestions = () => {
                     <button className="status-button secondary-button" onClick={() => setShowSaveConfirmModal(false)}>
                         Continue Editing
                     </button>
-                    <button className="status-button primary-button" onClick={handleConfirmSave}>
+                    <button 
+                        className="status-button primary-button" 
+                        onClick={() => {
+                            setShowSaveConfirmModal(false);
+                            handleSave();
+                        }}
+                    >
                         Yes, Save Questions
                     </button>
                 </div>
@@ -678,6 +1111,152 @@ const AddInterviewQuestions = () => {
                     </button>
                     <button className="status-button primary-button" onClick={handleConfirmNavigation}>
                         Leave Page
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    // Create a new modal component for Apply to All confirmation
+    const ApplyToAllModal = () => (
+        <div className="status-modal-overlay" role="dialog" aria-modal="true">
+            <div className="status-modal">
+                <div className="status-icon warning-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                </div>
+                <h3 className="status-title">Apply to All Candidates</h3>
+                <p className="status-description">
+                    You are about to apply these interview questions to all candidates for this job. 
+                    Some candidates may already have interview questions set up.
+                </p>
+                <div className="status-buttons">
+                    <button 
+                        className="status-button secondary-button" 
+                        onClick={() => setShowApplyToAllModal(false)}
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        className="status-button primary-button" 
+                        onClick={() => handleApplyToAll(true)}
+                    >
+                        Proceed to Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    // Add ResetConfirmModal component
+    const ResetConfirmModal = () => (
+        <div className="status-modal-overlay" role="dialog" aria-modal="true">
+            <div className="status-modal">
+                <div className="status-icon warning-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </div>
+                <h3 className="status-title">Reset All Questions?</h3>
+                <p className="status-description">
+                    This will permanently delete all interview questions for this applicant. This action cannot be undone.
+                </p>
+                <div className="status-buttons">
+                    <button className="status-button secondary-button" onClick={() => setShowResetConfirmModal(false)}>
+                        Cancel
+                    </button>
+                    <button className="status-button danger-button" onClick={performReset}>
+                        Yes, Reset All
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    // Add ResetSuccessModal component
+    const ResetSuccessModal = () => (
+        <div className="status-modal-overlay" role="dialog" aria-modal="true">
+            <div className="status-modal success-modal">
+                <div className="status-icon success-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                </div>
+                <h3 className="status-title">Reset Successful</h3>
+                <p className="status-description">Interview questions have been reset successfully!</p>
+                <div className="status-buttons">
+                    <button 
+                        className="status-button primary-button" 
+                        onClick={() => setShowResetSuccessModal(false)}
+                    >
+                        Continue
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    // Add UnsavedResetModal component
+    const UnsavedResetModal = () => (
+        <div className="status-modal-overlay" role="dialog" aria-modal="true">
+            <div className="status-modal">
+                <div className="status-icon warning-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </div>
+                <h3 className="status-title">Discard Unsaved Changes?</h3>
+                <p className="status-description">
+                    You haven't saved these questions yet. Are you sure you want to discard all the sections and questions you've just created?
+                </p>
+                <div className="status-buttons">
+                    <button className="status-button secondary-button" onClick={() => setShowUnsavedResetModal(false)}>
+                        Cancel
+                    </button>
+                    <button className="status-button danger-button" onClick={() => {
+                        setShowUnsavedResetModal(false);
+                        // Reset UI for this candidate
+                        resetUI(true); // Keep the selected applicant
+                        setChangesSaved(true); // Mark as saved after reset
+                        // Show success message
+                        setShowResetSuccessModal(true);
+                    }}>
+                        Discard Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    // Add CandidateSwitchModal component
+    const CandidateSwitchModal = () => (
+        <div className="status-modal-overlay" role="dialog" aria-modal="true">
+            <div className="status-modal">
+                <div className="status-icon warning-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </div>
+                <h3 className="status-title">Unsaved Changes</h3>
+                <p className="status-description">
+                    You have unsaved interview questions for the current candidate. Switching to another candidate will cause your unsaved changes to be lost.
+                </p>
+                <div className="status-buttons">
+                    <button className="status-button secondary-button" onClick={handleCancelCandidateSwitch}>
+                        Stay and Save Changes
+                    </button>
+                    <button className="status-button danger-button" onClick={handleConfirmCandidateSwitch}>
+                        Switch Candidate
                     </button>
                 </div>
             </div>
@@ -850,7 +1429,10 @@ const AddInterviewQuestions = () => {
             }}>
                 <div className="loading-indicator" style={{ textAlign: 'center' }}>
                     <LoadingAnimation />
-                    <p style={{ marginTop: '20px' }}>Loading job details...</p>
+                    <p style={{ marginTop: '20px' }}>
+                        {isNavigatingBack ? "Returning to Job Details..." : 
+                         `${loadingOperation} Interview Questions...`}
+                    </p>
                 </div>
             </div>
         );
@@ -860,9 +1442,14 @@ const AddInterviewQuestions = () => {
         <div className="add-interview-questions-container">
             {showSuccessModal && <SuccessModal />}
             {showErrorModal && <ErrorModal />}
+            {showResetSuccessModal && <ResetSuccessModal />}
             {showConfirmModal && <ConfirmModal />}
             {showSaveConfirmModal && <SaveConfirmModal />}
             {showNavigationModal && <NavigationConfirmModal />}
+            {showApplyToAllModal && <ApplyToAllModal />}
+            {showResetConfirmModal && <ResetConfirmModal />}
+            {showUnsavedResetModal && <UnsavedResetModal />}
+            {showCandidateSwitchModal && <CandidateSwitchModal />}
             
             {/* Header section with back button and title */}
             <div className="page-header">
@@ -888,7 +1475,7 @@ const AddInterviewQuestions = () => {
                             <select 
                                 id="applicant-select" 
                                 value={selectedApplicant}
-                                onChange={(e) => setSelectedApplicant(e.target.value)}
+                                onChange={handleApplicantChange}
                                 disabled={isLoadingApplicants}
                                 title={selectedApplicant}
                             >
@@ -1203,13 +1790,25 @@ const AddInterviewQuestions = () => {
 
                 {/* Save button container */}
                 <div className="save-container">
-                    <button 
-                        className="save-button" 
-                        onClick={handleSave}
-                        disabled={sections.length === 0 || !selectedApplicant}
-                    >
-                        Save Questions
-                    </button>
+                    <div className="action-buttons">
+                        <button 
+                            className="reset-button" 
+                            onClick={handleResetQuestions}
+                            disabled={!selectedApplicant || selectedApplicant === "all" || sections.length === 0}
+                            title={!selectedApplicant ? "Select an applicant first" : 
+                                   selectedApplicant === "all" ? "Cannot reset all applicants at once" : 
+                                   "Delete all questions for this applicant"}
+                        >
+                            Reset All Questions
+                        </button>
+                        <button 
+                            className="save-button" 
+                            onClick={handleInitiateSave}
+                            disabled={sections.length === 0 || !selectedApplicant}
+                        >
+                            Save Questions
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

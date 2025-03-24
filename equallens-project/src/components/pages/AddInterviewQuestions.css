@@ -1681,9 +1681,64 @@
     box-shadow: 0 2px 4px rgba(100, 116, 139, 0.2);
 }
 
-/* Remove any duplicate styles that were overriding the consistent styling */
-/* Remove these conflicting styles */
-.ai-generated-header .question-number {
-    background-color: #ff758c;
+/* Apply to All Modal Styles */
+.default-button {
+    background-color: #3b82f6;
     color: white;
+}
+
+.default-button:hover {
+    background-color: #2563eb;
+}
+
+.error-text {
+    color: #ef4444;
+    font-weight: 500;
+}
+
+/* Update save container to handle multiple buttons */
+.save-container {
+    text-align: center;
+    margin-top: 1rem; 
+    padding-top: 1rem;
+    border-top: 1px solid #eee;
+}
+
+.action-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.reset-button {
+    background-color: #ff7b64;
+    color: white;
+    border: none;
+    padding: 0.85rem 1.5rem;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.25);
+}
+
+.reset-button:hover {
+    background-color: #dc5426;
+    transform: translateY(-2px);
+}
+
+.reset-button:disabled {
+    background-color: #fca5a5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.danger-button {
+    background-color: #ef4444;
+    color: white;
+}
+
+.danger-button:hover {
+    background-color: #dc2626;
 }
