@@ -4,7 +4,6 @@ import Navbar from './components/Navbar';
 import Home from './components/pages/Home';
 import UploadCV from './components/pages/UploadCV';
 import SignUp from './components/pages/SignUp';
-import Dashboard from './components/pages/Dashboard';
 import InterviewLinkGenerator from './components/pages/InterviewLinkGenerator';
 import InterviewReview from './components/pages/InterviewReview';
 import Dashboard from './components/pages/Dashboard';
