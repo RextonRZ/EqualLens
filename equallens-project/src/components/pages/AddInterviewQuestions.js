@@ -35,6 +35,17 @@ const AddInterviewQuestions = () => {
     // Add new state for section deletion confirmation
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [sectionToDelete, setSectionToDelete] = useState(null);
+    // Add new state for save confirmation modal
+    const [showSaveConfirmModal, setShowSaveConfirmModal] = useState(false);
+    const [totalInterviewTime, setTotalInterviewTime] = useState({ minutes: 0, seconds: 0 });
+    // Add new state for navigation confirmation modal
+    const [showNavigationModal, setShowNavigationModal] = useState(false);
+    // Add state for AI generate confirmation modal
+    const [showAIConfirmModal, setShowAIConfirmModal] = useState(false);
+    // Add state to track if AI generate has been used already
+    const [aiGenerateUsed, setAiGenerateUsed] = useState(false);
+    // Add state for showing success message when AI sections are added
+    const [showAISuccess, setShowAISuccess] = useState(false);
     
     // Get job ID from URL query params
     const location = useLocation();
@@ -149,7 +160,26 @@ const AddInterviewQuestions = () => {
 
     const handleQuestionChange = (sectionIndex, questionIndex, value) => {
         const updatedSections = [...sections];
-        updatedSections[sectionIndex].questions[questionIndex].text = value;
+        const question = updatedSections[sectionIndex].questions[questionIndex];
+        
+        // If the question is AI generated, check modification status
+        if (question.isAIGenerated) {
+            // Store original text if we haven't already (first edit)
+            if (!question.originalText && !question.isAIModified) {
+                question.originalText = question.text;
+            }
+            
+            // Check if the current text matches the original text
+            if (question.originalText && value === question.originalText) {
+                // If text has been restored to original AI generated version, remove modified flag
+                question.isAIModified = false;
+            } else if (question.text !== value) {
+                // If text is different from both current and original, mark as modified
+                question.isAIModified = true;
+            }
+        }
+        
+        question.text = value;
         setSections(updatedSections);
     };
     
@@ -157,13 +187,58 @@ const AddInterviewQuestions = () => {
         const updatedSections = [...sections];
         // Ensure the time is a positive number
         const timeLimit = Math.max(1, parseInt(value) || 0);
-        updatedSections[sectionIndex].questions[questionIndex].timeLimit = timeLimit;
+        const question = updatedSections[sectionIndex].questions[questionIndex];
+        
+        // Store original value on first edit
+        if (question.isAIGenerated && !question.originalTimeLimit && !question.isAIModified) {
+            question.originalTimeLimit = question.timeLimit;
+        }
+        
+        // Mark as modified if it's AI-generated and time limit changes
+        if (question.isAIGenerated) {
+            // Check if time is being restored to original value
+            if (question.originalTimeLimit && timeLimit === question.originalTimeLimit) {
+                // Check if text is also at original value to fully restore unmodified state
+                const isTextOriginal = !question.originalText || question.text === question.originalText;
+                const isCompulsoryOriginal = !question.hasOwnProperty('originalCompulsory') || question.isCompulsory === question.originalCompulsory;
+                
+                if (isTextOriginal && isCompulsoryOriginal) {
+                    question.isAIModified = false;
+                }
+            } else if (question.timeLimit !== timeLimit) {
+                question.isAIModified = true;
+            }
+        }
+        
+        question.timeLimit = timeLimit;
         setSections(updatedSections);
     };
 
     const handleQuestionCompulsoryChange = (sectionIndex, questionIndex, isCompulsory) => {
         const updatedSections = [...sections];
-        updatedSections[sectionIndex].questions[questionIndex].isCompulsory = isCompulsory;
+        const question = updatedSections[sectionIndex].questions[questionIndex];
+        
+        // Store original value on first toggle
+        if (question.isAIGenerated && !question.hasOwnProperty('originalCompulsory') && !question.isAIModified) {
+            question.originalCompulsory = question.isCompulsory;
+        }
+        
+        // Check if being restored to original value
+        if (question.isAIGenerated) {
+            if (question.hasOwnProperty('originalCompulsory') && isCompulsory === question.originalCompulsory) {
+                // Check if other properties are also at original values
+                const isTextOriginal = !question.originalText || question.text === question.originalText;
+                const isTimeOriginal = !question.originalTimeLimit || question.timeLimit === question.originalTimeLimit;
+                
+                if (isTextOriginal && isTimeOriginal) {
+                    question.isAIModified = false;
+                }
+            } else if (question.isCompulsory !== isCompulsory) {
+                question.isAIModified = true;
+            }
+        }
+        
+        question.isCompulsory = isCompulsory;
         
         // Count non-compulsory questions after this change
         const nonCompulsoryCount = updatedSections[sectionIndex].questions.filter(q => !q.isCompulsory).length;
@@ -171,6 +246,15 @@ const AddInterviewQuestions = () => {
         // If making a question compulsory reduces non-compulsory count below 2, disable random
         if (isCompulsory && nonCompulsoryCount < 2 && updatedSections[sectionIndex].randomSettings.enabled) {
             updatedSections[sectionIndex].randomSettings.enabled = false;
+        }
+        
+        // NEW: If more than 2 questions are now non-compulsory, enable random selection automatically
+        if (!isCompulsory && nonCompulsoryCount >= 2 && !updatedSections[sectionIndex].randomSettings.enabled) {
+            updatedSections[sectionIndex].randomSettings.enabled = true;
+            // Set default value for random count (half of non-compulsory, but at least 1)
+            const maxAllowed = Math.max(1, nonCompulsoryCount - 1);
+            const defaultCount = Math.min(Math.floor(nonCompulsoryCount / 2), maxAllowed);
+            updatedSections[sectionIndex].randomSettings.count = Math.max(1, defaultCount);
         }
         
         setSections(updatedSections);
@@ -200,11 +284,35 @@ const AddInterviewQuestions = () => {
             const maxAllowed = Math.max(1, nonCompulsoryCount - 1); // Maximum is total count - 1
             const defaultCount = Math.min(Math.floor(nonCompulsoryCount / 2), maxAllowed);
             updatedSections[sectionIndex].randomSettings.count = Math.max(1, defaultCount);
+        } else {
+            // If disabling random selection, make all questions compulsory
+            updatedSections[sectionIndex].questions = updatedSections[sectionIndex].questions.map(question => {
+                // Create a new question object to avoid mutation
+                const updatedQuestion = { ...question };
+                
+                // If the question is non-compulsory, we need to update it and handle AI modification status
+                if (!question.isCompulsory) {
+                    // Store original value if it's an AI-generated question and hasn't been stored yet
+                    if (question.isAIGenerated && !question.hasOwnProperty('originalCompulsory')) {
+                        updatedQuestion.originalCompulsory = question.isCompulsory;
+                    }
+                    
+                    // Mark as modified if it's AI-generated and this is changing its state
+                    if (question.isAIGenerated) {
+                        updatedQuestion.isAIModified = true;
+                    }
+                    
+                    // Make it compulsory
+                    updatedQuestion.isCompulsory = true;
+                }
+                
+                return updatedQuestion;
+            });
         }
         
         setSections(updatedSections);
     };
-    
+
     const handleRandomCountChange = (sectionIndex, count) => {
         const updatedSections = [...sections];
         const nonCompulsoryCount = updatedSections[sectionIndex].questions.filter(q => !q.isCompulsory).length;
@@ -290,25 +398,100 @@ const AddInterviewQuestions = () => {
                     setShowErrorModal(true);
                     return false;
                 }
+            } else {
+                // NEW: Check for sections that have exactly 1 non-compulsory question but random selection is not enabled
+                const nonCompulsoryCount = section.questions.filter(q => !q.isCompulsory).length;
+                if (nonCompulsoryCount === 1) {
+                    setErrorMessage(
+                        `The "${section.title}" section has exactly 1 non-compulsory question. 
+                        Either make all questions compulsory or make at least one more question non-compulsory and enable random selection.`
+                    );
+                    setShowErrorModal(true);
+                    return false;
+                }
             }
         }
         return true;
     };
 
-    const handleSave = async () => {
-        // Validate before saving - don't filter out empty questions, validate them instead
+    // Calculate total interview time whenever questions change
+    useEffect(() => {
+        let totalSeconds = 0;
+        
+        sections.forEach(section => {
+            // For sections with random selection, calculate based on compulsory questions 
+            // plus the number of random questions that will be selected
+            if (section.randomSettings.enabled) {
+                // Count seconds from compulsory questions
+                const compulsoryTime = section.questions
+                    .filter(q => q.isCompulsory)
+                    .reduce((sum, q) => sum + (q.timeLimit || 0), 0);
+                
+                // Calculate average time for random questions
+                const nonCompulsoryQuestions = section.questions.filter(q => !q.isCompulsory);
+                const randomCount = section.randomSettings.count;
+                
+                if (nonCompulsoryQuestions.length > 0 && randomCount > 0) {
+                    // Calculate average time per non-compulsory question
+                    const avgTimePerQuestion = nonCompulsoryQuestions.reduce((sum, q) => sum + (q.timeLimit || 0), 0) / nonCompulsoryQuestions.length;
+                    // Add time for random questions (average time * number of random questions)
+                    totalSeconds += compulsoryTime + (avgTimePerQuestion * randomCount);
+                } else {
+                    totalSeconds += compulsoryTime;
+                }
+            } else {
+                // For sections without random selection, add up all question times
+                section.questions.forEach(question => {
+                    totalSeconds += question.timeLimit || 0;
+                });
+            }
+        });
+        
+        // Convert to minutes and seconds
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        
+        setTotalInterviewTime({ minutes, seconds });
+    }, [sections]);
+
+    // Update the handleSave function to validate interview time
+    const handleSave = () => {
+        // Check if total interview time is less than 5 minutes
+        const totalMinutes = totalInterviewTime.minutes + (totalInterviewTime.seconds > 0 ? 1 : 0); // Round up if there are seconds
+        if (totalMinutes < 5) {
+            setErrorMessage(
+                `Your total interview time is less than 5 minutes (currently ${totalInterviewTime.minutes} minute${totalInterviewTime.minutes !== 1 ? 's' : ''} ${totalInterviewTime.seconds > 0 ? `and ${totalInterviewTime.seconds} second${totalInterviewTime.seconds !== 1 ? 's' : ''}` : ''}).
+                Please add more questions or increase the time limits to ensure a thorough interview.`
+            );
+            setShowErrorModal(true);
+            return;
+        }
+        
+        // Validate before showing confirmation
         if (!validateSections()) {
             return;
         }
         
-        // Now that validation passed, we can filter out any potential empty questions
-        // (though they should all be filled at this point)
-        const validSections = sections.map(section => ({
-            ...section,
-            questions: section.questions.filter(q => q.text.trim() !== "")
-        })).filter(section => section.questions.length > 0);
+        if (sections.length === 0 || !selectedApplicant) {
+            return;
+        }
+        
+        // Show confirmation modal
+        setShowSaveConfirmModal(true);
+    };
+    
+    // New function to actually save after confirmation
+    const handleConfirmSave = async () => {
+        // Hide the confirmation modal
+        setShowSaveConfirmModal(false);
         
         try {
+            // Filter out any potential empty questions
+            const validSections = sections.map(section => ({
+                ...section,
+                questions: section.questions.filter(q => q.text.trim() !== "")
+            })).filter(section => section.questions.length > 0);
+            
             // Mock API call
             console.log("Saving interview questions:", {
                 jobId,
@@ -325,18 +508,29 @@ const AddInterviewQuestions = () => {
         }
     };
 
+    // Modify handleGoBackToJobDetails to check for unsaved changes
     const handleGoBackToJobDetails = () => {
+        // Check if there are any unsaved changes
+        if (sections.length > 0) {
+            // Show confirmation modal
+            setShowNavigationModal(true);
+        } else {
+            // No changes, navigate directly
+            navigateToJobDetails();
+        }
+    };
+
+    // New function to handle actual navigation after confirmation
+    const navigateToJobDetails = () => {
         // Show loading animation
         setIsNavigatingBack(true);
         
         // Extract jobId from the URL query params to navigate back to job details
         const jobId = queryParams.get('jobId');
         
-        // Instead of window.location.href, use React Router's navigate
-        // This will preserve React's state management and prevent the glitch
+        // Use React Router's navigate
         setTimeout(() => {
             if (jobId) {
-                // Use state to indicate this is a direct navigation to job details
                 navigate(`/dashboard`, { 
                     state: { 
                         directToJobDetails: true,
@@ -347,6 +541,17 @@ const AddInterviewQuestions = () => {
                 navigate("/dashboard");
             }
         }, 800);
+    };
+
+    // Add handler for confirming navigation
+    const handleConfirmNavigation = () => {
+        setShowNavigationModal(false);
+        navigateToJobDetails();
+    };
+
+    // Add handler for canceling navigation
+    const handleCancelNavigation = () => {
+        setShowNavigationModal(false);
     };
 
     const SuccessModal = () => (
@@ -427,48 +632,189 @@ const AddInterviewQuestions = () => {
         </div>
     );
 
+    // Add SaveConfirmModal component
+    const SaveConfirmModal = () => (
+        <div className="status-modal-overlay" role="dialog" aria-modal="true">
+            <div className="status-modal">
+                <div className="status-icon confirm-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                </div>
+                <h3 className="status-title">Save Interview Questions?</h3>
+                <p className="status-description">
+                    Are you sure you want to save the changes to this set of interview questions consisting of {totalInterviewTime.minutes} minute{totalInterviewTime.minutes !== 1 ? 's' : ''} {totalInterviewTime.seconds > 0 ? `and ${totalInterviewTime.seconds} second${totalInterviewTime.seconds !== 1 ? 's' : ''} ` : ''}total interview time?
+                </p>
+                <div className="status-buttons">
+                    <button className="status-button secondary-button" onClick={() => setShowSaveConfirmModal(false)}>
+                        Continue Editing
+                    </button>
+                    <button className="status-button primary-button" onClick={handleConfirmSave}>
+                        Yes, Save Questions
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    // Add NavigationConfirmModal component
+    const NavigationConfirmModal = () => (
+        <div className="status-modal-overlay" role="dialog" aria-modal="true">
+            <div className="status-modal">
+                <div className="status-icon warning-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </div>
+                <h3 className="status-title">Unsaved Changes</h3>
+                <p className="status-description">Are you sure you want to leave this page? All interview sections/questions will be lost.</p>
+                <div className="status-buttons">
+                    <button className="status-button secondary-button" onClick={handleCancelNavigation}>
+                        Stay on This Page
+                    </button>
+                    <button className="status-button primary-button" onClick={handleConfirmNavigation}>
+                        Leave Page
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    // Modify the AI Generate function to disable butterflies after use
     const handleAIGenerate = () => {
-        // Placeholder for AI generation functionality
+        // Create AI-generated sections (same as before)
         const aiGeneratedSections = [
             {
                 title: "Technical Skills",
                 questions: [
-                    { text: "Can you describe your experience with our required technologies?", timeLimit: 60, isCompulsory: true },
-                    { text: "What technical challenges have you faced in your previous roles?", timeLimit: 90, isCompulsory: false },
-                    { text: "How do you stay updated with industry developments?", timeLimit: 45, isCompulsory: false }
+                    { 
+                        text: "Can you describe your experience with our required technologies?", 
+                        timeLimit: 60, 
+                        isCompulsory: true, 
+                        isAIGenerated: true,
+                        // Store original values to detect if restored
+                        originalText: "Can you describe your experience with our required technologies?",
+                        originalTimeLimit: 60,
+                        originalCompulsory: true
+                    },
+                    { 
+                        text: "What technical challenges have you faced in your previous roles?", 
+                        timeLimit: 90, 
+                        isCompulsory: false, 
+                        isAIGenerated: true,
+                        originalText: "What technical challenges have you faced in your previous roles?",
+                        originalTimeLimit: 90,
+                        originalCompulsory: false
+                    },
+                    { 
+                        text: "How do you stay updated with industry developments?", 
+                        timeLimit: 45, 
+                        isCompulsory: false, 
+                        isAIGenerated: true,
+                        originalText: "How do you stay updated with industry developments?",
+                        originalTimeLimit: 45,
+                        originalCompulsory: false
+                    }
                 ],
                 randomSettings: {
                     enabled: true,
                     count: 1
-                }
+                },
+                isAIGenerated: true
             },
             {
                 title: "Problem Solving",
                 questions: [
-                    { text: "Describe a complex problem you solved in your previous role.", timeLimit: 120, isCompulsory: true },
-                    { text: "How do you approach troubleshooting technical issues?", timeLimit: 60, isCompulsory: false },
-                    { text: "Tell me about a time when you had to make a decision with incomplete information.", timeLimit: 90, isCompulsory: false }
+                    { 
+                        text: "Describe a complex problem you solved in your previous role.", 
+                        timeLimit: 120, 
+                        isCompulsory: true, 
+                        isAIGenerated: true,
+                        originalText: "Describe a complex problem you solved in your previous role.",
+                        originalTimeLimit: 120,
+                        originalCompulsory: true
+                    },
+                    { 
+                        text: "How do you approach troubleshooting technical issues?", 
+                        timeLimit: 60, 
+                        isCompulsory: false, 
+                        isAIGenerated: true,
+                        originalText: "How do you approach troubleshooting technical issues?",
+                        originalTimeLimit: 60,
+                        originalCompulsory: false
+                    },
+                    { 
+                        text: "Tell me about a time when you had to make a decision with incomplete information.", 
+                        timeLimit: 90, 
+                        isCompulsory: false, 
+                        isAIGenerated: true,
+                        originalText: "Tell me about a time when you had to make a decision with incomplete information.",
+                        originalTimeLimit: 90,
+                        originalCompulsory: false
+                    }
                 ],
                 randomSettings: {
                     enabled: true,
                     count: 1
-                }
+                },
+                isAIGenerated: true
             },
             {
                 title: "Team Collaboration",
                 questions: [
-                    { text: "How do you handle disagreements within your team?", timeLimit: 60, isCompulsory: true },
-                    { text: "Describe your experience working in cross-functional teams.", timeLimit: 75, isCompulsory: false },
-                    { text: "How do you ensure effective communication in remote work settings?", timeLimit: 60, isCompulsory: false }
+                    { 
+                        text: "How do you handle disagreements within your team?", 
+                        timeLimit: 60, 
+                        isCompulsory: true, 
+                        isAIGenerated: true,
+                        originalText: "How do you handle disagreements within your team?",
+                        originalTimeLimit: 60,
+                        originalCompulsory: true
+                    },
+                    { 
+                        text: "Describe your experience working in cross-functional teams.", 
+                        timeLimit: 75, 
+                        isCompulsory: false, 
+                        isAIGenerated: true,
+                        originalText: "Describe your experience working in cross-functional teams.",
+                        originalTimeLimit: 75,
+                        originalCompulsory: false
+                    },
+                    { 
+                        text: "How do you ensure effective communication in remote work settings?", 
+                        timeLimit: 60, 
+                        isCompulsory: false, 
+                        isAIGenerated: true,
+                        originalText: "How do you ensure effective communication in remote work settings?",
+                        originalTimeLimit: 60,
+                        originalCompulsory: false
+                    }
                 ],
                 randomSettings: {
                     enabled: true,
                     count: 1
-                }
+                },
+                isAIGenerated: true
             }
         ];
         
-        setSections(aiGeneratedSections);
+        // Append AI sections instead of replacing
+        setSections(prevSections => [...prevSections, ...aiGeneratedSections]);
+        
+        // Mark AI generate as used
+        setAiGenerateUsed(true);
+        
+        // Show success message
+        setShowAISuccess(true);
+        
+        // Hide the success message after 3 seconds
+        setTimeout(() => {
+            setShowAISuccess(false);
+        }, 3000);
     };
 
     const handleStartEditingSection = (sectionIndex, currentTitle) => {
@@ -515,6 +861,8 @@ const AddInterviewQuestions = () => {
             {showSuccessModal && <SuccessModal />}
             {showErrorModal && <ErrorModal />}
             {showConfirmModal && <ConfirmModal />}
+            {showSaveConfirmModal && <SaveConfirmModal />}
+            {showNavigationModal && <NavigationConfirmModal />}
             
             {/* Header section with back button and title */}
             <div className="page-header">
@@ -566,15 +914,30 @@ const AddInterviewQuestions = () => {
                     </div>
                     
                     <div className="ai-generate-button-container">
-                        <div className="butterfly"></div>
-                        <div className="butterfly"></div>
-                        <div className="butterfly"></div>
-                        <div className="butterfly"></div>
-                        <button className="ai-generate-button" onClick={handleAIGenerate}>
+                        {showAISuccess && (
+                            <div className="ai-success-message">
+                                <span>✓ AI-generated sections added successfully!</span>
+                            </div>
+                        )}
+                        {/* Only show butterfly divs when the button hasn't been used yet */}
+                        {!aiGenerateUsed && (
+                            <>
+                                <div className="butterfly"></div>
+                                <div className="butterfly"></div>
+                                <div className="butterfly"></div>
+                                <div className="butterfly"></div>
+                            </>
+                        )}
+                        <button 
+                            className={`ai-generate-button ${aiGenerateUsed ? 'used' : ''}`} 
+                            onClick={handleAIGenerate}
+                            disabled={aiGenerateUsed}
+                            title={aiGenerateUsed ? "AI generation has already been used" : "Generate interview questions with AI"}
+                        >
                             <svg className="ai-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                             </svg>
-                            AI Generate Questions
+                            {aiGenerateUsed ? "AI Sections Added" : "AI Generate Questions"}
                         </button>
                     </div>
                 </div>
@@ -612,7 +975,7 @@ const AddInterviewQuestions = () => {
                 ) : (
                     <div className="sections-container">
                         {sections.map((section, sectionIndex) => (
-                            <div key={sectionIndex} className="section-card">
+                            <div key={sectionIndex} className={`section-card ${section.isAIGenerated ? 'ai-generated-section' : ''}`}>
                                 <div className="section-header">
                                     {editingSectionIndex === sectionIndex ? (
                                         <div className="section-title-edit-container">
@@ -681,12 +1044,10 @@ const AddInterviewQuestions = () => {
                                                 checked={section.randomSettings.enabled}
                                                 onChange={(e) => handleSectionRandomSettingsChange(sectionIndex, e.target.checked)}
                                                 className="random-checkbox"
-                                                // Remove the 'disabled' attribute to allow toggling off
                                             />
                                             <span>Enable random question selection</span>
                                         </label>
                                         
-                                        {/* Show the help text whether random is enabled or not */}
                                         {section.questions.filter(q => !q.isCompulsory).length < 2 && (
                                             <span className="random-disabled-note">
                                                 (Requires at least 2 non-compulsory questions)
@@ -732,15 +1093,25 @@ const AddInterviewQuestions = () => {
                                 
                                 <div className="questions-container">
                                     {section.questions.map((question, questionIndex) => (
-                                        <div key={questionIndex} className={`question-item ${question.isCompulsory ? 'compulsory-item' : 'optional-item'}`}>
+                                        <div 
+                                            key={questionIndex} 
+                                            className={`question-item ${question.isCompulsory ? 'compulsory-item' : 'optional-item'} ${question.isAIGenerated ? 'ai-generated-question' : ''}`}
+                                        >
                                             <div className="question-content">
-                                                <div className="question-header">
+                                                <div className={`question-header ${question.isAIGenerated ? 'ai-generated-header' : ''}`}>
                                                     <div className="question-number">{questionIndex + 1}</div>
                                                     <div className="question-type-indicator">
                                                         {question.isCompulsory ? 
                                                             <span className="compulsory-badge">Compulsory</span> : 
                                                             <span className="optional-badge">Optional</span>
                                                         }
+                                                        
+                                                        {/* AI Badge */}
+                                                        {question.isAIGenerated && (
+                                                            <span className={`ai-badge ${question.isAIModified ? 'ai-modified' : ''}`}>
+                                                                {question.isAIModified ? 'AI Generated (Modified)' : 'AI Generated'}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <button 
                                                         className="remove-question-button"
@@ -754,13 +1125,13 @@ const AddInterviewQuestions = () => {
                                                 </div>
                                                 
                                                 <textarea
-                                                    className={`question-textarea ${question.isCompulsory ? 'compulsory' : 'optional'}`}
+                                                    className={`question-textarea ${question.isCompulsory ? 'compulsory' : 'optional'} ${question.isAIGenerated ? 'ai-generated-textarea' : ''}`}
                                                     placeholder="Enter interview question"
                                                     value={question.text}
                                                     onChange={(e) => handleQuestionChange(sectionIndex, questionIndex, e.target.value)}
                                                 />
                                                 
-                                                <div className="question-controls">
+                                                <div className={`question-controls ${question.isAIGenerated ? 'ai-generated-controls' : ''}`}>
                                                     <div className="question-time-control">
                                                         <svg className="time-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                             <circle cx="12" cy="12" r="10"></circle>
@@ -816,6 +1187,20 @@ const AddInterviewQuestions = () => {
                     </div>
                 )}
                 
+                {/* Add total interview time display before the save button */}
+                <div className="interview-time-summary">
+                    <div className="time-icon-container">
+                        <svg className="total-time-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                    </div>
+                    <div className="total-time-text">
+                        <span>Total Interview Time: </span>
+                        <span className="time-value">{totalInterviewTime.minutes} minute{totalInterviewTime.minutes !== 1 ? 's' : ''} {totalInterviewTime.seconds > 0 ? `and ${totalInterviewTime.seconds} second${totalInterviewTime.seconds !== 1 ? 's' : ''}` : ''}</span>
+                    </div>
+                </div>
+
                 {/* Save button container */}
                 <div className="save-container">
                     <button 
