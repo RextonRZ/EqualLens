@@ -77,7 +77,7 @@ async def generate_interview_link(
         
         # Update application with interview information - matching the database structure
         application_ref.update({
-            'status': 'interview_scheduled',
+            'status': 'interview scheduled',
             'interview': {
                 'scheduledDate': scheduled_date,
                 'interviewLink': full_link,
@@ -476,7 +476,7 @@ async def complete_interview(
         
         # Update application status
         db.collection('applications').document(application_id).update({
-            'status': 'interview_completed'
+            'status': 'interview completed'
         })
         
         return {"success": True, "message": "Interview marked as completed successfully"}
