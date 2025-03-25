@@ -42,7 +42,7 @@ const AddInterviewQuestions = () => {
     // Add new state for navigation confirmation modal
     const [showNavigationModal, setShowNavigationModal] = useState(false);
     // Add state to track if AI generate has been used already
-    const [aiGenerateUsed, setAiGenerateUsed] = useState(false);
+    const [aiGenerateUsedMap, setAiGenerateUsedMap] = useState({});
     // Add state for showing success message when AI sections are added
     const [showAISuccess, setShowAISuccess] = useState(false);
     // Add a new state to track if changes have been saved
@@ -62,6 +62,10 @@ const AddInterviewQuestions = () => {
     const [showCandidateSwitchModal, setShowCandidateSwitchModal] = useState(false);
     const [pendingCandidateId, setPendingCandidateId] = useState(null);
     const [showUnsavedResetModal, setShowUnsavedResetModal] = useState(false);
+    // Add a ref to store the initial sections state loaded from the database
+    const [initialSections, setInitialSections] = useState([]);
+    // Add a new state to track if AI generate was used but not yet saved
+    const [aiGeneratedUnsaved, setAiGeneratedUnsaved] = useState(false);
     
     // Get job ID from URL query params
     const location = useLocation();
@@ -123,18 +127,21 @@ const AddInterviewQuestions = () => {
         setNewSectionTitle("");
         if (!keepSelectedApplicant) {
             setSelectedApplicant("");
+        } else if (selectedApplicant) {
+            // If keeping the selected applicant, reset AI generate usage for that applicant
+            setAiGenerateUsedMap(prev => {
+                const newMap = {...prev};
+                delete newMap[selectedApplicant];
+                return newMap;
+            });
         }
         setEditingSectionIndex(null);
         setEditedSectionTitle("");
         setShowErrorModal(false);
         setErrorMessage("");
         setShowConfirmModal(false);
-        setSectionToDelete(null);
-        setShowSaveConfirmModal(false);
-        setTotalInterviewTime({ minutes: 0, seconds: 0 });
-        setShowNavigationModal(false);
-        setAiGenerateUsed(false);
-        setShowAISuccess(false);
+        // Reset AI generated unsaved flag
+        setAiGeneratedUnsaved(false);
     };
 
     // Fetch previously saved InterviewQuestionSet when the component mounts
@@ -182,6 +189,7 @@ const AddInterviewQuestions = () => {
                 setSections([]);
                 setSectionsLoadedFromDB(true);
                 setChangesSaved(true);
+                setInitialSections([]); // Set empty initial sections
                 return;
             }
 
@@ -209,9 +217,11 @@ const AddInterviewQuestions = () => {
                     }));
                     
                     setSections(processedSections);
+                    setInitialSections(JSON.parse(JSON.stringify(processedSections))); // Deep copy initial state
                 } else {
                     // Only clear the sections, not the selected applicant
                     setSections([]);
+                    setInitialSections([]); // Clear initial sections
                 }
             } catch (error) {
                 console.error("Error fetching saved questions:", error);
@@ -220,6 +230,7 @@ const AddInterviewQuestions = () => {
                 if (error.response && error.response.status === 404) {
                     console.log("No question set found for this applicant. Starting with a blank slate.");
                     setSections([]);
+                    setInitialSections([]); // Clear initial sections
                 } else {
                     // For other errors, show an error message but don't reset UI
                     setErrorMessage(`Error loading questions: ${error.message}`);
@@ -233,21 +244,73 @@ const AddInterviewQuestions = () => {
 
     // Add effect to mark changes as unsaved whenever sections change
     useEffect(() => {
-        if (sectionsLoadedFromDB) {
-            // If this is the initial load from DB, don't mark as unsaved
+        // Helper function to check for deep equality between sections
+        const areSectionsEqual = (sectionsA, sectionsB) => {
+            try {
+                // First check basic structure
+                if (sectionsA.length !== sectionsB.length) return false;
+                
+                // Compare sections one by one
+                for (let i = 0; i < sectionsA.length; i++) {
+                    const sectionA = sectionsA[i];
+                    const sectionB = sectionsB[i];
+                    
+                    // Compare section properties
+                    if (sectionA.title !== sectionB.title) return false;
+                    if (sectionA.randomSettings.enabled !== sectionB.randomSettings.enabled) return false;
+                    if (sectionA.randomSettings.enabled && 
+                        sectionA.randomSettings.count !== sectionB.randomSettings.count) return false;
+                    
+                    // Compare questions
+                    if (sectionA.questions.length !== sectionB.questions.length) return false;
+                    
+                    for (let j = 0; j < sectionA.questions.length; j++) {
+                        const questionA = sectionA.questions[j];
+                        const questionB = sectionB.questions[j];
+                        
+                        if (questionA.text !== questionB.text) return false;
+                        if (questionA.timeLimit !== questionB.timeLimit) return false;
+                        if (questionA.isCompulsory !== questionB.isCompulsory) return false;
+                    }
+                }
+                
+                // If we got here, everything matches
+                return true;
+            } catch (error) {
+                // If any error occurs during comparison, consider them different
+                console.error("Error comparing sections:", error);
+                return false;
+            }
+        };
+
+        // Only check for changes if we've finished loading from DB
+        if (!sectionsLoadedFromDB) {
+            // Check if current sections differ from initial sections
+            const hasChanges = !areSectionsEqual(sections, initialSections);
+            
+            // Only update if necessary to avoid re-renders
+            if (changesSaved === hasChanges) {
+                setChangesSaved(!hasChanges);
+            }
+        } else {
+            // Reset the flag after sections are loaded from DB
             setSectionsLoadedFromDB(false);
-            setChangesSaved(true); // Explicitly mark as saved after load
-        } else if (sections.length > 0) {
-            // Only mark as unsaved if this change wasn't from DB load and there's actual content
-            setChangesSaved(false);
         }
-    }, [sections, sectionsLoadedFromDB]);
+    }, [sections, initialSections, sectionsLoadedFromDB, changesSaved]);
 
     // Reset aiGenerateUsed state when component mounts
     useEffect(() => {
-        // Reset AI generate used flag when component mounts
-        setAiGenerateUsed(false);
+        // Reset AI generate used map when component mounts
+        setAiGenerateUsedMap({});
     }, []);
+
+    // Reset AI generated state when applicant changes or component unmounts
+    useEffect(() => {
+        return () => {
+            // Reset AI generated unsaved flag when component unmounts
+            setAiGeneratedUnsaved(false);
+        };
+    }, [selectedApplicant]);
 
     const handleAddSection = () => {
         if (newSectionTitle.trim()) {
@@ -294,6 +357,9 @@ const AddInterviewQuestions = () => {
     const handleCancelCandidateSwitch = () => {
         setShowCandidateSwitchModal(false);
         setPendingCandidateId(null);
+        
+        // Show the save confirmation modal to initiate the save process
+        setShowSaveConfirmModal(true);
     };
 
     // New function to handle applicant change with unsaved changes check
@@ -722,6 +788,17 @@ const AddInterviewQuestions = () => {
             if (saveResponse.status === 200 || saveResponse.status === 201) {
                 console.log("Questions saved successfully:", saveResponse.data);
                 setChangesSaved(true); // Mark changes as saved after successful save
+                setInitialSections(JSON.parse(JSON.stringify(sections))); // Deep copy
+                
+                // If there are unsaved AI generated sections, mark AI generation as used for this candidate
+                if (aiGeneratedUnsaved) {
+                    setAiGenerateUsedMap(prev => ({
+                        ...prev,
+                        [selectedApplicant]: true
+                    }));
+                    setAiGeneratedUnsaved(false);
+                }
+                
                 setShowSuccessModal(true); // Show success modal
             } else {
                 console.error("Unexpected response status:", saveResponse.status);
@@ -894,6 +971,7 @@ const AddInterviewQuestions = () => {
 
         try {
             // Check if there's a saved question set for this candidate
+            // eslint-disable-next-line no-unused-vars
             const response = await axios.get(
                 `http://localhost:8000/api/interview-questions/question-set/${selectedApplicant}`
             );
@@ -1236,7 +1314,7 @@ const AddInterviewQuestions = () => {
         </div>
     );
 
-    // Add CandidateSwitchModal component
+    // Update CandidateSwitchModal component
     const CandidateSwitchModal = () => (
         <div className="status-modal-overlay" role="dialog" aria-modal="true">
             <div className="status-modal">
@@ -1249,7 +1327,9 @@ const AddInterviewQuestions = () => {
                 </div>
                 <h3 className="status-title">Unsaved Changes</h3>
                 <p className="status-description">
-                    You have unsaved interview questions for the current candidate. Switching to another candidate will cause your unsaved changes to be lost.
+                    {selectedApplicant === "all" ? 
+                        "You have unsaved interview questions that will apply to all candidates. Switching to another candidate will cause your unsaved changes to be lost." : 
+                        "You have unsaved interview questions for the current candidate. Switching to another candidate will cause your unsaved changes to be lost."}
                 </p>
                 <div className="status-buttons">
                     <button className="status-button secondary-button" onClick={handleCancelCandidateSwitch}>
@@ -1263,7 +1343,7 @@ const AddInterviewQuestions = () => {
         </div>
     );
 
-    // Modify the AI Generate function to disable butterflies after use
+    // Modify the AI Generate function to track unsaved state
     const handleAIGenerate = () => {
         // Create AI-generated sections (same as before)
         const aiGeneratedSections = [
@@ -1384,8 +1464,8 @@ const AddInterviewQuestions = () => {
         // Append AI sections instead of replacing
         setSections(prevSections => [...prevSections, ...aiGeneratedSections]);
         
-        // Mark AI generate as used
-        setAiGenerateUsed(true);
+        // Mark that AI has been used but not yet saved
+        setAiGeneratedUnsaved(true);
         
         // Show success message
         setShowAISuccess(true);
@@ -1507,7 +1587,7 @@ const AddInterviewQuestions = () => {
                             </div>
                         )}
                         {/* Only show butterfly divs when the button hasn't been used yet */}
-                        {!aiGenerateUsed && (
+                        {selectedApplicant && !aiGenerateUsedMap[selectedApplicant] && (
                             <>
                                 <div className="butterfly"></div>
                                 <div className="butterfly"></div>
@@ -1516,15 +1596,18 @@ const AddInterviewQuestions = () => {
                             </>
                         )}
                         <button 
-                            className={`ai-generate-button ${aiGenerateUsed ? 'used' : ''}`} 
+                            className={`ai-generate-button ${selectedApplicant && aiGenerateUsedMap[selectedApplicant] ? 'used' : ''}`} 
                             onClick={handleAIGenerate}
-                            disabled={aiGenerateUsed}
-                            title={aiGenerateUsed ? "AI generation has already been used" : "Generate interview questions with AI"}
+                            disabled={!selectedApplicant || selectedApplicant === "all" || aiGenerateUsedMap[selectedApplicant]}
+                            title={!selectedApplicant ? "Select an applicant first" : 
+                                   selectedApplicant === "all" ? "Cannot use AI Generate for Apply to All" :
+                                   aiGenerateUsedMap[selectedApplicant] ? "AI generation has already been used for this candidate" : 
+                                   "Generate interview questions with AI"}
                         >
                             <svg className="ai-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                             </svg>
-                            {aiGenerateUsed ? "AI Sections Added" : "AI Generate Questions"}
+                            {selectedApplicant && aiGenerateUsedMap[selectedApplicant] ? "AI Sections Added" : "AI Generate Questions"}
                         </button>
                     </div>
                 </div>
