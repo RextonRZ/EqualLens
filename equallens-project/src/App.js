@@ -4,13 +4,13 @@ import Navbar from './components/Navbar';
 import Home from './components/pages/Home';
 import UploadCV from './components/pages/UploadCV';
 import SignUp from './components/pages/SignUp';
-import InterviewLinkValidator from './components/pages/InterviewLinkValidator';
-import IDVerification from './components/pages/IDVerification';
-import InterviewQuestions from './components/pages/InterviewQuestions';
 import InterviewLinkGenerator from './components/pages/InterviewLinkGenerator';
 import InterviewReview from './components/pages/InterviewReview';
 import Dashboard from './components/pages/Dashboard';
 import AddInterviewQuestions from "./components/pages/AddInterviewQuestions";
+import InterviewLinkValidator from './components/pages/InterviewLinkValidator';
+import IDVerification from './components/pages/IDVerification';
+import InterviewQuestions from './components/pages/InterviewQuestion';
 
 function App() {
   return (

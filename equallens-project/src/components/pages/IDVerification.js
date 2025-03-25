@@ -1,319 +1,193 @@
-// src/components/pages/IDVerification.js
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import '../pageloading.css';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import '../../App.css';
-import './Interview.css';
-
-const IDVerification = () => {
-    const { interviewId, linkCode } = useParams();
-    const location = useLocation();
-    const navigate = useNavigate();
-
-    const [interviewData, setInterviewData] = useState(null);
-    const [idNumber, setIdNumber] = useState('');
-    const [idImage, setIdImage] = useState(null);
-    const [previewUrl, setPreviewUrl] = useState(null);
-    const [isCapturing, setIsCapturing] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState(null);
-
-    const videoRef = useRef(null);
-    const canvasRef = useRef(null);
-    const fileInputRef = useRef(null);
-
-    // Get interview data from location state
-    useEffect(() => {
-        if (location.state && location.state.interview) {
-            setInterviewData(location.state.interview);
-        } else {
-            // If no interview data is available, redirect to validator
-            navigate(`/interview/${interviewId}/${linkCode}`);
-        }
-    }, [location, interviewId, linkCode, navigate]);
-
-    // Clean up video stream when component unmounts
-    useEffect(() => {
-        return () => {
-            if (videoRef.current && videoRef.current.srcObject) {
-                const tracks = videoRef.current.srcObject.getTracks();
-                tracks.forEach(track => track.stop());
-            }
-        };
-    }, []);
-
-    // Handle ID image upload
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setIdImage(file);
-            const fileUrl = URL.createObjectURL(file);
-            setPreviewUrl(fileUrl);
-            setIsCapturing(false);
-        }
-    };
-
-    // Start camera for ID capture
-    const startCamera = async () => {
-        try {
-            setIsCapturing(true);
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment' }
-            });
-
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-            }
-        } catch (err) {
-            console.error('Error accessing camera:', err);
-            setError('Could not access camera. Please check your camera permissions or upload an image directly.');
-            setIsCapturing(false);
-        }
-    };
-
-    // Capture image from camera
-    const captureImage = () => {
-        if (!videoRef.current || !canvasRef.current) return;
-
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-
-        // Set canvas dimensions to match video
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-
-        // Draw video frame to canvas
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        // Convert canvas to blob
-        canvas.toBlob((blob) => {
-            // Create a file from the blob
-            const file = new File([blob], 'id-image.jpg', { type: 'image/jpeg' });
-            setIdImage(file);
-
-            // Create preview URL
-            const url = URL.createObjectURL(blob);
-            setPreviewUrl(url);
-
-            // Stop camera
-            if (video.srcObject) {
-                const tracks = video.srcObject.getTracks();
-                tracks.forEach(track => track.stop());
-            }
-
-            setIsCapturing(false);
-        }, 'image/jpeg', 0.95);
-    };
-
-    // Submit ID verification
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        if (!interviewData || !idNumber || !idImage) {
-            setError('Please enter your ID number and provide an ID image.');
-            return;
-        }
-
-        try {
-            setIsSubmitting(true);
-            setError(null);
-
-            // Create form data
-            const formData = new FormData();
-            formData.append('interview_id', interviewId);
-            formData.append('candidate_id', interviewData.candidate_id);
-            formData.append('id_number', idNumber);
-            formData.append('id_image', idImage);
-
-            // API URL for ID verification
-            const API_URL = "http://localhost:8000"; // Update with your API URL
-            const submitUrl = `${API_URL}/api/interviews/submit-id`;
-
-            const response = await fetch(submitUrl, {
-                method: 'POST',
-                body: formData,
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to submit ID verification');
-            }
-
-            // Navigate to interview questions page
-            navigate(`/interview/${interviewId}/${linkCode}/questions`, {
-                state: { interview: interviewData }
-            });
-
-        } catch (err) {
-            console.error('Error submitting ID verification:', err);
-            setError(err.message || 'Failed to submit ID verification');
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
+// LoadingAnimation component
+const LoadingAnimation = () => {
     return (
-        <div className="id-verification-container">
-            <div className="id-verification-card">
-                <div className="interview-logo">
-                    EqualLens
-                </div>
-
-                <h2 className="id-verification-title">ID Verification</h2>
-                <p className="id-verification-description">
-                    Please provide your ID card for verification before proceeding with the interview.
-                </p>
-
-                {error && (
-                    <div className="error-message">
-                        <svg className="error-icon-small" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        {error}
-                    </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="id-verification-form">
-                    <div className="form-group">
-                        <label htmlFor="idNumber" className="form-label">ID Number</label>
-                        <input
-                            type="text"
-                            id="idNumber"
-                            className="form-input"
-                            value={idNumber}
-                            onChange={(e) => setIdNumber(e.target.value)}
-                            placeholder="Enter your IC number"
-                            required
-                        />
-                    </div>
-
-                    <div className="form-group">
-                        <label className="form-label">ID Image</label>
-
-                        {!isCapturing && !previewUrl && (
-                            <div className="id-upload-options">
-                                <button
-                                    type="button"
-                                    className="camera-button"
-                                    onClick={startCamera}
-                                >
-                                    <svg className="camera-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                    </svg>
-                                    Take Photo
-                                </button>
-
-                                <div className="or-divider">OR</div>
-
-                                <button
-                                    type="button"
-                                    className="upload-button"
-                                    onClick={() => fileInputRef.current.click()}
-                                >
-                                    <svg className="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-                                    </svg>
-                                    Upload Image
-                                </button>
-
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleFileChange}
-                                    className="hidden-input"
-                                />
-                            </div>
-                        )}
-
-                        {isCapturing && (
-                            <div className="camera-container">
-                                <video
-                                    ref={videoRef}
-                                    autoPlay
-                                    playsInline
-                                    muted
-                                    className="camera-preview"
-                                ></video>
-
-                                <div className="camera-controls">
-                                    <button
-                                        type="button"
-                                        className="camera-capture-button"
-                                        onClick={captureImage}
-                                    >
-                                        <svg className="capture-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                        </svg>
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className="camera-cancel-button"
-                                        onClick={() => {
-                                            if (videoRef.current && videoRef.current.srcObject) {
-                                                const tracks = videoRef.current.srcObject.getTracks();
-                                                tracks.forEach(track => track.stop());
-                                            }
-                                            setIsCapturing(false);
-                                        }}
-                                    >
-                                        <svg className="cancel-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                                        </svg>
-                                    </button>
-                                </div>
-
-                                <canvas ref={canvasRef} className="hidden-canvas"></canvas>
-                            </div>
-                        )}
-
-                        {previewUrl && (
-                            <div className="id-preview-container">
-                                <img
-                                    src={previewUrl}
-                                    alt="ID Preview"
-                                    className="id-preview-image"
-                                />
-
-                                <button
-                                    type="button"
-                                    className="preview-cancel-button"
-                                    onClick={() => {
-                                        setIdImage(null);
-                                        setPreviewUrl(null);
-                                        URL.revokeObjectURL(previewUrl);
-                                    }}
-                                >
-                                    <svg className="cancel-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                                    </svg>
-                                </button>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="id-verification-actions">
-                        <button
-                            type="submit"
-                            className="submit-button"
-                            disabled={isSubmitting || !idNumber || !idImage}
-                        >
-                            {isSubmitting ? 'Submitting...' : 'Continue to Interview'}
-                        </button>
-                    </div>
-                </form>
-
-                <div className="id-verification-note">
-                    <p>Note: Your ID is only used for verification purposes and will not be shared with the hiring team.</p>
-                </div>
+        <div className="loading-animation">
+            <div className="seesaw-container">
+                <div className="bar"></div>
+                <div className="ball"></div>
             </div>
         </div>
     );
 };
 
-export default IDVerification;
+function InterviewLinkValidator() {
+    const { interviewId, linkCode } = useParams();
+    const navigate = useNavigate();
+
+    const [loading, setLoading] = useState(true);
+    const [valid, setValid] = useState(false);
+    const [error, setError] = useState(null);
+    const [interviewData, setInterviewData] = useState(null);
+
+    useEffect(() => {
+        const validateLink = async () => {
+            try {
+                setLoading(true);
+
+                // Call the API to validate the interview link
+                const response = await fetch(`http://localhost:8000/api/interviews/validate/${interviewId}/${linkCode}`);
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Invalid interview link');
+                }
+
+                const data = await response.json();
+                setInterviewData(data);
+                setValid(data.valid);
+
+                // If verification is already completed, go directly to questions
+                if (data.verificationCompleted) {
+                    navigate(`/interview/${interviewId}/${linkCode}/questions`);
+                }
+
+            } catch (error) {
+                console.error("Error validating interview link:", error);
+                setError(error.message);
+                setValid(false);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        validateLink();
+    }, [interviewId, linkCode, navigate]);
+
+    const handleProceed = () => {
+        navigate(`/interview/${interviewId}/${linkCode}/id-verification`);
+    };
+
+    if (loading) {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
+                <LoadingAnimation />
+                <h2 style={{ marginTop: '30px', color: '#333' }}>Validating your interview link...</h2>
+            </div>
+        );
+    }
+
+    if (error || !valid) {
+        return (
+            <div style={{
+                maxWidth: '600px',
+                margin: '40px auto',
+                padding: '30px',
+                textAlign: 'center',
+                backgroundColor: '#fff',
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+            }}>
+                <div style={{
+                    width: '80px',
+                    height: '80px',
+                    backgroundColor: '#ffdddd',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    margin: '0 auto 20px'
+                }}>
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#e53935" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                </div>
+                <h2 style={{ color: '#e53935', marginBottom: '20px' }}>Invalid Interview Link</h2>
+                <p style={{ color: '#555', fontSize: '18px', marginBottom: '30px' }}>
+                    {error || "This interview link is invalid or has expired."}
+                </p>
+                <p style={{ color: '#777', fontSize: '16px' }}>
+                    Please contact the hiring team for assistance.
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{
+            maxWidth: '800px',
+            margin: '40px auto',
+            padding: '30px',
+            backgroundColor: '#fff',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+        }}>
+            <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+                <h1 style={{ color: '#ef402d', fontSize: '28px', marginBottom: '20px' }}>Welcome to Your Interview</h1>
+                <div style={{
+                    width: '100px',
+                    height: '100px',
+                    backgroundColor: '#ffeff0',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    margin: '0 auto 20px'
+                }}>
+                    <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#ef402d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                </div>
+                <h2 style={{ color: '#333', fontSize: '24px', marginBottom: '10px' }}>
+                    Hi, {interviewData?.candidateName || 'Candidate'}!
+                </h2>
+                <p style={{ color: '#666', fontSize: '18px', marginBottom: '5px' }}>
+                    You're about to start your interview for:
+                </p>
+                <p style={{ color: '#ef402d', fontSize: '22px', fontWeight: 'bold', marginBottom: '30px' }}>
+                    {interviewData?.jobTitle || 'Position'}
+                </p>
+            </div>
+
+            <div style={{ backgroundColor: '#f9f9f9', padding: '20px', borderRadius: '8px', marginBottom: '30px' }}>
+                <h3 style={{ color: '#333', marginBottom: '15px' }}>Before You Begin:</h3>
+                <ul style={{ paddingLeft: '25px', color: '#555', lineHeight: '1.6' }}>
+                    <li>Ensure you have a working camera and microphone</li>
+                    <li>Find a quiet place with good lighting</li>
+                    <li>Have your ID card or passport ready for verification</li>
+                    <li>You'll need to answer questions within the specified time limits</li>
+                    <li>Your responses will be recorded for review by our hiring team</li>
+                </ul>
+            </div>
+
+            <div style={{ backgroundColor: '#fffbf2', padding: '20px', borderRadius: '8px', marginBottom: '30px', borderLeft: '4px solid #f9a825' }}>
+                <h3 style={{ color: '#f9a825', marginBottom: '15px' }}>Important:</h3>
+                <p style={{ color: '#555', marginBottom: '10px' }}>
+                    The next step requires you to verify your identity by taking a photo of yourself while holding your ID card or passport.
+                </p>
+                <p style={{ color: '#555' }}>
+                    This is to ensure the integrity of our interview process. Your photo will only be used for verification purposes.
+                </p>
+            </div>
+
+            <div style={{ textAlign: 'center', marginTop: '30px' }}>
+                <button
+                    onClick={handleProceed}
+                    style={{
+                        backgroundColor: '#ef402d',
+                        color: 'white',
+                        border: 'none',
+                        padding: '14px 40px',
+                        borderRadius: '4px',
+                        fontSize: '18px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.3s'
+                    }}
+                    onMouseOver={(e) => e.target.style.backgroundColor = '#d63020'}
+                    onMouseOut={(e) => e.target.style.backgroundColor = '#ef402d'}
+                >
+                    Proceed to ID Verification
+                </button>
+            </div>
+        </div>
+    );
+}
+
+export default InterviewLinkValidator;

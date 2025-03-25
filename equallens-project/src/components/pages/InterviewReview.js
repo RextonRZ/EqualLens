@@ -1,718 +1,751 @@
-// src/components/pages/InterviewReview.js
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import '../../App.css';
-import './InterviewReview.css';
+import '../pageloading.css';
 
-const InterviewReview = () => {
+// LoadingAnimation component
+const LoadingAnimation = () => {
+    return (
+        <div className="loading-animation">
+            <div className="seesaw-container">
+                <div className="bar"></div>
+                <div className="ball"></div>
+            </div>
+        </div>
+    );
+};
+
+function InterviewReview() {
     const { interviewId } = useParams();
     const navigate = useNavigate();
 
-    const [isLoading, setIsLoading] = useState(true);
+    // State variables
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [interview, setInterview] = useState(null);
     const [candidateInfo, setCandidateInfo] = useState(null);
     const [jobInfo, setJobInfo] = useState(null);
+    const [questions, setQuestions] = useState([]);
+    const [responses, setResponses] = useState([]);
     const [currentResponseIndex, setCurrentResponseIndex] = useState(0);
-    const [feedback, setFeedback] = useState('');
-    const [overallScore, setOverallScore] = useState(0);
-    const [questionScores, setQuestionScores] = useState({});
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [showConfirmation, setShowConfirmation] = useState(false);
-    const [decisionStatus, setDecisionStatus] = useState(null); // 'approve' or 'reject'
+    const [feedback, setFeedback] = useState({});
+    const [submitting, setSubmitting] = useState(false);
+    const [submissionSuccess, setSubmissionSuccess] = useState(false);
 
-    // Fetch interview data when component mounts
+    // Rating categories
+    const ratingCategories = [
+        { id: 'clarity', name: 'Clarity', description: 'How clearly did the candidate express their ideas?' },
+        { id: 'confidence', name: 'Confidence', description: 'How confident did the candidate appear?' },
+        { id: 'relevance', name: 'Relevance', description: 'How relevant were the candidate\'s answers to the questions?' },
+        { id: 'technical', name: 'Technical Knowledge', description: 'How strong was the candidate\'s technical knowledge?' }
+    ];
+
+    // Initial feedback state
+    useEffect(() => {
+        // Initialize feedback state for each response
+        if (responses.length > 0) {
+            const initialFeedback = {};
+            responses.forEach(response => {
+                initialFeedback[response.responseId] = {
+                    clarity: 0,
+                    confidence: 0,
+                    relevance: 0,
+                    technical: 0,
+                    notes: ''
+                };
+            });
+            setFeedback(initialFeedback);
+        }
+    }, [responses]);
+
+    // Fetch interview data on component mount
     useEffect(() => {
         const fetchInterviewData = async () => {
             try {
-                setIsLoading(true);
+                setLoading(true);
 
-                // API URL for fetching interview data
-                const API_URL = "http://localhost:8000"; // Update with your API URL
-                const response = await fetch(`${API_URL}/api/interviews/${interviewId}`);
-
-                if (!response.ok) {
-                    throw new Error('Failed to fetch interview data');
+                // Fetch interview details
+                const interviewResponse = await fetch(`http://localhost:8000/api/interviews/review/${interviewId}`);
+                if (!interviewResponse.ok) {
+                    const errorData = await interviewResponse.json();
+                    throw new Error(errorData.detail || 'Failed to fetch interview details');
                 }
 
-                const data = await response.json();
+                const interviewData = await interviewResponse.json();
 
-                // Set interview data
-                setInterview(data.interview);
+                // Set candidate and job info
+                setCandidateInfo(interviewData.candidateInfo);
+                setJobInfo(interviewData.jobInfo);
 
-                // Initialize question scores
-                const initialScores = {};
-                data.interview.responses.forEach(response => {
-                    initialScores[response.question_id] = response.analysis?.score || 0;
-                });
-                setQuestionScores(initialScores);
+                // Set questions and responses
+                setQuestions(interviewData.questions);
+                setResponses(interviewData.responses);
 
-                // Set candidate info
-                setCandidateInfo(data.candidate);
+                // If responses already have feedback, set it
+                if (interviewData.responses && interviewData.responses.length > 0) {
+                    const existingFeedback = {};
+                    interviewData.responses.forEach(response => {
+                        if (response.analysis) {
+                            existingFeedback[response.responseId] = {
+                                clarity: response.analysis.clarity || 0,
+                                confidence: response.analysis.confidence || 0,
+                                relevance: response.analysis.relevance || 0,
+                                technical: response.analysis.totalScore / 3 || 0, // Approximation
+                                notes: response.analysis.feedback || ''
+                            };
+                        }
+                    });
 
-                // Set job info
-                setJobInfo(data.job);
-
-                // Set feedback and overall score if available
-                if (data.interview.feedback) {
-                    setFeedback(data.interview.feedback);
+                    // Only set feedback if there's existing data
+                    if (Object.keys(existingFeedback).length > 0) {
+                        setFeedback(existingFeedback);
+                    }
                 }
 
-                if (data.interview.score) {
-                    setOverallScore(data.interview.score);
-                }
-
-            } catch (err) {
-                console.error('Error fetching interview data:', err);
-                setError('Failed to load interview data. Please try again later.');
-
-                // For demo purposes, set mock data
-                setMockData();
-
+            } catch (error) {
+                console.error("Error fetching interview data:", error);
+                setError(error.message);
             } finally {
-                setIsLoading(false);
+                setLoading(false);
             }
         };
 
-        // Uncomment this when the API endpoint is ready
-        // fetchInterviewData();
-
-        // For now, use mock data
-        setMockData();
-
+        fetchInterviewData();
     }, [interviewId]);
 
-    // Set mock data for development purposes
-    const setMockData = () => {
-        const mockInterview = {
-            interview_id: 'int-abc123xyz',
-            candidate_id: 'cand-123456',
-            job_id: 'job-654321',
-            status: 'completed',
-            created_at: '2025-03-18T14:30:00Z',
-            completed_at: '2025-03-18T15:00:00Z',
-            score: 75,
-            feedback: 'Good communication skills but could improve on technical knowledge.',
-            questions: [
-                {
-                    question_id: 'q-1',
-                    text: 'Tell us about your experience with React development.',
-                    time_limit_seconds: 60,
-                    position: 1
-                },
-                {
-                    question_id: 'q-2',
-                    text: 'Describe a challenging project you worked on and how you overcame the difficulties.',
-                    time_limit_seconds: 90,
-                    position: 2
-                },
-                {
-                    question_id: 'q-3',
-                    text: 'How do you stay updated with the latest technologies in your field?',
-                    time_limit_seconds: 60,
-                    position: 3
-                }
-            ],
-            responses: [
-                {
-                    question_id: 'q-1',
-                    video_url: 'https://example.com/mock-video-1.mp4',
-                    audio_url: 'https://example.com/mock-audio-1.mp3',
-                    transcript: 'I have been working with React for about 3 years now. I\'ve built several single-page applications and components. I\'m familiar with hooks, context API, and Redux for state management. I\'ve also worked with Next.js for server-side rendering and static site generation.',
-                    duration_seconds: 45,
-                    analysis: {
-                        score: 85,
-                        clarity: 90,
-                        relevance: 80,
-                        confidence: 85,
-                        feedback: 'Good clear explanation of React experience with specific technologies mentioned.'
-                    }
-                },
-                {
-                    question_id: 'q-2',
-                    video_url: 'https://example.com/mock-video-2.mp4',
-                    audio_url: 'https://example.com/mock-audio-2.mp3',
-                    transcript: 'One challenging project was a real-time dashboard for a financial application. The main challenge was handling large amounts of data while maintaining performance. I implemented data virtualization and optimized rendering to improve performance. I also worked closely with the backend team to optimize API responses.',
-                    duration_seconds: 78,
-                    analysis: {
-                        score: 75,
-                        clarity: 70,
-                        relevance: 85,
-                        confidence: 75,
-                        feedback: 'Good example but could provide more specific details about the technical solutions implemented.'
-                    }
-                },
-                {
-                    question_id: 'q-3',
-                    video_url: 'https://example.com/mock-video-3.mp4',
-                    audio_url: 'https://example.com/mock-audio-3.mp3',
-                    transcript: 'I stay updated by following several tech blogs and newsletters. I also participate in online communities like Stack Overflow and GitHub. I try to work on personal projects to experiment with new technologies, and I attend workshops and webinars when possible.',
-                    duration_seconds: 55,
-                    analysis: {
-                        score: 65,
-                        clarity: 70,
-                        relevance: 60,
-                        confidence: 65,
-                        feedback: 'Answer lacks specific examples of blogs or communities followed. Could be more detailed about learning methods.'
-                    }
-                }
-            ]
-        };
-
-        const mockCandidate = {
-            candidate_id: 'cand-123456',
-            name: 'Jane Smith',
-            email: 'jane.smith@example.com',
-            resume_url: 'https://example.com/jane-smith-resume.pdf',
-            status: 'interviewed',
-            skills: ['React', 'JavaScript', 'CSS', 'Node.js', 'GraphQL'],
-            experience_years: 3.5,
-            education: 'Bachelor of Science in Computer Science'
-        };
-
-        const mockJob = {
-            job_id: 'job-654321',
-            jobTitle: 'Senior Frontend Developer',
-            jobDescription: 'We are looking for an experienced frontend developer with strong React skills to join our team.',
-            minimumCGPA: 3.0,
-            skills: ['React', 'JavaScript', 'CSS', 'HTML5', 'Redux'],
-            languages: ['English'],
-            createdAt: '2025-03-10T10:00:00Z'
-        };
-
-        setInterview(mockInterview);
-        setCandidateInfo(mockCandidate);
-        setJobInfo(mockJob);
-
-        // Initialize question scores
-        const initialScores = {};
-        mockInterview.responses.forEach(response => {
-            initialScores[response.question_id] = response.analysis?.score || 0;
-        });
-        setQuestionScores(initialScores);
-
-        setFeedback(mockInterview.feedback || '');
-        setOverallScore(mockInterview.score || 0);
-        setIsLoading(false);
-    };
-
-    // Handle score change for a specific question
-    const handleScoreChange = (questionId, score) => {
-        setQuestionScores(prev => ({
+    const handleRatingChange = (responseId, category, value) => {
+        setFeedback(prev => ({
             ...prev,
-            [questionId]: parseInt(score, 10)
+            [responseId]: {
+                ...prev[responseId],
+                [category]: parseInt(value)
+            }
         }));
-
-        // Calculate overall score as average of all question scores
-        const scores = Object.values({ ...questionScores, [questionId]: parseInt(score, 10) });
-        const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-        setOverallScore(Math.round(average));
     };
 
-    // Handle feedback change
-    const handleFeedbackChange = (e) => {
-        setFeedback(e.target.value);
+    const handleNotesChange = (responseId, notes) => {
+        setFeedback(prev => ({
+            ...prev,
+            [responseId]: {
+                ...prev[responseId],
+                notes
+            }
+        }));
     };
 
-    // Save review
-    const saveReview = async () => {
+    const getCurrentResponse = () => {
+        return responses[currentResponseIndex] || null;
+    };
+
+    const getCurrentQuestion = () => {
+        const response = getCurrentResponse();
+        if (!response) return null;
+
+        // Find the question that matches this response
+        return questions.find(q => q.questionId === response.questionId) || null;
+    };
+
+    const getResponseIdFromIndex = (index) => {
+        return responses[index]?.responseId || null;
+    };
+
+    const calculateAverageRating = (responseId) => {
+        if (!feedback[responseId]) return 0;
+
+        const { clarity, confidence, relevance, technical } = feedback[responseId];
+        return ((clarity + confidence + relevance + technical) / 4).toFixed(1);
+    };
+
+    const navigateToNextResponse = () => {
+        if (currentResponseIndex < responses.length - 1) {
+            setCurrentResponseIndex(currentResponseIndex + 1);
+        }
+    };
+
+    const navigateToPrevResponse = () => {
+        if (currentResponseIndex > 0) {
+            setCurrentResponseIndex(currentResponseIndex - 1);
+        }
+    };
+
+    const submitFeedback = async () => {
         try {
-            setIsSubmitting(true);
+            setSubmitting(true);
 
-            // Prepare review data
-            const reviewData = {
-                interview_id: interviewId,
-                overall_score: overallScore,
-                feedback: feedback,
-                question_scores: questionScores
+            // Prepare feedback data
+            const feedbackData = {
+                interviewId,
+                responses: Object.keys(feedback).map(responseId => ({
+                    responseId,
+                    analysis: {
+                        clarity: feedback[responseId].clarity,
+                        confidence: feedback[responseId].confidence,
+                        relevance: feedback[responseId].relevance,
+                        totalScore: (
+                            feedback[responseId].clarity +
+                            feedback[responseId].confidence +
+                            feedback[responseId].relevance
+                        ) / 3, // Average as the total score
+                        feedback: feedback[responseId].notes
+                    }
+                }))
             };
 
-            // API URL for saving review
-            const API_URL = "http://localhost:8000"; // Update with your API URL
-            const response = await fetch(`${API_URL}/api/interviews/${interviewId}/review`, {
+            // Submit to API
+            const response = await fetch('http://localhost:8000/api/interviews/submit-feedback', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(reviewData)
+                body: JSON.stringify(feedbackData)
             });
 
             if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || 'Failed to save review');
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to submit feedback');
             }
 
-            // Show success message or redirect
-            alert('Review saved successfully!');
+            // Show success message
+            setSubmissionSuccess(true);
 
-        } catch (err) {
-            console.error('Error saving review:', err);
-            setError('Failed to save review. Please try again later.');
+            // Navigate to dashboard after a delay
+            setTimeout(() => {
+                navigate('/dashboard');
+            }, 3000);
 
-            // For demo purposes, show success anyway
-            alert('Review saved successfully! (Demo mode)');
-
+        } catch (error) {
+            console.error("Error submitting feedback:", error);
+            setError(`Failed to submit feedback: ${error.message}`);
         } finally {
-            setIsSubmitting(false);
+            setSubmitting(false);
         }
     };
 
-    // Submit final decision (approve or reject)
-    const submitDecision = async (status) => {
-        try {
-            setIsSubmitting(true);
-
-            // Prepare decision data
-            const decisionData = {
-                interview_id: interviewId,
-                candidate_id: candidateInfo.candidate_id,
-                status: status, // 'approve' or 'reject'
-                feedback: feedback
-            };
-
-            // API URL for submitting decision
-            const API_URL = "http://localhost:8000"; // Update with your API URL
-            const response = await fetch(`${API_URL}/api/interviews/${interviewId}/decision`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(decisionData)
-            });
-
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || 'Failed to submit decision');
-            }
-
-            // Show confirmation and redirect
-            setDecisionStatus(status);
-            setShowConfirmation(true);
-
-        } catch (err) {
-            console.error('Error submitting decision:', err);
-            setError('Failed to submit decision. Please try again later.');
-
-            // For demo purposes, show confirmation anyway
-            setDecisionStatus(status);
-            setShowConfirmation(true);
-
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    // Close confirmation and redirect
-    const handleConfirmationClose = () => {
-        setShowConfirmation(false);
-        navigate('/screening'); // Redirect to candidates screening page
-    };
-
-    // Calculate the current response
-    const currentResponse = interview?.responses ? interview.responses[currentResponseIndex] : null;
-    const currentQuestion = currentResponse ? interview.questions.find(q => q.question_id === currentResponse.question_id) : null;
-
-    // Format date string
-    const formatDate = (dateString) => {
-        if (!dateString) return '';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
-
-    if (isLoading) {
+    if (loading) {
         return (
-            <div className="review-loading-container">
-                <div className="seesaw-container">
-                    <div className="ball"></div>
-                    <div className="bar"></div>
-                </div>
-                <p className="loading-text">Loading interview data...</p>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
+                <LoadingAnimation />
+                <h2 style={{ marginTop: '30px', color: '#333' }}>Loading interview data...</h2>
             </div>
         );
     }
 
-    if (error && !interview) {
+    if (error) {
         return (
-            <div className="review-error-container">
-                <svg className="error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <h2>Error Loading Interview</h2>
-                <p className="error-message">{error}</p>
+            <div style={{
+                maxWidth: '600px',
+                margin: '40px auto',
+                padding: '30px',
+                textAlign: 'center',
+                backgroundColor: '#fff',
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+            }}>
+                <div style={{
+                    width: '80px',
+                    height: '80px',
+                    backgroundColor: '#ffdddd',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    margin: '0 auto 20px'
+                }}>
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#e53935" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                </div>
+                <h2 style={{ color: '#e53935', marginBottom: '20px' }}>Error</h2>
+                <p style={{ color: '#555', fontSize: '18px', marginBottom: '30px' }}>
+                    {error}
+                </p>
                 <button
-                    className="retry-button"
-                    onClick={() => window.location.reload()}
+                    onClick={() => navigate('/dashboard')}
+                    style={{
+                        backgroundColor: '#ef402d',
+                        color: 'white',
+                        border: 'none',
+                        padding: '12px 30px',
+                        borderRadius: '4px',
+                        fontSize: '16px',
+                        cursor: 'pointer'
+                    }}
                 >
-                    Retry
+                    Return to Dashboard
                 </button>
             </div>
         );
     }
 
-    if (showConfirmation) {
+    if (submissionSuccess) {
         return (
-            <div className="decision-confirmation-container">
-                <div className="decision-confirmation-card">
-                    <svg
-                        className={`confirmation-icon ${decisionStatus === 'approve' ? 'approve-icon' : 'reject-icon'}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                        {decisionStatus === 'approve' ? (
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                        ) : (
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                        )}
+            <div style={{
+                maxWidth: '600px',
+                margin: '40px auto',
+                padding: '30px',
+                textAlign: 'center',
+                backgroundColor: '#fff',
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+            }}>
+                <div style={{
+                    width: '80px',
+                    height: '80px',
+                    backgroundColor: '#e8f5e9',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    margin: '0 auto 20px'
+                }}>
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4caf50" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
                     </svg>
-
-                    <h2 className="confirmation-title">
-                        {decisionStatus === 'approve'
-                            ? 'Candidate Approved Successfully'
-                            : 'Candidate Rejected'}
-                    </h2>
-
-                    <p className="confirmation-message">
-                        {decisionStatus === 'approve'
-                            ? `An email has been sent to ${candidateInfo.name} with the job offer details.`
-                            : `An email has been sent to ${candidateInfo.name} informing them that they were not selected for this position.`
-                        }
-                    </p>
-
-                    <button
-                        className="confirmation-button"
-                        onClick={handleConfirmationClose}
-                    >
-                        Return to Candidates
-                    </button>
                 </div>
+                <h2 style={{ color: '#4caf50', marginBottom: '20px' }}>Feedback Submitted Successfully</h2>
+                <p style={{ color: '#555', fontSize: '18px', marginBottom: '30px' }}>
+                    Your feedback has been submitted and saved successfully.
+                </p>
+                <p style={{ color: '#777' }}>
+                    Redirecting to dashboard...
+                </p>
+            </div>
+        );
+    }
+
+    const currentResponse = getCurrentResponse();
+    const currentQuestion = getCurrentQuestion();
+
+    if (!currentResponse || !currentQuestion) {
+        return (
+            <div style={{
+                maxWidth: '600px',
+                margin: '40px auto',
+                padding: '30px',
+                textAlign: 'center',
+                backgroundColor: '#fff',
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+            }}>
+                <h2 style={{ color: '#333', marginBottom: '20px' }}>No Responses Available</h2>
+                <p style={{ color: '#555', fontSize: '18px', marginBottom: '30px' }}>
+                    There are no interview responses available for review.
+                </p>
+                <button
+                    onClick={() => navigate('/dashboard')}
+                    style={{
+                        backgroundColor: '#ef402d',
+                        color: 'white',
+                        border: 'none',
+                        padding: '12px 30px',
+                        borderRadius: '4px',
+                        fontSize: '16px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Return to Dashboard
+                </button>
             </div>
         );
     }
 
     return (
-        <div className="interview-review-container">
-            <div className="review-header">
-                <h1 className="review-title">Interview Review</h1>
+        <div style={{
+            maxWidth: '1200px',
+            margin: '40px auto',
+            padding: '30px',
+            backgroundColor: '#fff',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+        }}>
+            {/* Header with candidate and job info */}
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                marginBottom: '30px',
+                borderBottom: '1px solid #eee',
+                paddingBottom: '20px'
+            }}>
+                <div>
+                    <h1 style={{ color: '#333', marginBottom: '10px', fontSize: '28px' }}>
+                        Interview Review
+                    </h1>
+                    <h2 style={{ color: '#666', fontSize: '20px', fontWeight: 'normal' }}>
+                        {candidateInfo?.firstName} {candidateInfo?.lastName} - {jobInfo?.jobTitle}
+                    </h2>
+                </div>
                 <button
-                    className="back-button"
-                    onClick={() => navigate('/screening')}
+                    onClick={() => navigate('/dashboard')}
+                    style={{
+                        backgroundColor: '#f5f5f5',
+                        color: '#333',
+                        border: 'none',
+                        padding: '10px 20px',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}
                 >
-                    <svg className="back-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
                     </svg>
-                    Back to Screening
+                    Back to Dashboard
                 </button>
             </div>
 
-            {error && (
-                <div className="error-message">
-                    <svg className="error-icon-small" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    {error}
-                </div>
-            )}
+            {/* Progress pills */}
+            <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '10px',
+                marginBottom: '30px'
+            }}>
+                {responses.map((response, index) => (
+                    <button
+                        key={response.responseId}
+                        onClick={() => setCurrentResponseIndex(index)}
+                        style={{
+                            backgroundColor: index === currentResponseIndex ? '#ef402d' : '#f5f5f5',
+                            color: index === currentResponseIndex ? 'white' : '#333',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: '20px',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}
+                    >
+                        <span>Question {index + 1}</span>
+                        {feedback[response.responseId] && calculateAverageRating(response.responseId) > 0 && (
+                            <span style={{
+                                backgroundColor: index === currentResponseIndex ? 'rgba(255, 255, 255, 0.2)' : '#ef402d',
+                                color: index === currentResponseIndex ? 'white' : 'white',
+                                borderRadius: '20px',
+                                padding: '2px 8px',
+                                fontSize: '12px'
+                            }}>
+                                {calculateAverageRating(response.responseId)}
+                            </span>
+                        )}
+                    </button>
+                ))}
+            </div>
 
-            <div className="review-content">
-                <div className="review-sidebar">
-                    <div className="candidate-card">
-                        <h3 className="card-heading">Candidate Information</h3>
-
-                        <div className="candidate-details">
-                            <p><strong>Name:</strong> {candidateInfo?.name}</p>
-                            <p><strong>Email:</strong> {candidateInfo?.email}</p>
-                            <p><strong>Experience:</strong> {candidateInfo?.experience_years} years</p>
-                            <p><strong>Education:</strong> {candidateInfo?.education}</p>
-
-                            {candidateInfo?.skills && (
-                                <div className="candidate-skills">
-                                    <p><strong>Skills:</strong></p>
-                                    <div className="skills-list">
-                                        {candidateInfo.skills.map((skill, index) => (
-                                            <span key={index} className="skill-tag">{skill}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="candidate-actions">
-                                <a
-                                    href={candidateInfo?.resume_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="resume-link"
-                                >
-                                    <svg className="resume-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                    </svg>
-                                    View Resume
-                                </a>
-                            </div>
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '30px'
+            }}>
+                {/* Left side: Video and Question */}
+                <div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <h3 style={{ color: '#333', marginBottom: '10px', fontSize: '18px' }}>
+                            Question {currentResponseIndex + 1}:
+                        </h3>
+                        <p style={{
+                            padding: '15px',
+                            backgroundColor: '#f9f9f9',
+                            borderRadius: '8px',
+                            color: '#333',
+                            fontSize: '16px',
+                            lineHeight: '1.6'
+                        }}>
+                            {currentQuestion.question}
+                        </p>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            marginTop: '10px',
+                            color: '#666',
+                            fontSize: '14px'
+                        }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '5px' }}>
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            Time limit: {Math.floor(currentQuestion.timeLimit / 60)}:{(currentQuestion.timeLimit % 60).toString().padStart(2, '0')}
                         </div>
                     </div>
 
-                    <div className="job-card">
-                        <h3 className="card-heading">Job Information</h3>
-
-                        <div className="job-details">
-                            <p><strong>Title:</strong> {jobInfo?.jobTitle}</p>
-                            <p><strong>Created:</strong> {formatDate(jobInfo?.createdAt)}</p>
-
-                            {jobInfo?.skills && (
-                                <div className="job-skills">
-                                    <p><strong>Required Skills:</strong></p>
-                                    <div className="skills-list">
-                                        {jobInfo.skills.map((skill, index) => (
-                                            <span
-                                                key={index}
-                                                className={`skill-tag ${candidateInfo?.skills?.includes(skill) ? 'skill-match' : ''}`}
-                                            >
-                                                {skill}
-                                                {candidateInfo?.skills?.includes(skill) && (
-                                                    <svg className="match-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                                                    </svg>
-                                                )}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {jobInfo?.jobDescription && (
-                                <div className="job-description">
-                                    <p><strong>Description:</strong></p>
-                                    <p className="description-text">{jobInfo.jobDescription}</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="interview-info-card">
-                        <h3 className="card-heading">Interview Information</h3>
-
-                        <div className="interview-details">
-                            <p><strong>ID:</strong> {interview?.interview_id}</p>
-                            <p><strong>Created:</strong> {formatDate(interview?.created_at)}</p>
-                            <p><strong>Completed:</strong> {formatDate(interview?.completed_at)}</p>
-                            <p><strong>Status:</strong> <span className="status-tag">{interview?.status}</span></p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="review-main">
-                    <div className="response-navigation">
-                        <h3 className="navigation-title">Interview Responses</h3>
-
-                        <div className="navigation-tabs">
-                            {interview?.responses.map((response, index) => {
-                                const question = interview.questions.find(q => q.question_id === response.question_id);
-                                return (
-                                    <button
-                                        key={response.question_id}
-                                        className={`navigation-tab ${index === currentResponseIndex ? 'active-tab' : ''}`}
-                                        onClick={() => setCurrentResponseIndex(index)}
-                                    >
-                                        <span className="tab-number">{index + 1}</span>
-                                        <span className="tab-title">{question?.text.substring(0, 30)}...</span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    <div className="response-content">
-                        {currentResponse && currentQuestion ? (
-                            <>
-                                <div className="question-display">
-                                    <h3 className="question-title">Question {currentResponseIndex + 1}:</h3>
-                                    <p className="question-text">{currentQuestion.text}</p>
-                                    <p className="question-time">Time Limit: {currentQuestion.time_limit_seconds} seconds</p>
-                                </div>
-
-                                <div className="response-media">
-                                    <div className="video-container">
-                                        <h4 className="media-title">Video Response</h4>
-                                        <video
-                                            controls
-                                            src={currentResponse.video_url}
-                                            className="response-video"
-                                        >
-                                            Your browser does not support the video tag.
-                                        </video>
-                                    </div>
-
-                                    {currentResponse.audio_url && (
-                                        <div className="audio-container">
-                                            <h4 className="media-title">Audio Only</h4>
-                                            <audio
-                                                controls
-                                                src={currentResponse.audio_url}
-                                                className="response-audio"
-                                            >
-                                                Your browser does not support the audio tag.
-                                            </audio>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="response-transcript">
-                                    <h4 className="transcript-title">Transcript</h4>
-                                    <div className="transcript-content">
-                                        {currentResponse.transcript || 'No transcript available'}
-                                    </div>
-                                </div>
-
-                                <div className="response-analysis">
-                                    <h4 className="analysis-title">AI Analysis</h4>
-
-                                    {currentResponse.analysis ? (
-                                        <div className="analysis-content">
-                                            <div className="analysis-scores">
-                                                <div className="score-item">
-                                                    <span className="score-label">Clarity</span>
-                                                    <div className="score-bar-container">
-                                                        <div
-                                                            className="score-bar"
-                                                            style={{ width: `${currentResponse.analysis.clarity}%` }}
-                                                        ></div>
-                                                    </div>
-                                                    <span className="score-value">{currentResponse.analysis.clarity}</span>
-                                                </div>
-
-                                                <div className="score-item">
-                                                    <span className="score-label">Relevance</span>
-                                                    <div className="score-bar-container">
-                                                        <div
-                                                            className="score-bar"
-                                                            style={{ width: `${currentResponse.analysis.relevance}%` }}
-                                                        ></div>
-                                                    </div>
-                                                    <span className="score-value">{currentResponse.analysis.relevance}</span>
-                                                </div>
-
-                                                <div className="score-item">
-                                                    <span className="score-label">Confidence</span>
-                                                    <div className="score-bar-container">
-                                                        <div
-                                                            className="score-bar"
-                                                            style={{ width: `${currentResponse.analysis.confidence}%` }}
-                                                        ></div>
-                                                    </div>
-                                                    <span className="score-value">{currentResponse.analysis.confidence}</span>
-                                                </div>
-                                            </div>
-
-                                            <div className="analysis-feedback">
-                                                <p><strong>AI Feedback:</strong> {currentResponse.analysis.feedback}</p>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <p className="no-analysis">No AI analysis available for this response.</p>
-                                    )}
-                                </div>
-
-                                <div className="hr-evaluation">
-                                    <h4 className="evaluation-title">Your Evaluation</h4>
-
-                                    <div className="score-input">
-                                        <label htmlFor={`score-${currentResponse.question_id}`} className="score-label">
-                                            Score (0-100):
-                                        </label>
-                                        <input
-                                            id={`score-${currentResponse.question_id}`}
-                                            type="range"
-                                            min="0"
-                                            max="100"
-                                            step="5"
-                                            value={questionScores[currentResponse.question_id] || 0}
-                                            onChange={(e) => handleScoreChange(currentResponse.question_id, e.target.value)}
-                                            className="score-slider"
-                                        />
-                                        <span className="score-value">{questionScores[currentResponse.question_id] || 0}</span>
-                                    </div>
-                                </div>
-                            </>
+                    <div style={{
+                        position: 'relative',
+                        width: '100%',
+                        paddingBottom: '56.25%', /* 16:9 aspect ratio */
+                        backgroundColor: '#000',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        marginBottom: '20px'
+                    }}>
+                        {currentResponse.videoResponseUrl ? (
+                            <video
+                                src={currentResponse.videoResponseUrl}
+                                controls
+                                style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    width: '100%',
+                                    height: '100%'
+                                }}
+                            />
                         ) : (
-                            <p className="no-response">No response data available.</p>
+                            <div style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                height: '100%',
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                backgroundColor: '#222',
+                                color: 'white'
+                            }}>
+                                No video response available
+                            </div>
                         )}
                     </div>
 
-                    <div className="overall-evaluation">
-                        <h3 className="evaluation-title">Overall Evaluation</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
+                        <button
+                            onClick={navigateToPrevResponse}
+                            disabled={currentResponseIndex === 0}
+                            style={{
+                                backgroundColor: currentResponseIndex === 0 ? '#f5f5f5' : '#ef402d',
+                                color: currentResponseIndex === 0 ? '#aaa' : 'white',
+                                border: 'none',
+                                padding: '10px 20px',
+                                borderRadius: '4px',
+                                fontSize: '14px',
+                                cursor: currentResponseIndex === 0 ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="19" y1="12" x2="5" y2="12"></line>
+                                <polyline points="12 19 5 12 12 5"></polyline>
+                            </svg>
+                            Previous Question
+                        </button>
 
-                        <div className="overall-score">
-                            <label htmlFor="overall-score" className="score-label">
-                                Overall Score:
+                        <button
+                            onClick={navigateToNextResponse}
+                            disabled={currentResponseIndex === responses.length - 1}
+                            style={{
+                                backgroundColor: currentResponseIndex === responses.length - 1 ? '#f5f5f5' : '#ef402d',
+                                color: currentResponseIndex === responses.length - 1 ? '#aaa' : 'white',
+                                border: 'none',
+                                padding: '10px 20px',
+                                borderRadius: '4px',
+                                fontSize: '14px',
+                                cursor: currentResponseIndex === responses.length - 1 ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}
+                        >
+                            Next Question
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                                <polyline points="12 5 19 12 12 19"></polyline>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                {/* Right side: Feedback form */}
+                <div>
+                    <h3 style={{ color: '#333', marginBottom: '20px', fontSize: '18px' }}>
+                        Evaluation
+                    </h3>
+
+                    {ratingCategories.map(category => (
+                        <div key={category.id} style={{ marginBottom: '20px' }}>
+                            <label
+                                htmlFor={`${category.id}-rating`}
+                                style={{
+                                    display: 'block',
+                                    marginBottom: '8px',
+                                    fontSize: '16px',
+                                    color: '#333',
+                                    fontWeight: '500'
+                                }}
+                            >
+                                {category.name}
+                                <span style={{
+                                    marginLeft: '10px',
+                                    fontSize: '14px',
+                                    color: '#666',
+                                    fontWeight: 'normal'
+                                }}>
+                                    {category.description}
+                                </span>
                             </label>
-                            <div className="overall-score-display">
+
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
                                 <input
-                                    id="overall-score"
                                     type="range"
+                                    id={`${category.id}-rating`}
                                     min="0"
-                                    max="100"
-                                    step="5"
-                                    value={overallScore}
-                                    onChange={(e) => setOverallScore(parseInt(e.target.value, 10))}
-                                    className="score-slider"
+                                    max="10"
+                                    step="1"
+                                    value={feedback[currentResponse.responseId]?.[category.id] || 0}
+                                    onChange={(e) => handleRatingChange(currentResponse.responseId, category.id, e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        maxWidth: '350px'
+                                    }}
                                 />
-                                <span className="overall-score-value">{overallScore}</span>
+                                <span style={{
+                                    marginLeft: '15px',
+                                    fontWeight: 'bold',
+                                    color: '#333',
+                                    fontSize: '16px',
+                                    minWidth: '30px'
+                                }}>
+                                    {feedback[currentResponse.responseId]?.[category.id] || 0}
+                                </span>
                             </div>
                         </div>
+                    ))}
 
-                        <div className="overall-feedback">
-                            <label htmlFor="feedback" className="feedback-label">
-                                Feedback for Candidate:
-                            </label>
-                            <textarea
-                                id="feedback"
-                                value={feedback}
-                                onChange={handleFeedbackChange}
-                                className="feedback-textarea"
-                                placeholder="Enter your feedback for the candidate..."
-                                rows="4"
-                            ></textarea>
+                    <div style={{ marginBottom: '30px' }}>
+                        <label
+                            htmlFor="feedback-notes"
+                            style={{
+                                display: 'block',
+                                marginBottom: '8px',
+                                fontSize: '16px',
+                                color: '#333',
+                                fontWeight: '500'
+                            }}
+                        >
+                            Feedback Notes
+                        </label>
+                        <textarea
+                            id="feedback-notes"
+                            rows="6"
+                            value={feedback[currentResponse.responseId]?.notes || ''}
+                            onChange={(e) => handleNotesChange(currentResponse.responseId, e.target.value)}
+                            placeholder="Enter your feedback notes for this response..."
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                borderRadius: '4px',
+                                border: '1px solid #ddd',
+                                fontSize: '14px',
+                                resize: 'vertical'
+                            }}
+                        />
+                    </div>
+
+                    <div style={{
+                        backgroundColor: '#f9f9f9',
+                        padding: '15px',
+                        borderRadius: '8px',
+                        marginBottom: '20px'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '10px'
+                        }}>
+                            <h4 style={{ margin: 0, color: '#333', fontSize: '16px' }}>
+                                Overall Rating
+                            </h4>
+                            <span style={{
+                                fontSize: '24px',
+                                fontWeight: 'bold',
+                                color: '#ef402d'
+                            }}>
+                                {calculateAverageRating(currentResponse.responseId)}
+                            </span>
                         </div>
 
-                        <div className="evaluation-actions">
-                            <button
-                                className="save-button"
-                                onClick={saveReview}
-                                disabled={isSubmitting}
-                            >
-                                {isSubmitting ? 'Saving...' : 'Save Review'}
-                            </button>
-
-                            <button
-                                className="approve-button"
-                                onClick={() => submitDecision('approve')}
-                                disabled={isSubmitting}
-                            >
-                                Approve Candidate
-                            </button>
-
-                            <button
-                                className="reject-button"
-                                onClick={() => submitDecision('reject')}
-                                disabled={isSubmitting}
-                            >
-                                Reject Candidate
-                            </button>
+                        <div style={{
+                            width: '100%',
+                            height: '10px',
+                            backgroundColor: '#eee',
+                            borderRadius: '5px',
+                            overflow: 'hidden'
+                        }}>
+                            <div style={{
+                                width: `${calculateAverageRating(currentResponse.responseId) * 10}%`,
+                                height: '100%',
+                                backgroundColor: '#ef402d',
+                                borderRadius: '5px'
+                            }} />
                         </div>
                     </div>
                 </div>
             </div>
+
+            <div style={{
+                marginTop: '40px',
+                borderTop: '1px solid #eee',
+                paddingTop: '20px',
+                display: 'flex',
+                justifyContent: 'center'
+            }}>
+                <button
+                    onClick={submitFeedback}
+                    disabled={submitting}
+                    style={{
+                        backgroundColor: '#4caf50',
+                        color: 'white',
+                        border: 'none',
+                        padding: '12px 40px',
+                        borderRadius: '4px',
+                        fontSize: '16px',
+                        cursor: submitting ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px'
+                    }}
+                >
+                    {submitting ? (
+                        <>
+                            <span style={{
+                                display: 'inline-block',
+                                width: '16px',
+                                height: '16px',
+                                border: '3px solid rgba(255,255,255,0.3)',
+                                borderRadius: '50%',
+                                borderTopColor: 'white',
+                                animation: 'spin 1s linear infinite'
+                            }} />
+                            <span>Submitting...</span>
+                            <style>{`
+                                @keyframes spin {
+                                    0% { transform: rotate(0deg); }
+                                    100% { transform: rotate(360deg); }
+                                }
+                            `}</style>
+                        </>
+                    ) : (
+                        <>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                            <span>Submit All Feedback</span>
+                        </>
+                    )}
+                </button>
+            </div>
         </div>
     );
-};
+}
 
 export default InterviewReview;
