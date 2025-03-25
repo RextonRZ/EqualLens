@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import './Dashboard.css';
 import '../pageloading.css'; // Import the loading animation CSS
 import UploadMoreCVModal from '../UploadMoreCVModal';
+import RankApplicantsModal from '../RankApplicantsModal';
 
 // LoadingAnimation component for consistent loading UI across the application
 const LoadingAnimation = () => {
@@ -48,6 +49,7 @@ export default function Dashboard() {
     const [modalMessage, setModalMessage] = useState("");
     const descriptionTextareaRef = useRef(null); // Add reference for the textarea
     const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [rankPrompt, setRankPrompt] = useState(""); 
     
     // Add state for department and skill editing
     const [departmentInput, setDepartmentInput] = useState("");
@@ -91,6 +93,9 @@ export default function Dashboard() {
 
     // Add state for Upload CV modal
     const [showUploadCVModal, setShowUploadCVModal] = useState(false);
+
+    // Add state for RankApplicantsModal
+    const [showRankApplicantsModal, setShowRankApplicantsModal] = useState(false);
 
     // Get location to check for state from navigation
     const location = useLocation();
@@ -364,6 +369,63 @@ export default function Dashboard() {
             setTimeout(() => {
                 setShowSuccessModal(true);
             }, 300);
+        }
+    };
+
+    // Handle Rank Applicants button click
+    const handleRankApplicants = () => {
+        setShowRankApplicantsModal(true);
+    };
+
+    // Handle RankApplicantsModal prompt complete event
+    const handlePromptComplete = async (criteria) => {
+        // Close the modal first
+        setShowRankApplicantsModal(false);
+
+        // Store the ranking criteria in state
+        setRankPrompt(criteria);
+
+        // Start loading state for AI processing
+        setJobDetailLoading(true);
+
+        if (selectedJob && criteria) {
+            try {
+                // First fetch the latest applicants
+                await fetchApplicants(selectedJob.jobId);
+                
+                // Then send the applicants array and ranking criteria to the backend
+                const response = await fetch(`http://localhost:8000/api/candidates/rank`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        jobId: selectedJob.jobId,
+                        criteria: criteria,
+                        applicants: applicants
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to rank applicants: ${response.statusText}`);
+                }
+                
+                // After the AI has processed the ranking, fetch the updated applicants with scores
+                await fetchApplicants(selectedJob.jobId);
+                
+                // Sort applicants by score (highest to lowest)
+                setApplicants(prev => [...prev].sort((a, b) => (b.score || 0) - (a.score || 0)));
+                
+                // Show success message
+                setModalMessage("Applicants have been ranked based on your criteria.");
+                setShowSuccessModal(true);
+            } catch (error) {
+                console.error("Error in ranking applicants:", error);
+                setModalMessage(`Failed to rank applicants: ${error.message}`);
+                setShowErrorModal(true);
+            } finally {
+                setJobDetailLoading(false);
+            }
         }
     };
 
@@ -665,6 +727,13 @@ export default function Dashboard() {
                     jobId={selectedJob?.jobId}
                     jobTitle={selectedJob?.jobTitle}
                     onUploadComplete={handleUploadComplete}
+                />
+            )}
+            {showRankApplicantsModal && (
+                <RankApplicantsModal
+                    isOpen={showRankApplicantsModal}
+                    onClose={() => setShowRankApplicantsModal(false)}
+                    onPromptComplete={handlePromptComplete}
                 />
             )}
             {!selectedJob ? (
@@ -1004,7 +1073,7 @@ export default function Dashboard() {
                                 <h3>Applicants ({applicants.length})</h3>
                                 {!isEditing && (
                                     <div className="applicants-actions">
-                                        <button className="rank-button" onClick={() => window.location.href=`/rank?jobId=${selectedJob.jobId}`}>
+                                        <button className="rank-button" onClick={handleRankApplicants}>
                                             Rank Applicants
                                         </button>
                                         <button className="upload-more-cv-button" onClick={handleUploadMoreCV}>
