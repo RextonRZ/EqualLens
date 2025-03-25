@@ -216,6 +216,9 @@ class InterviewQuestionSetService:
                 "skipped": []
             }
             
+            # Track candidates whose questions were successfully saved
+            saved_candidates = []
+            
             # Process each candidate
             for candidate in candidates:
                 candidate_id = candidate.get("candidateId")
@@ -252,12 +255,32 @@ class InterviewQuestionSetService:
                             "candidateId": candidate_id,
                             "questionSetId": question_set_id
                         })
+                        # Add to the list of candidates that need actual questions
+                        saved_candidates.append(candidate_id)
                     else:
                         results["failed"].append(candidate_id)
                         
                 except Exception as e:
                     logger.error(f"Error applying questions to candidate {candidate_id}: {e}")
                     results["failed"].append(candidate_id)
+            
+            # Generate actual questions for all successfully saved candidates
+            logger.info(f"Generating actual questions for {len(saved_candidates)} candidates")
+            for candidate_id in saved_candidates:
+                try:
+                    # Get the saved question set
+                    question_set = InterviewQuestionSetService.get_question_set(candidate_id)
+                    if question_set:
+                        # Generate actual questions
+                        from services.iv_ques_finalized_service import InterviewQuestionActualService
+                        actual_questions = InterviewQuestionActualService.generate_actual_questions(question_set)
+                        if not actual_questions:
+                            logger.warning(f"Failed to generate actual questions for candidate {candidate_id}")
+                    else:
+                        logger.warning(f"Could not find question set for candidate {candidate_id} to generate actual questions")
+                except Exception as e:
+                    logger.error(f"Error generating actual questions for candidate {candidate_id}: {e}")
+                    # Don't modify the results - we still saved the question set successfully
             
             return results
             

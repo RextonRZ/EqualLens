@@ -247,8 +247,15 @@ const AddInterviewQuestions = () => {
         // Helper function to check for deep equality between sections
         const areSectionsEqual = (sectionsA, sectionsB) => {
             try {
+                // Check for null/undefined cases
+                if (!sectionsA && !sectionsB) return true;
+                if (!sectionsA || !sectionsB) return false;
+                
                 // First check basic structure
                 if (sectionsA.length !== sectionsB.length) return false;
+                
+                // If both are empty arrays, they're equal
+                if (sectionsA.length === 0 && sectionsB.length === 0) return true;
                 
                 // Compare sections one by one
                 for (let i = 0; i < sectionsA.length; i++) {
@@ -257,16 +264,16 @@ const AddInterviewQuestions = () => {
                     
                     // Compare section properties
                     if (sectionA.title !== sectionB.title) return false;
-                    if (sectionA.randomSettings.enabled !== sectionB.randomSettings.enabled) return false;
-                    if (sectionA.randomSettings.enabled && 
-                        sectionA.randomSettings.count !== sectionB.randomSettings.count) return false;
+                    if (sectionA.randomSettings?.enabled !== sectionB.randomSettings?.enabled) return false;
+                    if (sectionA.randomSettings?.enabled && 
+                        sectionA.randomSettings?.count !== sectionB.randomSettings?.count) return false;
                     
                     // Compare questions
                     if (sectionA.questions.length !== sectionB.questions.length) return false;
                     
                     for (let j = 0; j < sectionA.questions.length; j++) {
                         const questionA = sectionA.questions[j];
-                        const questionB = sectionB.questions[j];
+                        const questionB = sectionsB[i].questions[j];
                         
                         if (questionA.text !== questionB.text) return false;
                         if (questionA.timeLimit !== questionB.timeLimit) return false;
@@ -285,8 +292,12 @@ const AddInterviewQuestions = () => {
 
         // Only check for changes if we've finished loading from DB
         if (!sectionsLoadedFromDB) {
+            // Create string representations for comparison (more reliable than deep object comparison)
+            const sectionsJSON = JSON.stringify(sections);
+            const initialSectionsJSON = JSON.stringify(initialSections);
+            
             // Check if current sections differ from initial sections
-            const hasChanges = !areSectionsEqual(sections, initialSections);
+            const hasChanges = sectionsJSON !== initialSectionsJSON;
             
             // Only update if necessary to avoid re-renders
             if (changesSaved === hasChanges) {
@@ -312,16 +323,24 @@ const AddInterviewQuestions = () => {
         };
     }, [selectedApplicant]);
 
+    // Modify the handleAddSection function to add a default question
     const handleAddSection = () => {
         if (newSectionTitle.trim()) {
-            setSections([...sections, { 
+            // Create a new section with one default question
+            const newSection = { 
                 title: newSectionTitle, 
-                questions: [],
+                questions: [{ 
+                    text: "", 
+                    timeLimit: 60,
+                    isCompulsory: true 
+                }],
                 randomSettings: {
                     enabled: false,
                     count: 0
                 }
-            }]);
+            };
+            
+            setSections([...sections, newSection]);
             setNewSectionTitle("");
             // No need to call setChangesSaved(false) here as the sections change 
             // will trigger the useEffect that handles it
@@ -368,9 +387,21 @@ const AddInterviewQuestions = () => {
         
         // Check if there are unsaved changes and sections exist with actual changes
         if (!changesSaved && sections.length > 0 && selectedApplicant) {
-            // Store the pending candidate ID and show confirmation modal
-            setPendingCandidateId(newValue);
-            setShowCandidateSwitchModal(true);
+            // Create string representations for comparison
+            const sectionsJSON = JSON.stringify(sections);
+            const initialSectionsJSON = JSON.stringify(initialSections);
+            
+            // Only show confirmation if there are actual changes
+            if (sectionsJSON !== initialSectionsJSON) {
+                // Store the pending candidate ID and show confirmation modal
+                setPendingCandidateId(newValue);
+                setShowCandidateSwitchModal(true);
+            } else {
+                // If no actual changes despite the flag, just switch directly
+                setSelectedApplicant(newValue);
+                // Reset the changesSaved flag to true since there are no real changes
+                setChangesSaved(true);
+            }
         } else {
             // If no unsaved changes or no sections, switch directly
             setSelectedApplicant(newValue);
@@ -661,14 +692,27 @@ const AddInterviewQuestions = () => {
     // Calculate total interview time whenever questions change
     useEffect(() => {
         let totalSeconds = 0;
+        let totalQuestions = 0;
+        let effectiveQuestions = 0;
         
         sections.forEach(section => {
+            // Count total questions in this section
+            totalQuestions += section.questions.length;
+            
             // For sections with random selection, calculate based on compulsory questions 
             // plus the number of random questions that will be selected
             if (section.randomSettings.enabled) {
+                // Count compulsory questions for effective total
+                const compulsoryQuestions = section.questions.filter(q => q.isCompulsory);
+                effectiveQuestions += compulsoryQuestions.length;
+                
+                // Add random questions to effective total
+                if (section.randomSettings.count > 0) {
+                    effectiveQuestions += section.randomSettings.count;
+                }
+                
                 // Count seconds from compulsory questions
-                const compulsoryTime = section.questions
-                    .filter(q => q.isCompulsory)
+                const compulsoryTime = compulsoryQuestions
                     .reduce((sum, q) => sum + (q.timeLimit || 0), 0);
                 
                 // Calculate average time for random questions
@@ -688,6 +732,8 @@ const AddInterviewQuestions = () => {
                 section.questions.forEach(question => {
                     totalSeconds += question.timeLimit || 0;
                 });
+                // All questions count for effective total if random selection is disabled
+                effectiveQuestions += section.questions.length;
             }
         });
         
@@ -695,16 +741,63 @@ const AddInterviewQuestions = () => {
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
         
-        setTotalInterviewTime({ minutes, seconds });
+        setTotalInterviewTime({ 
+            minutes, 
+            seconds, 
+            totalQuestions,
+            effectiveQuestions
+        });
     }, [sections]);
 
-    // Modify the handleSave function to save the question set and then generate actual questions
+    // Add this function after the handleSave function to generate actual questions after saving
+    const handleGenerateActualQuestions = async () => {
+        if (!selectedApplicant || selectedApplicant === "all") {
+            setErrorMessage("Please select a specific applicant to generate questions for.");
+            setShowErrorModal(true);
+            return;
+        }
+
+        setIsLoading(true);
+        setLoadingOperation("Generating");
+
+        try {
+            // Call the API to generate actual questions
+            const response = await axios.post(
+                `http://localhost:8000/api/interview-questions/generate-actual-questions/${selectedApplicant}`
+            );
+
+            if (response.status === 200 || response.status === 201) {
+                console.log("Actual questions generated successfully:", response.data);
+                // You can add a specific success message for generation if needed
+                // or just use the same success modal
+            } else {
+                console.error("Unexpected response status:", response.status);
+                setErrorMessage("Failed to generate actual questions. Please try again.");
+                setShowErrorModal(true);
+            }
+        } catch (error) {
+            console.error("Error generating actual questions:", error);
+            let errorMsg = "An error occurred while generating questions. Please try again.";
+            
+            if (error.response) {
+                console.error("Error response data:", error.response.data);
+                errorMsg = `Server error: ${error.response.data.detail || error.message}`;
+            }
+            
+            setErrorMessage(errorMsg);
+            setShowErrorModal(true);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Modify the handleSave function to also generate actual questions after saving
     const handleSave = async () => {
         // Check if total interview time is less than 5 minutes
         const totalMinutes = totalInterviewTime.minutes + (totalInterviewTime.seconds > 0 ? 1 : 0); // Round up if there are seconds
         if (totalMinutes < 5) {
             setErrorMessage(
-                `Your total interview time is less than 5 minutes (currently ${totalInterviewTime.minutes} minute${totalInterviewTime.minutes !== 1 ? 's' : ''} ${totalInterviewTime.seconds > 0 ? `and ${totalInterviewTime.seconds} second${totalInterviewTime.seconds !== 1 ? 's' : ''}` : ''}).
+                `Your total interview time is less than 5 minutes (currently ${totalInterviewTime.minutes} minute${totalInterviewTime.minutes !== 1 ? 's' : ''} ${totalInterviewTime.seconds > 0 ? `and ${totalInterviewTime.seconds} second${totalInterviewTime.seconds !== 1 ? 's' : ''} ` : ''}).
                 Please add more questions or increase the time limits to ensure a thorough interview.`
             );
             setShowErrorModal(true);
@@ -799,6 +892,27 @@ const AddInterviewQuestions = () => {
                     setAiGeneratedUnsaved(false);
                 }
                 
+                // After saving successfully, generate actual questions if this is for a specific candidate
+                if (selectedApplicant !== "all") {
+                    try {
+                        // Call the API to generate actual questions
+                        setLoadingOperation("Generating Interview Questions");
+                        
+                        const genResponse = await axios.post(
+                            `http://localhost:8000/api/interview-questions/generate-actual-questions/${selectedApplicant}`
+                        );
+                        
+                        if (genResponse.status === 200 || genResponse.status === 201) {
+                            console.log("Actual questions generated successfully:", genResponse.data);
+                        } else {
+                            console.warn("Failed to generate actual questions after saving.");
+                        }
+                    } catch (genError) {
+                        console.error("Error generating actual questions after saving:", genError);
+                        // Don't show error modal for this, as the main save was successful
+                    }
+                }
+                
                 setShowSuccessModal(true); // Show success modal
             } else {
                 console.error("Unexpected response status:", saveResponse.status);
@@ -831,7 +945,24 @@ const AddInterviewQuestions = () => {
         
         // Check if this is an "Apply to All" case
         if (selectedApplicant === "all") {
-            // Show the Apply to All confirmation modal
+            // Before showing the modal, perform basic validation to prevent showing modals twice
+            // Check if total interview time is less than 5 minutes
+            const totalMinutes = totalInterviewTime.minutes + (totalInterviewTime.seconds > 0 ? 1 : 0);
+            if (totalMinutes < 5) {
+                setErrorMessage(
+                    `Your total interview time is less than 5 minutes (currently ${totalInterviewTime.minutes} minute${totalInterviewTime.minutes !== 1 ? 's' : ''} ${totalInterviewTime.seconds > 0 ? `and ${totalInterviewTime.seconds} second${totalInterviewTime.seconds !== 1 ? 's' : ''}` : ''}).
+                    Please add more questions or increase the time limits to ensure a thorough interview.`
+                );
+                setShowErrorModal(true);
+                return;
+            }
+
+            // Also validate sections before showing the apply-to-all modal
+            if (!validateSections()) {
+                return;
+            }
+            
+            // Show the Apply to All confirmation modal only if validation passed
             setShowApplyToAllModal(true);
         } else {
             // Regular case - show the standard save confirmation
@@ -843,8 +974,17 @@ const AddInterviewQuestions = () => {
     const handleGoBackToJobDetails = () => {
         // Check if there are unsaved changes
         if (!changesSaved && sections.length > 0) {
-            // Show confirmation modal
-            setShowNavigationModal(true);
+            // Double-check with string comparison for actual changes
+            const sectionsJSON = JSON.stringify(sections);
+            const initialSectionsJSON = JSON.stringify(initialSections);
+            
+            if (sectionsJSON !== initialSectionsJSON) {
+                // Show confirmation modal
+                setShowNavigationModal(true);
+            } else {
+                // No actual changes, navigate directly
+                navigateToJobDetails();
+            }
         } else {
             // No changes or changes saved, navigate directly
             navigateToJobDetails();
@@ -893,15 +1033,12 @@ const AddInterviewQuestions = () => {
 
     // Function to apply questions to all candidates
     const handleApplyToAll = async (overwriteExisting = true) => {
-        if (sections.length === 0) {
-            setErrorMessage("Please create interview questions before applying to all candidates.");
-            setShowErrorModal(true);
-            return;
-        }
-
+        // First close the apply-to-all modal to prevent it from showing again
+        setShowApplyToAllModal(false);
+        
+        // Since we already validated in handleInitiateSave, we can proceed directly with saving
         setIsLoading(true);
         setLoadingOperation("Applying"); // Set the loading operation
-        setShowApplyToAllModal(false); // Close the modal
         
         try {
             // First get all candidates for this job
@@ -961,14 +1098,30 @@ const AddInterviewQuestions = () => {
         }
     };
 
-    // Function to handle the reset action
+    // Function to handle the reset action - update to enable for any applicant including "all"
     const handleResetQuestions = async () => {
-        if (!selectedApplicant || selectedApplicant === "all") {
-            setErrorMessage("Please select a specific applicant to reset their questions.");
+        // Check if no applicant is selected
+        if (!selectedApplicant) {
+            setErrorMessage("Please select an applicant first to reset questions.");
             setShowErrorModal(true);
             return;
         }
 
+        // Special handling for "Apply to All" option
+        if (selectedApplicant === "all") {
+            // For "Apply to All", we only need to check if there are unsaved changes to reset
+            if (sections.length > 0) {
+                // Show confirmation modal
+                setShowUnsavedResetModal(true);
+            } else {
+                // No sections to reset
+                setErrorMessage("No interview questions to reset.");
+                setShowErrorModal(true);
+            }
+            return;
+        }
+
+        // Regular individual applicant reset logic
         try {
             // Check if there's a saved question set for this candidate
             // eslint-disable-next-line no-unused-vars
@@ -982,11 +1135,12 @@ const AddInterviewQuestions = () => {
         } catch (error) {
             // If 404, no saved question set exists
             if (error.response && error.response.status === 404) {
-                // Check if there are unsaved changes in the UI
-                if (sections.length > 0 && !changesSaved) {
+                // Check if there are unsaved changes in the UI (sections exist)
+                if (sections.length > 0) {
                     // Show unsaved reset confirmation modal
                     setShowUnsavedResetModal(true);
                 } else {
+                    // No question set exists and no sections added - nothing to reset
                     setErrorMessage("No interview questions found for this applicant.");
                     setShowErrorModal(true);
                 }
@@ -1221,6 +1375,7 @@ const AddInterviewQuestions = () => {
                     <button 
                         className="status-button primary-button" 
                         onClick={() => handleApplyToAll(true)}
+                        style={{ pointerEvents: 'auto', opacity: 1 }} /* Ensure button is clickable */
                     >
                         Proceed to Save
                     </button>
@@ -1301,11 +1456,18 @@ const AddInterviewQuestions = () => {
                     </button>
                     <button className="status-button danger-button" onClick={() => {
                         setShowUnsavedResetModal(false);
-                        // Reset UI for this candidate
-                        resetUI(true); // Keep the selected applicant
-                        setChangesSaved(true); // Mark as saved after reset
-                        // Show success message
-                        setShowResetSuccessModal(true);
+                        if (selectedApplicant === "all") {
+                            // Handle Apply to All discard action - FIXED: Don't call handleApplyToAll 
+                            resetUI(true); // Keep the selected applicant
+                            setChangesSaved(true); // Mark as saved after reset
+                            setShowResetSuccessModal(true); // Show success message
+                        } else {
+                            // Regular reset for individual candidates
+                            resetUI(true); // Keep the selected applicant
+                            setChangesSaved(true); // Mark as saved after reset
+                            // Show success message
+                            setShowResetSuccessModal(true);
+                        }
                     }}>
                         Discard Changes
                     </button>
@@ -1343,9 +1505,23 @@ const AddInterviewQuestions = () => {
         </div>
     );
 
-    // Modify the AI Generate function to track unsaved state
+    // Modify the AI Generate function to check if AI has already been used
     const handleAIGenerate = () => {
-        // Create AI-generated sections (same as before)
+        // Check if any applicant is selected
+        if (!selectedApplicant) {
+            setErrorMessage("Please select an applicant first before generating AI questions.");
+            setShowErrorModal(true);
+            return;
+        }
+        
+        // Check if AI has already been used for this specific candidate
+        if (selectedApplicant !== "all" && aiGenerateUsedMap[selectedApplicant]) {
+            setErrorMessage("AI generation has been used up for this candidate. You can modify the existing AI-generated questions.");
+            setShowErrorModal(true);
+            return;
+        }
+        
+        // Rest of the AI generate function remains unchanged
         const aiGeneratedSections = [
             {
                 title: "Technical Skills",
@@ -1467,6 +1643,14 @@ const AddInterviewQuestions = () => {
         // Mark that AI has been used but not yet saved
         setAiGeneratedUnsaved(true);
         
+        // If applicant is "all", don't add to aiGenerateUsedMap since it's for all applicants
+        if (selectedApplicant !== "all") {
+            setAiGenerateUsedMap(prev => ({
+                ...prev,
+                [selectedApplicant]: true
+            }));
+        }
+        
         // Show success message
         setShowAISuccess(true);
         
@@ -1586,55 +1770,72 @@ const AddInterviewQuestions = () => {
                                 <span>✓ AI-generated sections added successfully!</span>
                             </div>
                         )}
-                        {/* Only show butterfly divs when the button hasn't been used yet */}
-                        {selectedApplicant && !aiGenerateUsedMap[selectedApplicant] && (
+                        {/* Only show butterfly divs and AI button when an applicant is selected */}
+                        {selectedApplicant && (
                             <>
-                                <div className="butterfly"></div>
-                                <div className="butterfly"></div>
-                                <div className="butterfly"></div>
-                                <div className="butterfly"></div>
+                                {/* Only show butterfly animations when the button hasn't been used yet for specific applicants */}
+                                {(selectedApplicant === "all" || !aiGenerateUsedMap[selectedApplicant]) && (
+                                    <>
+                                        <div className="butterfly"></div>
+                                        <div className="butterfly"></div>
+                                        <div className="butterfly"></div>
+                                        <div className="butterfly"></div>
+                                    </>
+                                )}
+                                <button 
+                                    className={`ai-generate-button ${
+                                        selectedApplicant !== "all" && aiGenerateUsedMap[selectedApplicant] ? 'used' : ''
+                                    }`} 
+                                    onClick={handleAIGenerate}
+                                    title={selectedApplicant !== "all" && aiGenerateUsedMap[selectedApplicant] ? 
+                                          "AI generation has already been used for this candidate" : 
+                                          "Generate interview questions with AI"}
+                                >
+                                    <svg className="ai-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                    </svg>
+                                    {selectedApplicant !== "all" && aiGenerateUsedMap[selectedApplicant] ? 
+                                      "AI Sections Added" : 
+                                      "AI Generate Questions"}
+                                </button>
                             </>
                         )}
-                        <button 
-                            className={`ai-generate-button ${selectedApplicant && aiGenerateUsedMap[selectedApplicant] ? 'used' : ''}`} 
-                            onClick={handleAIGenerate}
-                            disabled={!selectedApplicant || selectedApplicant === "all" || aiGenerateUsedMap[selectedApplicant]}
-                            title={!selectedApplicant ? "Select an applicant first" : 
-                                   selectedApplicant === "all" ? "Cannot use AI Generate for Apply to All" :
-                                   aiGenerateUsedMap[selectedApplicant] ? "AI generation has already been used for this candidate" : 
-                                   "Generate interview questions with AI"}
-                        >
-                            <svg className="ai-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                            </svg>
-                            {selectedApplicant && aiGenerateUsedMap[selectedApplicant] ? "AI Sections Added" : "AI Generate Questions"}
-                        </button>
                     </div>
                 </div>
                 
-                {/* Section creator */}
-                <div className="section-creator">
-                    <h2>Add New Section</h2>
-                    <div className="section-input-group">
-                        <input
-                            type="text"
-                            className="section-title-input"
-                            placeholder="Enter section title (e.g., Technical Skills, Work Experience)"
-                            value={newSectionTitle}
-                            onChange={(e) => setNewSectionTitle(e.target.value)}
-                            onKeyPress={(e) => e.key === "Enter" && handleAddSection()}
-                        />
-                        <button className="add-section-button" onClick={handleAddSection}>
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="add-icon">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                            </svg>
-                            Add Section
-                        </button>
+                {/* Section creator - Only show if an applicant is selected */}
+                {selectedApplicant && (
+                    <div className="section-creator">
+                        <h2>Add New Section</h2>
+                        <div className="section-input-group">
+                            <input
+                                type="text"
+                                className="section-title-input"
+                                placeholder="Enter section title (e.g., Technical Skills, Work Experience)"
+                                value={newSectionTitle}
+                                onChange={(e) => setNewSectionTitle(e.target.value)}
+                                onKeyPress={(e) => e.key === "Enter" && handleAddSection()}
+                            />
+                            <button className="add-section-button" onClick={handleAddSection}>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="add-icon">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                </svg>
+                                Add Section
+                            </button>
+                        </div>
                     </div>
-                </div>
-                
-                {/* Sections container */}
-                {sections.length === 0 ? (
+                )}
+
+                {/* Sections container or message prompting to select applicant */}
+                {!selectedApplicant ? (
+                    <div className="no-sections applicant-select-prompt">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="empty-icon">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                        </svg>
+                        <p>Please select an applicant to get started.</p>
+                        <p>You'll be able to create interview questions after selecting an applicant.</p>
+                    </div>
+                ) : sections.length === 0 ? (
                     <div className="no-sections">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="empty-icon">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
@@ -1857,42 +2058,66 @@ const AddInterviewQuestions = () => {
                     </div>
                 )}
                 
-                {/* Add total interview time display before the save button */}
-                <div className="interview-time-summary">
-                    <div className="time-icon-container">
-                        <svg className="total-time-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <polyline points="12 6 12 12 16 14"></polyline>
-                        </svg>
+                {/* Only show the interview time summary if an applicant is selected */}
+                {selectedApplicant && (
+                    <div className="interview-stats-summary">
+                        <div className="stats-item time-stats">
+                            <div className="stats-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                            </div>
+                            <div className="stats-content">
+                                <span className="stats-label">Total Interview Time:</span>
+                                <span className="stats-value">
+                                    {totalInterviewTime.minutes} minute{totalInterviewTime.minutes !== 1 ? 's' : ''} 
+                                    {totalInterviewTime.seconds > 0 ? ` and ${totalInterviewTime.seconds} second${totalInterviewTime.seconds !== 1 ? 's' : ''}` : ''}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div className="stats-item question-stats">
+                            <div className="stats-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M8 9h8M8 13h6M8 17h4M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z"></path>
+                                </svg>
+                            </div>
+                            <div className="stats-content">
+                                <span className="stats-label">Total Effective Questions Set For Interview:</span>
+                                <span className="stats-value">
+                                    {totalInterviewTime.effectiveQuestions !== totalInterviewTime.totalQuestions ? 
+                                        ` ${totalInterviewTime.effectiveQuestions} ` : 
+                                        ''}
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                    <div className="total-time-text">
-                        <span>Total Interview Time: </span>
-                        <span className="time-value">{totalInterviewTime.minutes} minute{totalInterviewTime.minutes !== 1 ? 's' : ''} {totalInterviewTime.seconds > 0 ? `and ${totalInterviewTime.seconds} second${totalInterviewTime.seconds !== 1 ? 's' : ''}` : ''}</span>
-                    </div>
-                </div>
+                )}
 
-                {/* Save button container */}
-                <div className="save-container">
-                    <div className="action-buttons">
-                        <button 
-                            className="reset-button" 
-                            onClick={handleResetQuestions}
-                            disabled={!selectedApplicant || selectedApplicant === "all" || sections.length === 0}
-                            title={!selectedApplicant ? "Select an applicant first" : 
-                                   selectedApplicant === "all" ? "Cannot reset all applicants at once" : 
-                                   "Delete all questions for this applicant"}
-                        >
-                            Reset All Questions
-                        </button>
-                        <button 
-                            className="save-button" 
-                            onClick={handleInitiateSave}
-                            disabled={sections.length === 0 || !selectedApplicant}
-                        >
-                            Save Questions
-                        </button>
+                {/* Save button container - only show if an applicant is selected */}
+                {selectedApplicant && (
+                    <div className="save-container">
+                        <div className="action-buttons">
+                            <button 
+                                className="reset-button" 
+                                onClick={handleResetQuestions}
+                                disabled={!selectedApplicant}
+                                title={!selectedApplicant ? "Select an applicant first" : 
+                                      "Delete all questions for this applicant"}
+                            >
+                                Reset All Questions
+                            </button>
+                            <button 
+                                className="save-button" 
+                                onClick={handleInitiateSave}
+                                disabled={sections.length === 0 || !selectedApplicant}
+                            >
+                                Save Questions
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );

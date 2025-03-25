@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from datetime import datetime
 
 class RandomSettings(BaseModel):
@@ -31,10 +31,16 @@ class InterviewQuestionSet(BaseModel):
     sections: List[Section]
     updatedAt: Optional[datetime] = None  # Add optional updatedAt field
 
+class ActualQuestion(BaseModel):
+    questionId: str
+    text: str
+    timeLimit: int
+    sectionTitle: str
+
 class InterviewQuestionActual(BaseModel):
     actualId: Optional[str]
     applicationId: str
     candidateId: str
     totalQuestionActual: int
-    createdAt: Optional[datetime] = None  # Make createdAt optional and default to None
-    sections: List[Section]
+    questions: List[ActualQuestion]
+    createdAt: Optional[datetime] = None

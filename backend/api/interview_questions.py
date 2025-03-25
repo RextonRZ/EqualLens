@@ -40,10 +40,27 @@ async def delete_question_set(application_id: str):
     """Delete an InterviewQuestionSet by applicationId."""
     try:
         logger.info(f"Deleting InterviewQuestionSet for applicationId: {application_id}")
+        
+        # First, attempt to delete associated actual questions
+        from services.iv_ques_finalized_service import InterviewQuestionActualService
+        
+        try:
+            # Try to delete actual questions first
+            actual_deleted = InterviewQuestionActualService.delete_actual_questions(application_id)
+            if actual_deleted:
+                logger.info(f"Successfully deleted InterviewQuestionActual for applicationId: {application_id}")
+            else:
+                logger.info(f"No InterviewQuestionActual found for applicationId: {application_id}")
+        except Exception as actual_err:
+            logger.warning(f"Error when deleting InterviewQuestionActual: {actual_err}")
+            # Continue with question set deletion even if actual deletion fails
+        
+        # Now delete the question set
         result = InterviewQuestionSetService.delete_question_set(application_id)
         if not result:
             logger.warning(f"Failed to delete InterviewQuestionSet for applicationId: {application_id}")
             raise HTTPException(status_code=404, detail="InterviewQuestionSet not found or could not be deleted")
+        
         logger.info(f"Successfully deleted InterviewQuestionSet for applicationId: {application_id}")
         return {"success": True, "message": "Question set deleted successfully"}
     except HTTPException as he:
@@ -76,6 +93,24 @@ async def save_question_set(data: Dict[str, Any]):
         question_set_id = InterviewQuestionSetService.save_question_set(data)
         if not question_set_id:
             raise HTTPException(status_code=500, detail="Failed to save InterviewQuestionSet")
+        
+        # Regenerate actual questions if this is for a specific candidate (not 'apply to all')
+        # Only do this if applicationId is present and not 'all'
+        application_id = data.get("applicationId")
+        if application_id and application_id != "all":
+            try:
+                # Get the saved question set to ensure we have a complete model
+                question_set = InterviewQuestionSetService.get_question_set(application_id)
+                if question_set:
+                    # Generate actual questions
+                    logger.info(f"Regenerating actual questions after saving question set for {application_id}")
+                    InterviewQuestionActualService.generate_actual_questions(question_set)
+                else:
+                    logger.warning(f"Could not regenerate actual questions - question set not found for {application_id}")
+            except Exception as e:
+                # Log error but don't fail the main operation
+                logger.error(f"Error regenerating actual questions after saving: {e}")
+        
         return question_set_id
     except Exception as e:
         logger.error(f"Error saving InterviewQuestionSet: {e}")
@@ -105,3 +140,31 @@ async def apply_questions_to_all(data: Dict[str, Any]):
     except Exception as e:
         logger.error(f"Error applying questions to all candidates: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/generate-actual-questions/{application_id}", response_model=InterviewQuestionActual)
+async def generate_actual_questions(application_id: str):
+    """Generate actual interview questions from the question set for an application."""
+    try:
+        logger.info(f"Generating actual interview questions for applicationId: {application_id}")
+        
+        # First, get the question set for this application
+        question_set = InterviewQuestionSetService.get_question_set(application_id)
+        if not question_set:
+            logger.warning(f"Question set not found for applicationId: {application_id}")
+            raise HTTPException(status_code=404, detail="Question set not found")
+        
+        # Generate actual questions based on the question set, handling random selection
+        actual_questions = InterviewQuestionActualService.generate_actual_questions(question_set)
+        if not actual_questions:
+            logger.error(f"Failed to generate actual questions for applicationId: {application_id}")
+            raise HTTPException(status_code=500, detail="Failed to generate actual questions")
+        
+        logger.info(f"Successfully generated actual questions for applicationId: {application_id}")
+        return actual_questions
+    
+    except HTTPException as he:
+        logger.warning(f"HTTP error for applicationId {application_id}: {he.detail}")
+        raise
+    except Exception as e:
+        logger.error(f"Error generating actual questions for applicationId {application_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate actual questions: {str(e)}")
