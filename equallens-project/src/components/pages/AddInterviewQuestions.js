@@ -1746,7 +1746,7 @@ const AddInterviewQuestions = () => {
                 AI question generation can only be used <strong>once per candidate</strong>. 
                 Once you click '<strong>Save Changes</strong>',  you cannot use it again. 
                 Be careful when modifying or deleting questions, 
-                as you won’t be able to generate new ones for this candidate.
+                as you won’t be able to generate new ones for this candidate unless you delete whole set of questions.
                 </p>
                 <div className="status-buttons">
                     <button 
