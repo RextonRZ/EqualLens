@@ -25,6 +25,14 @@ async def get_question_set(application_id: str):
         if not question_set:
             logger.warning(f"InterviewQuestionSet not found for applicationId: {application_id}")
             raise HTTPException(status_code=404, detail="InterviewQuestionSet not found")
+        
+        # Ensure aiGenerationUsed exists in the response - default to False if not set
+        if not hasattr(question_set, "aiGenerationUsed"):
+            question_set.aiGenerationUsed = False
+            logger.info(f"Added missing aiGenerationUsed (False) for {application_id}")
+        else:
+            logger.info(f"Found aiGenerationUsed: {question_set.aiGenerationUsed} for {application_id}")
+            
         logger.info(f"Fetched InterviewQuestionSet successfully for applicationId: {application_id}")
         return question_set
     except HTTPException as he:
@@ -129,6 +137,11 @@ async def apply_questions_to_all(data: Dict[str, Any]):
     """Apply interview questions to all candidates of a job."""
     try:
         logger.info(f"Applying questions to all candidates for job: {data.get('jobId')}")
+        
+        # Log if force overwrite is enabled
+        force_overwrite = data.get("forceOverwrite", False)
+        if force_overwrite:
+            logger.info("Force overwrite mode enabled - will override AI-generated content")
         
         # Call the service method to apply questions to all candidates
         result = InterviewQuestionSetService.apply_to_all_candidates(data)

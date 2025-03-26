@@ -177,6 +177,32 @@ class InterviewQuestionSetService:
                 for question in section["questions"]:
                     question["questionId"] = question.get("questionId") or firebase_client.generate_counter_id("ques")
 
+            # Track AI generation used
+            if "aiGenerationUsed" in data:
+                aiGenerationUsed = data.get("aiGenerationUsed", False)
+            elif existing_question_set and hasattr(existing_question_set, "aiGenerationUsed"):
+                aiGenerationUsed = existing_question_set.aiGenerationUsed
+            else:
+                aiGenerationUsed = False
+            
+            # Set aiGenerationUsed in the data
+            data["aiGenerationUsed"] = aiGenerationUsed
+
+            # Handle AI generation usage tracking
+            # If aiGenerationUsed is provided in the data, use that value
+            # Otherwise, preserve the existing value if there is one
+            if "aiGenerationUsed" in data:
+                # Explicitly cast to bool to ensure proper storage
+                data["aiGenerationUsed"] = bool(data.get("aiGenerationUsed", False))
+            elif existing_question_set and hasattr(existing_question_set, "aiGenerationUsed"):
+                # Keep the existing value if it was already set
+                data["aiGenerationUsed"] = bool(existing_question_set.aiGenerationUsed)
+            else:
+                # Default to False if not specified
+                data["aiGenerationUsed"] = False
+            
+            logger.info(f"AI generation used flag set to: {data['aiGenerationUsed']}")
+
             # Log the full data being saved
             logger.info(f"Saving InterviewQuestionSet with applicationId: {application_id}, candidateId: {candidate_id}")
 
@@ -203,12 +229,15 @@ class InterviewQuestionSetService:
             job_id = data.get("jobId")
             question_set = data.get("questionSet")
             candidates = data.get("candidates", [])
+            overwrite_existing = data.get("overwriteExisting", False) 
+            force_overwrite = data.get("forceOverwrite", False)  # New flag to force overwrite even for AI-generated content
             
             if not job_id or not question_set or not candidates:
                 logger.error("Missing required data for apply-to-all")
                 return None
                 
             logger.info(f"Applying questions to {len(candidates)} candidates for job {job_id}")
+            logger.info(f"Overwrite existing: {overwrite_existing}, Force overwrite: {force_overwrite}")
             
             results = {
                 "successful": [],
@@ -237,15 +266,38 @@ class InterviewQuestionSetService:
                     # Check if this candidate already has a question set
                     existing_set = InterviewQuestionSetService.get_question_set(candidate_id)
                     
-                    # If there's an existing set and overwrite is not allowed, skip
-                    if existing_set and not data.get("overwriteExisting", False):
-                        logger.info(f"Skipping candidate {candidate_id} - existing question set found")
-                        results["skipped"].append(candidate_id)
+                    # Check if we should skip this candidate
+                    should_skip = False
+                    
+                    if existing_set:
+                        # If overwrite is not allowed, skip
+                        if not overwrite_existing:
+                            logger.info(f"Skipping candidate {candidate_id} - existing question set found and overwrite disabled")
+                            results["skipped"].append(candidate_id)
+                            should_skip = True
+                        # If AI has been used but force overwrite is not enabled, skip
+                        elif hasattr(existing_set, "aiGenerationUsed") and existing_set.aiGenerationUsed and not force_overwrite:
+                            logger.info(f"Skipping candidate {candidate_id} - has AI-generated content and force overwrite disabled")
+                            results["skipped"].append(candidate_id)
+                            should_skip = True
+                    
+                    if should_skip:
                         continue
-                        
-                    # If there's an existing set and overwrite is allowed, use the existing ID
+                    
+                    # If overwrite is allowed, use the existing ID
                     if existing_set:
                         candidate_payload["questionSetId"] = existing_set.questionSetId
+                        logger.info(f"Overwriting existing question set for candidate {candidate_id}")
+                        
+                        # If this is replacing AI-generated content, make sure to remove or reset the AI flag
+                        if hasattr(existing_set, "aiGenerationUsed") and existing_set.aiGenerationUsed:
+                            if force_overwrite:
+                                # If force overwrite, we'll keep the aiGenerationUsed flag but overwrite the content
+                                candidate_payload["aiGenerationUsed"] = True
+                                logger.info(f"Preserving AI generation flag for candidate {candidate_id} while overwriting content")
+                            else:
+                                # This shouldn't happen due to earlier check, but just in case
+                                logger.warning(f"Attempting to overwrite AI content for {candidate_id} without force flag")
                     
                     # Save the question set for this candidate
                     question_set_id = InterviewQuestionSetService.save_question_set(candidate_payload)

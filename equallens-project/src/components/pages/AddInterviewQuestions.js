@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./AddInterviewQuestions.css";
 import '../pageloading.css'; // Import the loading animation CSS
@@ -66,6 +66,7 @@ const AddInterviewQuestions = () => {
     const [initialSections, setInitialSections] = useState([]);
     // Add a new state to track if AI generate was used but not yet saved
     const [aiGeneratedUnsaved, setAiGeneratedUnsaved] = useState(false);
+    const [showAIConfirmModal, setShowAIConfirmModal] = useState(false);
     
     // Get job ID from URL query params
     const location = useLocation();
@@ -218,6 +219,15 @@ const AddInterviewQuestions = () => {
                     
                     setSections(processedSections);
                     setInitialSections(JSON.parse(JSON.stringify(processedSections))); // Deep copy initial state
+                    
+                    // Check and update AI generation usage status
+                    if (data.aiGenerationUsed) {
+                        // If AI was used for this candidate, update the state map
+                        setAiGenerateUsedMap(prev => ({
+                            ...prev,
+                            [selectedApplicant]: true
+                        }));
+                    }
                 } else {
                     // Only clear the sections, not the selected applicant
                     setSections([]);
@@ -231,6 +241,13 @@ const AddInterviewQuestions = () => {
                     console.log("No question set found for this applicant. Starting with a blank slate.");
                     setSections([]);
                     setInitialSections([]); // Clear initial sections
+                    
+                    // Also clear AI usage state for this candidate since no record exists
+                    setAiGenerateUsedMap(prev => {
+                        const newMap = {...prev};
+                        delete newMap[selectedApplicant];
+                        return newMap;
+                    });
                 } else {
                     // For other errors, show an error message but don't reset UI
                     setErrorMessage(`Error loading questions: ${error.message}`);
@@ -842,7 +859,10 @@ const AddInterviewQuestions = () => {
             const payload = {
                 applicationId: selectedApplicant, // Ensure correct applicationId is used
                 candidateId: selectedApplicant === "all" ? "all" : selectedApplicant,
-                sections: validSections
+                sections: validSections,
+                // Add AI generation usage info to the payload - true if either already used or newly used
+                aiGenerationUsed: selectedApplicant !== "all" && 
+                    (aiGenerateUsedMap[selectedApplicant] || aiGeneratedUnsaved)
             };
 
             // Check if a question set already exists for the selected candidate
@@ -883,7 +903,7 @@ const AddInterviewQuestions = () => {
                 setChangesSaved(true); // Mark changes as saved after successful save
                 setInitialSections(JSON.parse(JSON.stringify(sections))); // Deep copy
                 
-                // If there are unsaved AI generated sections, mark AI generation as used for this candidate
+                // If there are unsaved AI generated sections, permanently mark AI as used for this candidate
                 if (aiGeneratedUnsaved) {
                     setAiGenerateUsedMap(prev => ({
                         ...prev,
@@ -1070,7 +1090,9 @@ const AddInterviewQuestions = () => {
                 jobId: jobId,
                 questionSet: questionSet,
                 candidates: candidatesResponse.data,
-                overwriteExisting: overwriteExisting
+                overwriteExisting: overwriteExisting,
+                // Add a flag to force overwrite even for AI-generated content
+                forceOverwrite: overwriteExisting
             };
             
             const response = await axios.post(
@@ -1505,7 +1527,7 @@ const AddInterviewQuestions = () => {
         </div>
     );
 
-    // Modify the AI Generate function to check if AI has already been used
+    // Modify the AI Generate function to show confirmation first
     const handleAIGenerate = () => {
         // Check if any applicant is selected
         if (!selectedApplicant) {
@@ -1521,7 +1543,15 @@ const AddInterviewQuestions = () => {
             return;
         }
         
-        // Rest of the AI generate function remains unchanged
+        // Show confirmation dialog instead of generating immediately
+        setShowAIConfirmModal(true);
+    };
+
+    // New function to handle actual AI generation after confirmation
+    const handleConfirmAIGenerate = () => {
+        setShowAIConfirmModal(false);
+        
+        // AI generation code moved here from handleAIGenerate
         const aiGeneratedSections = [
             {
                 title: "Technical Skills",
@@ -1702,6 +1732,40 @@ const AddInterviewQuestions = () => {
         );
     }
 
+    // Create AIConfirmModal component
+    const AIConfirmModal = () => (
+        <div className="status-modal-overlay" role="dialog" aria-modal="true">
+            <div className="status-modal">
+                <div className="status-icon warning-icon ai-warning-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                </div>
+                <h3 className="status-title">One-Time AI Generation</h3>
+                <p className="status-description">
+                AI question generation can only be used <strong>once per candidate</strong>. 
+                Once you click '<strong>Save Changes</strong>',  you cannot use it again. 
+                Be careful when modifying or deleting questions, 
+                as you won’t be able to generate new ones for this candidate.
+                </p>
+                <div className="status-buttons">
+                    <button 
+                        className="status-button secondary-button" 
+                        onClick={() => setShowAIConfirmModal(false)}
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        className="status-button primary-button" 
+                        onClick={handleConfirmAIGenerate}
+                    >
+                        Generate Questions
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
     return (
         <div className="add-interview-questions-container">
             {showSuccessModal && <SuccessModal />}
@@ -1714,6 +1778,7 @@ const AddInterviewQuestions = () => {
             {showResetConfirmModal && <ResetConfirmModal />}
             {showUnsavedResetModal && <UnsavedResetModal />}
             {showCandidateSwitchModal && <CandidateSwitchModal />}
+            {showAIConfirmModal && <AIConfirmModal />}
             
             {/* Header section with back button and title */}
             <div className="page-header">
@@ -1770,11 +1835,11 @@ const AddInterviewQuestions = () => {
                                 <span>✓ AI-generated sections added successfully!</span>
                             </div>
                         )}
-                        {/* Only show butterfly divs and AI button when an applicant is selected */}
-                        {selectedApplicant && (
+                        {/* Only show butterfly divs and AI button when an applicant is selected AND it's not "Apply to All" */}
+                        {selectedApplicant && selectedApplicant !== "all" && (
                             <>
                                 {/* Only show butterfly animations when the button hasn't been used yet for specific applicants */}
-                                {(selectedApplicant === "all" || !aiGenerateUsedMap[selectedApplicant]) && (
+                                {!aiGenerateUsedMap[selectedApplicant] && (
                                     <>
                                         <div className="butterfly"></div>
                                         <div className="butterfly"></div>
@@ -1784,17 +1849,17 @@ const AddInterviewQuestions = () => {
                                 )}
                                 <button 
                                     className={`ai-generate-button ${
-                                        selectedApplicant !== "all" && aiGenerateUsedMap[selectedApplicant] ? 'used' : ''
+                                        aiGenerateUsedMap[selectedApplicant] ? 'used' : ''
                                     }`} 
                                     onClick={handleAIGenerate}
-                                    title={selectedApplicant !== "all" && aiGenerateUsedMap[selectedApplicant] ? 
+                                    title={aiGenerateUsedMap[selectedApplicant] ? 
                                           "AI generation has already been used for this candidate" : 
                                           "Generate interview questions with AI"}
                                 >
                                     <svg className="ai-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                                     </svg>
-                                    {selectedApplicant !== "all" && aiGenerateUsedMap[selectedApplicant] ? 
+                                    {aiGenerateUsedMap[selectedApplicant] ? 
                                       "AI Sections Added" : 
                                       "AI Generate Questions"}
                                 </button>
@@ -1830,7 +1895,7 @@ const AddInterviewQuestions = () => {
                 {!selectedApplicant ? (
                     <div className="no-sections applicant-select-prompt">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="empty-icon">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
                         </svg>
                         <p>Please select an applicant to get started.</p>
                         <p>You'll be able to create interview questions after selecting an applicant.</p>
@@ -1838,7 +1903,7 @@ const AddInterviewQuestions = () => {
                 ) : sections.length === 0 ? (
                     <div className="no-sections">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="empty-icon">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 9h8M8 13h6M8 17h4M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z"></path>
                         </svg>
                         <p>No interview question sections added yet.</p>
                         <p>Add a section to get started or use AI Generate.</p>
@@ -2088,7 +2153,7 @@ const AddInterviewQuestions = () => {
                                 <span className="stats-value">
                                     {totalInterviewTime.effectiveQuestions !== totalInterviewTime.totalQuestions ? 
                                         ` ${totalInterviewTime.effectiveQuestions} ` : 
-                                        ''}
+                                        '0'}
                                 </span>
                             </div>
                         </div>

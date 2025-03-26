@@ -30,6 +30,7 @@ class InterviewQuestionSet(BaseModel):
     createdAt: Optional[datetime] = None  # Make createdAt optional and default to None
     sections: List[Section]
     updatedAt: Optional[datetime] = None  # Add optional updatedAt field
+    aiGenerationUsed: Optional[bool] = False  # Add field to track if AI generation was used
 
 class ActualQuestion(BaseModel):
     questionId: str

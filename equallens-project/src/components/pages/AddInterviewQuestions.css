@@ -1245,6 +1245,7 @@
     white-space: normal;
     line-height: 1.5;
     margin: 1rem 0;
+    text-align: justify;
 }
 
 /* Improve random-count-input validation visual feedback */
