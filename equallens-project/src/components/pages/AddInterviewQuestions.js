@@ -2151,9 +2151,8 @@ const AddInterviewQuestions = () => {
                             <div className="stats-content">
                                 <span className="stats-label">Total Effective Questions Set For Interview:</span>
                                 <span className="stats-value">
-                                    {totalInterviewTime.effectiveQuestions !== totalInterviewTime.totalQuestions ? 
-                                        ` ${totalInterviewTime.effectiveQuestions} ` : 
-                                        '0'}
+                                    {/* Always display the effectiveQuestions count, with a fallback to 0 */}
+                                    {totalInterviewTime.effectiveQuestions || 0}
                                 </span>
                             </div>
                         </div>
