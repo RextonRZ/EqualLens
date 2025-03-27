@@ -26,21 +26,23 @@ class GeminiService:
     async def analyze_prompt_for_weights(self, prompt: str) -> Dict[str, int]:
         """Extract weights for skills, education, and experience from the user prompt."""
         system_prompt = """
-        You are an AI assistant that analyzes job requirements. From the given prompt, 
-        extract the importance weights for three factors on a scale from 1 to 10:
-        1. Skills (including technical skills, soft skills, languages)
-        2. Education level (including awards, co-curricular activities, achievements)
-        3. Experience (work experience, projects, internships)
+            You are an AI assistant that analyzes job requirements. From the given prompt, 
+            extract the importance weights for three factors on a scale from 1 to 10:
 
-        Do NOT consider any personal identifiable information like names, age, and email addresses.
-        
-        VERY IMPORTANT: You must respond ONLY with a valid JSON object and nothing else - no explanation, no markdown formatting, no text before or after. The exact format must be:
-        {
-            "skill_weight": <integer 1-10>,
-            "education_weight": <integer 1-10>,
-            "experience_weight": <integer 1-10>
-        }
-        """
+            1. Skills: Includes technical_skills, soft_skills, and languages.
+            2. Education: Includes education_paragraph, certifications_paragraph, and awards_paragraph.
+            3. Experience: Includes work_experience_paragraph, projects_paragraph, and co-curricular_activities_paragraph.
+
+            VERY IMPORTANT:
+            - Ignore any personal identifiable information such as applicant_contactNum, applicant_mail, applicant_name, and bio.
+            - Respond ONLY with a valid JSON object in the following format and nothing else (no explanation, no markdown formatting, no text before or after):
+
+            {
+                "skill_weight": <integer 1-10>,
+                "education_weight": <integer 1-10>,
+                "experience_weight": <integer 1-10>
+            }
+            """
         
         try:
             response = await self.model.generate_content_async(
@@ -93,11 +95,15 @@ class GeminiService:
         system_prompt = """
         You are an expert resume analyzer. Evaluate the candidate's resume information and score them 
         in three categories on a scale from 1 to 10:
-        1. Skills (technical skills, soft skills, languages)
-        2. Education level
-        3. Experience
-        
-        Return only a JSON object with the following format:
+
+        1. Skills: Includes technical_skills, soft_skills, and languages.
+        2. Education: Includes education_paragraph, certifications_paragraph, and awards_paragraph.
+        3. Experience: Includes work_experience_paragraph, projects_paragraph, and co-curricular_activities_paragraph.
+
+        VERY IMPORTANT:
+        - Ignore any personal identifiable information such as applicant_contactNum, applicant_mail, applicant_name, and bio.
+        - Respond ONLY with a valid JSON object in the following format and nothing else (no explanation, no markdown formatting, no text before or after):
+
         {
             "skill_score": <integer 1-10>,
             "education_score": <integer 1-10>,
@@ -237,6 +243,67 @@ class GeminiService:
             logger.error(f"Error ranking applicants: {str(e)}")
             raise HTTPException(status_code=500, detail="An error occurred while ranking the applicants. Please try again later.")
         
+    async def rank_applicants_with_weights(self, weights: Dict[str, int], applicants: List[Dict[str, Any]], job_document: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Rank applicants based on job requirements and provided weights.
+
+        Args:
+            weights: Dictionary containing weights for skills, education, and experience.
+            applicants: List of applicant data.
+            job_document: Job document containing existing weights if available.
+
+        Returns:
+            Dictionary with weights, applicant scores, and ranked applicants.
+        """
+        try:
+            # Validate inputs
+            if not weights:
+                raise ValueError("Weights cannot be empty")
+            if not applicants:
+                return {"weights": weights, "applicants": [], "message": "No applicants to rank"}
+            
+            # Ensure weights have the required keys with valid values
+            for key in ['skill_weight', 'education_weight', 'experience_weight']:
+                if key not in weights:
+                    weights[key] = 5  # Default to medium importance
+                else:
+                    # Ensure weights are integers between 1-10
+                    weights[key] = max(1, min(10, int(weights[key])))
+
+            # Score each applicant
+            scored_applicants = []
+            for applicant in applicants:
+                try:
+                    scores = await self.score_applicant(applicant, weights)
+                    applicant_with_score = {**applicant, **scores}
+                    scored_applicants.append(applicant_with_score)
+                except Exception as e:
+                    logger.error(f"Error scoring applicant {applicant.get('candidateId', 'unknown')}: {str(e)}")
+                    applicant_with_error = {
+                        **applicant, 
+                        "rank_score": {"final_score": 0},
+                        "error": f"Failed to score: {str(e)}"
+                    }
+                    scored_applicants.append(applicant_with_error)
+            
+            # Sort applicants by final score (descending)
+            ranked_applicants = sorted(
+                scored_applicants, 
+                key=lambda x: x.get("rank_score", {}).get("final_score", 0), 
+                reverse=True
+            )
+            
+            # Verify ranking worked
+            logger.info(f"Ranking complete. Top score: {ranked_applicants[0].get('rank_score', {}).get('final_score', 0) if ranked_applicants else 'No applicants'}")
+            
+            return {
+                "weights": weights,
+                "applicants": ranked_applicants
+            }
+        except Exception as e:
+            logger.error(f"Error ranking applicants with weights: {str(e)}")
+            raise HTTPException(status_code=500, detail="An error occurred while ranking the applicants. Please try again later.") 
+        
     async def generate_candidate_profile(self, applicant: Dict[str, Any]) -> Dict[str, Any]:
         """
         Generate a summary profile for a candidate based on their resume data.
@@ -251,21 +318,38 @@ class GeminiService:
         
         system_prompt = """
         You are an expert resume analyzer. Review the candidate's resume information and generate:
-        
-        1. A concise summary paragraph highlighting the candidate's strengths and weaknesses
-        2. Categorized information in these three areas:
-            - Skills (technical skills, soft skills, languages)
-            - Education (degrees, certifications, academic achievements)
-            - Experience (work history, projects, accomplishments)
-        
-        Do NOT include any personal identifying information like name, address, email, or phone number.
-        
-        Return only a JSON object with the following format:
+
+        1. A **concise summary paragraph** highlighting the candidate's strengths and weaknesses. 
+        - Consider all potential attributes: awards_paragraph, bio, certifications_paragraph, co-curricular_activities_paragraph, education_paragraph, languages, projects_paragraph, soft_skills, technical_skills, and work_experience_paragraph.
+        - The summary should focus on key achievements, skills, and areas for improvement.
+
+        2. Categorized information in these areas (if available):
+        - **Soft Skills**: List of soft skills.
+        - **Technical Skills**: List of technical skills.
+        - **Languages**: List of languages known.
+        - **Education**: Key points from education_paragraph.
+        - **Certifications**: Key points from certifications_paragraph.
+        - **Awards**: Key points from awards_paragraph.
+        - **Work Experience**: Key points from work_experience_paragraph.
+        - **Projects**: Key points from projects_paragraph.
+        - **Co-Curricular Activities**: Key points from co-curricular_activities_paragraph.
+
+        VERY IMPORTANT:
+        - Do NOT include any personal identifying information such as applicant_contactNum, applicant_mail, applicant_name, or bio.
+        - If a category is not present in the resume, exclude it from the output.
+        - Respond ONLY with a valid JSON object in the following format and nothing else (no explanation, no markdown formatting, no text before or after):
+
         {
-            "summary": "A paragraph summarizing the candidate's profile...",
-            "skills": ["Skill 1", "Skill 2", ...],
+            "summary": "A concise summary of the candidate's profile with <strong>important points</strong> emphasized...",
+            "soft_skills": ["Soft Skill 1", "Soft Skill 2", ...],
+            "technical_skills": ["Technical Skill 1", "Technical Skill 2", ...],
+            "languages": ["Language 1", "Language 2", ...],
             "education": ["Education point 1", "Education point 2", ...],
-            "experience": ["Experience point 1", "Experience point 2", ...]
+            "certifications": ["Certification 1", "Certification 2", ...],
+            "awards": ["Award 1", "Award 2", ...],
+            "work_experience": ["Work Experience point 1", "Work Experience point 2", ...],
+            "projects": ["Project 1", "Project 2", ...],
+            "co_curricular_activities": ["Activity 1", "Activity 2", ...]
         }
         """
         
@@ -291,10 +375,13 @@ class GeminiService:
                 profile_data = json.loads(json_str)
                 
                 # Validate required fields
-                required_fields = ['summary', 'skills', 'education', 'experience']
-                for field in required_fields:
-                    if field not in profile_data:
-                        profile_data[field] = [] if field != 'summary' else "Information not available"
+                if 'summary' not in profile_data:
+                    profile_data['summary'] = "Information not available"
+                
+                # Clean up any empty fields if they exist
+                for field in list(profile_data.keys()):
+                    if not profile_data[field]:  # Remove if empty
+                        del profile_data[field]
                 
                 return profile_data
             else:

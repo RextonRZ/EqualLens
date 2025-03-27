@@ -221,8 +221,44 @@ export default function Dashboard() {
                 throw new Error(`Network response was not ok: ${response.status}`);
             }
             const applicantsData = await response.json();
-            console.log("Fetched applicants data:", applicantsData); // Debug: log the received data
-            setApplicants(applicantsData);
+
+            // Create two arrays: applicants with scores and those without
+            const applicantsWithScores = applicantsData.filter(
+                applicant => applicant.rank_score && typeof applicant.rank_score.final_score === 'number'
+            );
+            const applicantsWithoutScores = applicantsData.filter(
+                applicant => !applicant.rank_score || typeof applicant.rank_score.final_score !== 'number'
+            );
+
+            // Sort applicants with scores in descending order
+            const sortedApplicantsWithScores = [...applicantsWithScores].sort(
+                (a, b) => b.rank_score.final_score - a.rank_score.final_score
+            );
+
+            // Merge the sorted applicants with the unsorted ones
+            const mergedApplicants = [...sortedApplicantsWithScores, ...applicantsWithoutScores];
+            
+            setApplicants(mergedApplicants);
+        } catch (err) {
+            console.error("Error fetching applicants:", err);
+            setApplicants([]);  // Set empty array on error to prevent undefined issues
+        }
+    };
+
+    const fetchUnscoredApplicants = async (jobId) => {
+        try {
+            // Fix the API endpoint to match the backend API structure
+            const response = await fetch(`http://localhost:8000/api/candidates/applicants?jobId=${jobId}`);
+            if (!response.ok) {
+                throw new Error(`Network response was not ok: ${response.status}`);
+            }
+            const applicantsData = await response.json();
+
+            const applicantsWithoutScores = applicantsData.filter(
+                applicant => !applicant.rank_score || typeof applicant.rank_score.final_score !== 'number'
+            );
+
+            return applicantsWithoutScores;
         } catch (err) {
             console.error("Error fetching applicants:", err);
             setApplicants([]);  // Set empty array on error to prevent undefined issues
@@ -248,6 +284,37 @@ export default function Dashboard() {
             setJobs(prevJobs => prevJobs.map(job =>
                 job.jobId === updatedJobData.jobId ? updatedJobData : job
             ));
+        } catch (err) {
+            console.error("Error fetching job data:", err);
+        }
+    };
+
+    const scoreApplicants = async (unscoredApplicants) => {
+        try {
+            // Rank new applicants based on the existing prompt
+            const response = await fetch(`http://localhost:8000/api/candidates/ranks`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    weights: selectedJob.rank_weight,
+                    applicants: unscoredApplicants,
+                    job_document: selectedJob
+                })
+            });
+
+            // Handle potential network or server errors
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+                throw new Error(errorData.detail || `Ranking request failed: ${response.statusText}`);
+            }
+
+            // Parse applicant results
+            const scoredApplicants = await response.json();
+
+            return scoredApplicants;
+
         } catch (err) {
             console.error("Error fetching job data:", err);
         }
@@ -370,13 +437,21 @@ export default function Dashboard() {
     };
 
     // Handle upload complete event
-    const handleUploadComplete = (count) => {
+    const handleUploadComplete = async (count) => {
         // Close the upload CV modal first
         setShowUploadCVModal(false);
 
+        // Set loading view
+        setRankDetailLoading(true);
+
         // Refresh applicants data when upload is complete
         if (selectedJob && count > 0) {
+
+            // Update job and applicants list
+            fetchJob(selectedJob.jobId);
             fetchApplicants(selectedJob.jobId);
+
+            handleUnscoredApplicants();
 
             // Update the local job object with the new application count
             const updatedJob = {
@@ -390,6 +465,9 @@ export default function Dashboard() {
                 job.jobId === updatedJob.jobId ? updatedJob : job
             ));
 
+            // Set loading state to false
+            setRankDetailLoading(false);
+
             // Show success message
             setModalMessage(`${count} new CV${count !== 1 ? 's' : ''} uploaded successfully.`);
 
@@ -399,6 +477,46 @@ export default function Dashboard() {
             }, 300);
         }
     };
+
+    // Handle scoring applicants when they are not scored but others are
+    const handleUnscoredApplicants = async () => {
+        if (selectedJob.rank_weight !== null && selectedJob.prompt !== null) {
+            // Filter out the new applicants from the existing list
+            // New applicants are those without rank_score or with an empty rank_score
+            const unscoredApplicants = await fetchUnscoredApplicants(selectedJob.jobId);
+
+            // Only proceed if there are new applicants to rank
+            if (unscoredApplicants.length > 0) {
+                // Parse applicant results
+                const scoredApplicants = await scoreApplicants(unscoredApplicants);
+
+                // Update candidate rankings if available
+                if (scoredApplicants.applicants && scoredApplicants.applicants.length > 0) {
+                    for (const applicant of scoredApplicants.applicants) {
+                        if (applicant.candidateId) {
+                            await fetch(`http://localhost:8000/api/candidates/candidate/${applicant.candidateId}`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    ...applicant,
+                                    rank_score: applicant.rank_score,
+                                    reasoning: applicant.reasoning,
+                                    job_id: selectedJob.jobId
+                                })
+                            });
+                        }
+                    }
+                }
+
+                fetchApplicants(selectedJob.jobId);
+            } else {
+                console.log("No new applicants to rank");
+                return; // Skip the rest of the function if no new applicants
+            }
+        }
+    }
 
     // Handle Rank Applicants button click
     const handleRankApplicants = () => {
@@ -456,9 +574,6 @@ export default function Dashboard() {
                     throw new Error("Invalid ranking results received");
                 }
 
-                console.log("Prompt:", prompt); // Debug: log the prompt
-                console.log("Received ranking results:", rankingResults); // Debug: log the results
-
                 // Update job with new weights
                 await fetch(`http://localhost:8000/api/jobs/${selectedJob.jobId}`, {
                     method: 'PUT',
@@ -472,9 +587,6 @@ export default function Dashboard() {
                     })
                 });
 
-                console.log("Applicants length:", rankingResults.applicants.length); // Debug: log the number of applicants
-
-                
                 // Update candidate rankings if available
                 if (rankingResults.applicants && rankingResults.applicants.length > 0) {
                     for (const applicant of rankingResults.applicants) {
@@ -811,7 +923,8 @@ export default function Dashboard() {
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                minHeight: '80vh'
+                minHeight: '80vh',
+                backgroundColor: 'rgb(255, 255, 255)'
             }}>
                 <div className="loading-indicator" style={{ textAlign: 'center' }}>
                     <LoadingAnimation />
@@ -828,7 +941,8 @@ export default function Dashboard() {
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                minHeight: '80vh'
+                minHeight: '80vh',
+                backgroundColor: 'rgb(255, 255, 255)'
             }}>
                 <div className="loading-indicator" style={{ textAlign: 'center' }}>
                     <LoadingAnimation />
@@ -845,11 +959,12 @@ export default function Dashboard() {
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                minHeight: '80vh'
+                minHeight: '80vh',
+                backgroundColor: 'rgb(255, 255, 255)'
             }}>
                 <div className="loading-indicator" style={{ textAlign: 'center' }}>
                     <LoadingAnimation />
-                    <p style={{ marginTop: '20px' }}>{"Processing rank..."}</p>
+                    <p style={{ marginTop: '20px' }}>{"Processing scores..."}</p>
                 </div>
             </div>
         );
@@ -1251,10 +1366,19 @@ export default function Dashboard() {
                                                 <h4>{renderApplicantID(applicant)}</h4>
                                                 <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(applicant))}</p>
                                             </div>
+
                                             <div className="applicant-status-actions">
                                                 <span className={`status-badge ${applicant.status || 'new'}`}>
                                                     {applicant.status || 'new'}
                                                 </span>
+                                                <div className="rank-score-container">
+                                                    <span className="rank-score-label">Score: </span>
+                                                    <span className="rank-score-value">
+                                                        {applicant.rank_score && applicant.rank_score.final_score
+                                                            ? applicant.rank_score.final_score.toFixed(2)
+                                                            : "N/A"}
+                                                    </span>
+                                                </div>
                                                 <button
                                                     className="view-profile-button"
                                                     onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${applicant.candidateId}`)}

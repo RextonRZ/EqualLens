@@ -47,6 +47,119 @@
     border-radius: 2px;
 }
 
+/* Apply CSS properties to ui-widgets class */
+.ui-widgets {
+    position: relative;
+    display: inline-block;
+    width: 10rem;
+    height: 10rem;
+    border-radius: 9rem;
+    margin: 1.5rem;
+    border: 1.2rem solid palegreen;
+    box-shadow: inset 0 0 7px grey;
+    border-left-color: palegreen;
+    border-top-color: chartreuse;
+    border-right-color: darkgreen;
+    border-bottom-color: white;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+/*  Apply css properties to the second 
+    child of ui-widgets class */
+.ui-widgets:nth-child(2) {
+    border-top-color: chartreuse;
+    border-right-color: white;
+    border-left-color: palegreen;
+    border-bottom-color: white;
+}
+
+/*  Apply css properties to ui-widgets class 
+    and ui-values class*/
+.ui-widgets .ui-values {
+    top: 40px;
+    position: absolute;
+    left: 10px;
+    right: 0;
+    font-weight: 700;
+    font-size: 2.0rem;
+
+}
+
+/*  Apply css properties to ui-widgets 
+    class and ui-labels class*/
+.ui-widgets .ui-labels {
+
+    left: 0;
+    bottom: -16px;
+    text-shadow: 0 0 4px grey;
+    color: black;
+    position: absolute;
+    width: 100%;
+    font-size: 16px;
+}
+
+.skill {
+    width: 160px;
+    height: 160px;
+    position: relative;
+}
+
+.outer {
+    height: 160px;
+    width: 160px;
+    padding: 20px;
+    box-shadow: 6px 6px 10px -1px rgba(0, 0, 0, 0.15), -6px -6px 10px -1px rgba(255, 255, 255, 0.7);
+    border-radius: 50%;
+}
+
+.inner {
+    height: 120px;
+    width: 120px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    ;
+    box-shadow: inset 4px 4px 6px -1px rgba(0, 0, 0, 0.2), inset -4px -4px 6px -1px rgba(255, 255, 255, 0.7),
+        -0.5px -0.5px 0px rgba(255, 255, 255, 1), 0.5px 0.5px 0px rgba(0, 0, 0, 0.15),
+        0px 12px 10px -10px rgba(0, 0, 0, 0.05);
+}
+
+#number {
+    font-weight: 600;
+    color: #555;
+    font-size: 30px;
+    position: absolute;
+    /* Ensure it is positioned relative to the parent */
+    top: 50%;
+    /* Center vertically */
+    left: 50%;
+    /* Center horizontally */
+    transform: translate(-50%, -50%);
+    /* Adjust for the element's own dimensions */
+    text-align: center;
+    /* Center text alignment */
+}
+
+circle {
+    fill: none;
+    stroke: url(#GradientColor);
+    stroke-width: 20px;
+    stroke-dasharray: 450;
+    stroke-dashoffset: 450;
+    /* Default value */
+    transition: stroke-dashoffset 2s linear;
+    /* Smooth transition for dynamic updates */
+    transform: rotate(-90);
+}
+
+.skill svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
 .reject-button {
     background-color: #F9645F;
     color: white;
@@ -391,11 +504,27 @@
 }
 
 .additional-info {
-    width: 50%;
+    width: 45%;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
     padding: 0.4rem;
+}
+
+.additional-info-2 {
+    width: 20%;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 0.4rem;
+}
+
+.additional-info-3 {
+    width: 35%;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 0.2rem;
 }
 
 /* Add a little extra space after applicant details container */
@@ -431,6 +560,11 @@
     margin-bottom: 0.5rem;
     /* More space between info groups */
     padding-bottom: 0.5rem;
+    /* Add padding at the bottom of each group */
+}
+
+.info-group-2 {
+    padding-top: 0.5rem;
     /* Add padding at the bottom of each group */
 }
 

@@ -47,6 +47,31 @@ async def rank_candidates(request: Dict[Any, Any]):
         logger.error(f"Error ranking candidates: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to rank candidates: {str(e)}")
     
+@router.post("/ranks")
+async def rank_new_candidates(request: Dict[Any, Any]):
+    logger.info("Ranking candidates with provided parameters")
+    try:
+        weights = request.get("weights")
+        applicants = request.get("applicants")
+        job_document = request.get("job_document")
+
+        if not weights or not applicants:
+            raise HTTPException(status_code=400, detail="Rank weight and applicants are required")
+        
+        # Create an instance of RankGeminiService
+        rank_service = GeminiService()
+        
+        # Rank the applicants
+        ranked_result = await rank_service.rank_applicants_with_weights(weights, applicants, job_document)
+
+        # Log the number of ranked candidates
+        logger.info(f"Successfully ranked new {len(ranked_result['applicants'])} candidates")
+        
+        return ranked_result
+    except Exception as e:
+        logger.error(f"Error ranking candidates: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to rank candidates: {str(e)}")
+    
 @router.put("/candidate/{candidate_id}")
 async def update_candidate(candidate_id: str, candidate_data: Dict[Any, Any]):
     """Update a candidate."""
