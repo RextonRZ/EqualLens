@@ -23,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import API routers
-from api import interviews, jobs, candidates
+from api import interviews, jobs, candidates, interview_questions
 
 # Initialize FastAPI app
 app = FastAPI(title="EqualLens API", 
@@ -43,6 +43,7 @@ app.add_middleware(
 app.include_router(interviews.router, prefix="/api/interviews", tags=["interviews"])
 app.include_router(jobs.router, prefix="/api/jobs", tags=["jobs"])  # Fixed prefix to match `/api/jobs`
 app.include_router(candidates.router, prefix="/api/candidates", tags=["candidates"])
+app.include_router(interview_questions.router, prefix="/api/interview-questions", tags=["interview-questions"])
 
 @app.get("/")
 async def root():
