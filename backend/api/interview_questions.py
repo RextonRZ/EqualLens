@@ -158,21 +158,27 @@ async def apply_questions_to_all(data: Dict[str, Any]):
 async def generate_actual_questions(application_id: str):
     """Generate actual interview questions from the question set for an application."""
     try:
-        logger.info(f"Generating actual interview questions for applicationId: {application_id}")
+        logger.info(f"Generating actual interview questions for applicationId/candidateId: {application_id}")
         
         # First, get the question set for this application
         question_set = InterviewQuestionSetService.get_question_set(application_id)
         if not question_set:
-            logger.warning(f"Question set not found for applicationId: {application_id}")
+            logger.warning(f"Question set not found for ID: {application_id}")
             raise HTTPException(status_code=404, detail="Question set not found")
+        
+        # Look up the correct applicationId if we're using a candidateId
+        correct_application_id = InterviewQuestionActualService.get_correct_application_id(application_id)
+        if correct_application_id:
+            logger.info(f"Using correct applicationId: {correct_application_id} instead of {application_id}")
+            question_set.applicationId = correct_application_id
         
         # Generate actual questions based on the question set, handling random selection
         actual_questions = InterviewQuestionActualService.generate_actual_questions(question_set)
         if not actual_questions:
-            logger.error(f"Failed to generate actual questions for applicationId: {application_id}")
+            logger.error(f"Failed to generate actual questions for ID: {application_id}")
             raise HTTPException(status_code=500, detail="Failed to generate actual questions")
         
-        logger.info(f"Successfully generated actual questions for applicationId: {application_id}")
+        logger.info(f"Successfully generated actual questions for ID: {application_id}")
         return actual_questions
     
     except HTTPException as he:

@@ -128,9 +128,50 @@ class InterviewQuestionSetService:
             return None
 
     @staticmethod
+    def get_correct_application_id(candidate_id: str) -> Optional[str]:
+        """Look up the correct applicationId for a given candidateId from the applications collection."""
+        try:
+            logger.info(f"Looking up correct applicationId for candidateId: {candidate_id}")
+            
+            # Query the applications collection to find the application with this candidateId
+            results = firebase_client.get_collection("applications", [("candidateId", "==", candidate_id)])
+            
+            if results and len(results) > 0:
+                application_id = results[0].get("applicationId")
+                logger.info(f"Found applicationId: {application_id} for candidateId: {candidate_id}")
+                return application_id
+            
+            logger.warning(f"No application found for candidateId: {candidate_id}")
+            return None
+        except Exception as e:
+            logger.error(f"Error looking up applicationId for candidateId {candidate_id}: {e}")
+            return None
+
+    @staticmethod
     def save_question_set(data: Dict[str, Any]) -> Optional[str]:
         """Save or update an InterviewQuestionSet document."""
         try:
+            # Check if a question set already exists for the given applicationId
+            question_set_id = data.get("questionSetId")
+            candidate_id = data.get("candidateId")
+            
+            # Look up the correct applicationId from applications collection
+            if candidate_id and candidate_id != "all":
+                correct_application_id = InterviewQuestionSetService.get_correct_application_id(candidate_id)
+                if correct_application_id:
+                    # Use the correct applicationId from the applications collection
+                    data["applicationId"] = correct_application_id
+                    application_id = correct_application_id
+                    logger.info(f"Set correct applicationId: {correct_application_id} for candidateId: {candidate_id}")
+                else:
+                    # If we can't find a correct applicationId, log a warning but continue
+                    # This allows for the "Apply to All" case or new candidates
+                    logger.warning(f"Could not find applicationId for candidateId: {candidate_id}, using candidateId as fallback")
+                    application_id = candidate_id
+                    data["applicationId"] = candidate_id
+            else:
+                application_id = data.get("applicationId")
+            
             # Check if a question set already exists for the given applicationId
             question_set_id = data.get("questionSetId")
             application_id = data.get("applicationId")
@@ -154,9 +195,24 @@ class InterviewQuestionSetService:
             # Ensure both applicationId and candidateId are set correctly to make queries consistent
             # This is crucial to make sure we can find the document later by either field
             if application_id and not data.get("candidateId"):
-                data["candidateId"] = application_id
+                # Look up the candidateId in Applications collection
+                applications = firebase_client.get_collection("Applications", [("applicationId", "==", application_id)])
+                if applications and len(applications) > 0:
+                    data["candidateId"] = applications[0].get("candidateId")
+                    logger.info(f"Found candidateId {data['candidateId']} for applicationId {application_id}")
+                else:
+                    logger.warning(f"No candidateId found for applicationId {application_id} in Applications collection")
+                    return None
+    
             elif candidate_id and not data.get("applicationId"):
-                data["applicationId"] = candidate_id
+                # Look up the applicationId in Applications collection
+                applications = firebase_client.get_collection("Applications", [("candidateId", "==", candidate_id)])
+                if applications and len(applications) > 0:
+                    data["applicationId"] = applications[0].get("applicationId")
+                    logger.info(f"Found applicationId {data['applicationId']} for candidateId {candidate_id}")
+                else:
+                    logger.warning(f"No applicationId found for candidateId {candidate_id} in Applications collection")
+                    return None
 
             # Ensure AI modification status is properly preserved
             if "sections" in data:

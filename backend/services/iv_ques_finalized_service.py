@@ -11,6 +11,26 @@ class InterviewQuestionActualService:
     """Service for managing InterviewQuestionActual in Firestore."""
 
     @staticmethod
+    def get_correct_application_id(candidate_id: str) -> Optional[str]:
+        """Look up the correct applicationId for a given candidateId from the applications collection."""
+        try:
+            logger.info(f"Looking up correct applicationId for candidateId: {candidate_id}")
+            
+            # Query the applications collection to find the application with this candidateId
+            results = firebase_client.get_collection("applications", [("candidateId", "==", candidate_id)])
+            
+            if results and len(results) > 0:
+                application_id = results[0].get("applicationId")
+                logger.info(f"Found applicationId: {application_id} for candidateId: {candidate_id}")
+                return application_id
+            
+            logger.warning(f"No application found for candidateId: {candidate_id}")
+            return None
+        except Exception as e:
+            logger.error(f"Error looking up applicationId for candidateId {candidate_id}: {e}")
+            return None
+
+    @staticmethod
     def create_actual_questions(data: InterviewQuestionActual) -> Optional[str]:
         """Create a new InterviewQuestionActual document."""
         try:
@@ -67,7 +87,18 @@ class InterviewQuestionActualService:
         try:
             # Check if actual questions already exist
             actual_id = data.get("actualId")
+            candidate_id = data.get("candidateId")
+            
+            # Look up the correct applicationId using the candidateId
+            if candidate_id:
+                correct_application_id = InterviewQuestionActualService.get_correct_application_id(candidate_id)
+                if correct_application_id:
+                    # Use the correct applicationId from the applications collection
+                    data["applicationId"] = correct_application_id
+                    logger.info(f"Set correct applicationId: {correct_application_id} for candidateId: {candidate_id}")
+            
             application_id = data.get("applicationId")
+            logger.info(f"Saving actual questions with applicationId: {application_id}, candidateId: {candidate_id}")
             
             if not actual_id:
                 # Check for existing record
@@ -80,12 +111,6 @@ class InterviewQuestionActualService:
                     actual_id = firebase_client.generate_counter_id("actual")
                     data["actualId"] = actual_id
                     data["createdAt"] = datetime.now().isoformat()
-            
-            # Ensure both applicationId and candidateId are set
-            if "applicationId" in data and not data.get("candidateId"):
-                data["candidateId"] = data["applicationId"]
-            elif "candidateId" in data and not data.get("applicationId"):
-                data["applicationId"] = data["candidateId"]
             
             # Save the document
             success = firebase_client.create_document("InterviewQuestionActual", actual_id, data)
@@ -102,13 +127,21 @@ class InterviewQuestionActualService:
     def generate_actual_questions(question_set: InterviewQuestionSet) -> Optional[InterviewQuestionActual]:
         """Generate actual interview questions based on a question set, applying random selection."""
         try:
-            logger.info(f"Generating actual questions for applicationId: {question_set.applicationId}")
+            candidate_id = question_set.candidateId
+            
+            # Look up the correct applicationId for this candidateId
+            correct_application_id = InterviewQuestionActualService.get_correct_application_id(candidate_id)
+            
+            # Use the correct applicationId if found, otherwise fall back to the one in question_set
+            application_id = correct_application_id if correct_application_id else question_set.applicationId
+            
+            logger.info(f"Generating actual questions for applicationId: {application_id}, candidateId: {candidate_id}")
             
             # First, check if there are existing actual questions for this candidate
-            existing_actual = InterviewQuestionActualService.get_actual_questions(question_set.applicationId)
+            existing_actual = InterviewQuestionActualService.get_actual_questions(application_id)
             actual_id = None
             if existing_actual:
-                logger.info(f"Found existing actual questions for {question_set.applicationId}, will update")
+                logger.info(f"Found existing actual questions for {application_id}, will update")
                 actual_id = existing_actual.actualId
             
             # Prepare structure for actual questions
@@ -162,10 +195,10 @@ class InterviewQuestionActualService:
                         })
                         total_question_count += 1
             
-            # Create the actual questions document
+            # Create the actual questions document with CORRECT applicationId
             actual_questions_data = {
-                "applicationId": question_set.applicationId,
-                "candidateId": question_set.candidateId,
+                "applicationId": application_id,  # Use the correct applicationId from applications collection
+                "candidateId": candidate_id,      # Keep the original candidateId
                 "questions": questions,
                 "totalQuestionActual": total_question_count,
                 "createdAt": datetime.now().isoformat()
