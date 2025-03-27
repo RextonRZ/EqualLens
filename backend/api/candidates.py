@@ -2,7 +2,11 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import List, Dict, Any, Optional
 import logging
 
+from models.candidate import CandidateResponse
 from services.job_service import JobService
+from services.candidate_service import CandidateService
+from services.gemini_service import GeminiService
+from models.candidate import CandidateUpdate
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -17,3 +21,91 @@ async def get_applicants(jobId: str = Query(..., description="Job ID to get appl
     except Exception as e:
         logger.error(f"Error getting applicants: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get applicants: {str(e)}")
+
+@router.post("/rank")
+async def rank_candidates(request: Dict[Any, Any]):
+    logger.info("Ranking candidates with provided parameters")
+    try:
+        prompt = request.get("prompt")
+        applicants = request.get("applicants")
+        job_document = request.get("job_document")
+        
+        if not prompt or not applicants:
+            raise HTTPException(status_code=400, detail="Prompt and applicants are required")
+        
+        # Create an instance of RankGeminiService
+        rank_service = GeminiService()
+        
+        # Rank the applicants
+        ranked_result = await rank_service.rank_applicants(prompt, applicants, job_document)
+
+        # Log the number of ranked candidates
+        logger.info(f"Successfully ranked {len(ranked_result['applicants'])} candidates")
+        
+        return ranked_result
+    except Exception as e:
+        logger.error(f"Error ranking candidates: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to rank candidates: {str(e)}")
+    
+@router.put("/candidate/{candidate_id}")
+async def update_candidate(candidate_id: str, candidate_data: Dict[Any, Any]):
+    """Update a candidate."""
+    try:
+        logger.info(f"Updating candidate {candidate_id} with data: {candidate_data}")
+        
+        # Extract job_id from candidate data if it exists
+        job_id = candidate_data.pop("job_id", None)
+        if job_id:
+            logger.info(f"Extracted job_id: {job_id} from candidate data")
+
+        # Convert candidate_data to CandidateUpdate model
+        candidate_update = CandidateUpdate(**candidate_data)
+        logger.info(f"Converted candidate data to CandidateUpdate model: {candidate_update}")
+
+        # Update the candidate
+        success = CandidateService.update_candidate(candidate_id, candidate_update)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update candidate")
+        
+        # Function get_candidate has some issue earlier, so resort to second plan
+        # Get the updated candidate
+        if job_id:
+            # Get all applicants for the job
+            applications = JobService.get_applications_for_job(job_id)
+            # Find the specific candidate in the applications
+            updated_candidate = next((app for app in applications if app.get("candidateId") == candidate_id), None)
+            if not updated_candidate:
+                raise HTTPException(status_code=404, detail=f"Updated candidate {candidate_id} not found in job {job_id}")
+        else:
+            # If no job_id is provided, get the candidate directly
+            updated_candidate = CandidateService.get_candidate(candidate_id)
+            if not updated_candidate:
+                raise HTTPException(status_code=404, detail=f"Updated candidate {candidate_id} not found")
+        return updated_candidate
+    except Exception as e:
+        logger.error(f"Error updating candidate: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update candidate: {str(e)}")
+    
+@router.get("/detail/{candidate_id}")
+async def get_candidate_detail(candidate_id: str):
+    """Get detailed profile for a candidate using Gemini."""
+    try:
+        logger.info(f"Generating detailed profile for candidate: {candidate_id}")
+        
+        # Check if candidate exists
+        candidate = CandidateService.get_candidate(candidate_id)
+        if not candidate:
+            raise HTTPException(status_code=404, detail=f"Candidate {candidate_id} not found")
+        
+        # Create an instance of RankGeminiService
+        gemini_service = GeminiService()
+        
+        # Generate the detailed profile
+        detailed_profile = await gemini_service.generate_candidate_profile(candidate)
+        
+        logger.info(f"Successfully generated detailed profile for candidate {candidate_id}")
+        return {"candidate_id": candidate_id, "detailed_profile": detailed_profile}
+        
+    except Exception as e:
+        logger.error(f"Error generating candidate detail: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate candidate detail: {str(e)}")

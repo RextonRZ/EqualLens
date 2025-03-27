@@ -11,6 +11,7 @@ import AddInterviewQuestions from "./components/pages/AddInterviewQuestions";
 import InterviewLinkValidator from './components/pages/InterviewLinkValidator';
 import IDVerification from './components/pages/IDVerification';
 import InterviewQuestions from './components/pages/InterviewQuestion';
+import ApplicantDetails from './components/pages/ApplicantDetails';
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
 
         {/* Dashboard route */}
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard/:jobId/:candidateId" element={<ApplicantDetails />} />
 
         {/* Add Interview Questions route */}
         <Route path="/add-interview-questions" element={<AddInterviewQuestions />} />

@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime
 from core.firebase import firebase_client
 from services.document_service import DocumentService
-from models.candidate import CandidateCreate, CandidateResponse
+from models.candidate import CandidateCreate, CandidateResponse, CandidateUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +75,30 @@ class CandidateService:
             return firebase_client.update_document('candidates', candidate_id, {'status': status})
         except Exception as e:
             logger.error(f"Error updating candidate {candidate_id} status: {e}")
+            return False
+        
+    @staticmethod
+    def update_candidate(candidate_id: str, candidate_data: CandidateUpdate) -> bool:
+        """Update a candidate."""
+        try:
+            # Create update data dict
+            update_data = {}
+            for field, value in candidate_data.dict(exclude_unset=True).items():
+                if value is not None:
+                    update_data[field] = value
+            
+            if not update_data:
+                logger.warning("No fields to update")
+                return False
+            
+            # Add debugging to track what we're sending to the database
+            logger.info(f"Update data for candidate {candidate_id}: {update_data}")
+            
+            # Update job in Firestore
+            success = firebase_client.update_document('candidates', candidate_id, update_data)
+            return success
+        except Exception as e:
+            logger.error(f"Error updating candidate {candidate_id}: {e}")
             return False
     
     @staticmethod

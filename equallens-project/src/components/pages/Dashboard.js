@@ -23,7 +23,7 @@ const formatDate = (dateString) => {
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
-    
+
     // Convert to 12-hour format with AM/PM
     let hours = date.getHours();
     const ampm = hours >= 12 ? 'PM' : 'AM';
@@ -31,7 +31,7 @@ const formatDate = (dateString) => {
     hours = hours ? hours : 12; // the hour '0' should be '12'
     const minutes = date.getMinutes().toString().padStart(2, '0');
     const seconds = date.getSeconds().toString().padStart(2, '0');
-    
+
     return `${day}/${month}/${year} ${hours}:${minutes}:${seconds} ${ampm}`;
 };
 
@@ -44,18 +44,22 @@ export default function Dashboard() {
     const [error, setError] = useState(null);
     const [applicants, setApplicants] = useState([]);
     const [jobDetailLoading, setJobDetailLoading] = useState(false);  // <-- New state for job details loading
+    const [rankDetailLoading, setRankDetailLoading] = useState(false);  // <-- New state for rank details loading   
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [showErrorModal, setShowErrorModal] = useState(false);
+    const [showRankErrorModal, setShowRankErrorModal] = useState(false);
+    const [showRankSuccessModal, setShowRankSuccessModal] = useState(false);
     const [modalMessage, setModalMessage] = useState("");
     const descriptionTextareaRef = useRef(null); // Add reference for the textarea
     const [showConfirmModal, setShowConfirmModal] = useState(false);
-    const [rankPrompt, setRankPrompt] = useState(""); 
-    
+    const [rankPrompt, setRankPrompt] = useState("");
+    const [processedJobId, setProcessedJobId] = useState("");  // <-- New state for processed job ID
+
     // Add state for department and skill editing
     const [departmentInput, setDepartmentInput] = useState("");
     const [departmentSuggestions, setDepartmentSuggestions] = useState([]);
     const [showDepartmentSuggestions, setShowDepartmentSuggestions] = useState(false);
-    
+
     const [skillInput, setSkillInput] = useState("");
     const [skillSuggestions, setSkillSuggestions] = useState([]);
     const [showSkillSuggestions, setShowSkillSuggestions] = useState(false);
@@ -70,7 +74,7 @@ export default function Dashboard() {
     const skillsOptions = useMemo(() => [
         "JavaScript", "Python", "Java", "React", "Node.js", "SQL", "AWS", "Docker",
         "DevOps", "Machine Learning", "Data Analysis", "Agile", "Scrum",
-        "Project Management", "UI/UX Design", "TypeScript", "Go", "Ruby", 
+        "Project Management", "UI/UX Design", "TypeScript", "Go", "Ruby",
         "Communication", "Leadership", "Problem Solving", "C#", "PHP", "Angular",
         "Vue.js", "MongoDB", "GraphQL", "REST API", "Git"
     ], []);
@@ -78,15 +82,15 @@ export default function Dashboard() {
     // Search functionality
     const [searchTerm, setSearchTerm] = useState('');
     const [searchCategory, setSearchCategory] = useState('jobTitle');
-    
+
     // Sorting functionality
     const [sortBy, setSortBy] = useState('latest');
-    
+
     // Add handler for Create New Job button
     const handleCreateNewJob = () => {
         // Navigate to the UploadCV page which handles job creation
         window.location.href = "/upload-cv";
-        
+
         // If you're using React Router, you could use navigate instead:
         // navigate("/upload-cv");
     };
@@ -100,24 +104,24 @@ export default function Dashboard() {
     // Get location to check for state from navigation
     const location = useLocation();
     const navigate = useNavigate();
-    
+
     // Extract URL parameters
     const queryParams = new URLSearchParams(location.search);
     const urlJobId = queryParams.get('jobId');
-    
+
     // Check for direct navigation state from AddInterviewQuestions
     const directNavigation = location.state?.directToJobDetails;
     const stateJobId = location.state?.jobId;
-    
+
     // Combined job ID from either source, with state taking priority
     const targetJobId = stateJobId || urlJobId;
-    
+
     // On first render, if we have state, clear it from history
     // to prevent issues on page refresh
     useEffect(() => {
         if (location.state?.directToJobDetails) {
             // Replace the current URL without the state to keep the URL clean
-            navigate(location.pathname + (targetJobId ? `?jobId=${targetJobId}` : ''), 
+            navigate(location.pathname + (targetJobId ? `?jobId=${targetJobId}` : ''),
                 { replace: true, state: {} });
         }
     }, []);
@@ -133,12 +137,12 @@ export default function Dashboard() {
                 }
                 const dbJobs = await response.json();
                 setJobs(dbJobs); // Assuming dbJobs is an array of job objects
-                
+
                 // If there's a jobId in URL or state, select that job automatically
                 // We use the combined targetJobId here
                 if (targetJobId && dbJobs.length > 0) {
                     setJobDetailLoading(true); // Show loading state immediately
-                    
+
                     const jobToSelect = dbJobs.find(job => job.jobId === targetJobId);
                     if (jobToSelect) {
                         // If coming from interview questions page via direct navigation,
@@ -171,9 +175,9 @@ export default function Dashboard() {
     // Filter jobs based on search term and category
     const filteredJobs = jobs.filter(job => {
         if (!searchTerm.trim()) return true;
-        
+
         const term = searchTerm.toLowerCase();
-        
+
         switch (searchCategory) {
             case 'jobTitle':
                 return job.jobTitle.toLowerCase().includes(term);
@@ -185,7 +189,7 @@ export default function Dashboard() {
                 return true;
         }
     });
-    
+
     // Sort filtered jobs based on sortBy value
     const sortedJobs = [...filteredJobs].sort((a, b) => {
         switch (sortBy) {
@@ -203,7 +207,7 @@ export default function Dashboard() {
                 return 0;
         }
     });
-    
+
     const handleSortChange = (e) => {
         setSortBy(e.target.value);
     };
@@ -222,6 +226,30 @@ export default function Dashboard() {
         } catch (err) {
             console.error("Error fetching applicants:", err);
             setApplicants([]);  // Set empty array on error to prevent undefined issues
+        }
+    };
+
+    // Fetch applicants for a selected job from the backend API
+    const fetchJob = async (jobId) => {
+        try {
+            // Fetch the latest job data to ensure we have the most up-to-date information
+            const jobResponse = await fetch(`http://localhost:8000/api/jobs/${jobId}`);
+            if (!jobResponse.ok) {
+                throw new Error(`Failed to fetch updated job data: ${jobResponse.status}`);
+            }
+            const updatedJobData = await jobResponse.json();
+            console.log("Fetched updated job data:", updatedJobData);
+
+            // Update the selectedJob and editedJob with the latest data from backend
+            setSelectedJob(updatedJobData);
+            setEditedJob(updatedJobData);
+
+            // Update the job in the jobs array as well
+            setJobs(prevJobs => prevJobs.map(job =>
+                job.jobId === updatedJobData.jobId ? updatedJobData : job
+            ));
+        } catch (err) {
+            console.error("Error fetching job data:", err);
         }
     };
 
@@ -255,17 +283,17 @@ export default function Dashboard() {
         if (!isEditing) {
             // Reset the state to the current job data
             setEditedJob(selectedJob);
-            
+
             // Clear any pending input in department and skill fields
             setDepartmentInput("");
             setSkillInput("");
-            
+
             // Schedule the textarea resize after render
             setTimeout(() => {
                 adjustTextareaHeight();
             }, 0);
         }
-        
+
         setIsEditing(!isEditing);
     };
 
@@ -294,15 +322,15 @@ export default function Dashboard() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(updatedJobData)
             });
-            
+
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
                 throw new Error(errorData.detail || "Failed to update job");
             }
-            
+
             const updatedJob = await response.json();
             console.log("Received updated job:", updatedJob); // Debug: check what we received back
-            
+
             setJobs(jobs.map(job => job.jobId === updatedJob.jobId ? updatedJob : job));
             setSelectedJob(updatedJob);
             setIsEditing(false);
@@ -321,7 +349,7 @@ export default function Dashboard() {
             ...editedJob,
             [name]: value
         });
-        
+
         // Adjust height when job description changes
         if (name === 'jobDescription' && descriptionTextareaRef.current) {
             setTimeout(() => adjustTextareaHeight(), 0);
@@ -345,26 +373,26 @@ export default function Dashboard() {
     const handleUploadComplete = (count) => {
         // Close the upload CV modal first
         setShowUploadCVModal(false);
-        
+
         // Refresh applicants data when upload is complete
         if (selectedJob && count > 0) {
             fetchApplicants(selectedJob.jobId);
-            
+
             // Update the local job object with the new application count
             const updatedJob = {
                 ...selectedJob,
                 applicationCount: (selectedJob.applicationCount || 0) + count
             };
-            
+
             // Update the job in both selectedJob and jobs array
             setSelectedJob(updatedJob);
-            setJobs(prevJobs => prevJobs.map(job => 
+            setJobs(prevJobs => prevJobs.map(job =>
                 job.jobId === updatedJob.jobId ? updatedJob : job
             ));
-            
+
             // Show success message
             setModalMessage(`${count} new CV${count !== 1 ? 's' : ''} uploaded successfully.`);
-            
+
             // Use setTimeout to ensure modal appears after the upload modal is closed
             setTimeout(() => {
                 setShowSuccessModal(true);
@@ -377,55 +405,121 @@ export default function Dashboard() {
         setShowRankApplicantsModal(true);
     };
 
-    // Handle RankApplicantsModal prompt complete event
-    const handlePromptComplete = async (criteria) => {
+    const handlePromptComplete = async (prompt) => {
         // Close the modal first
         setShowRankApplicantsModal(false);
 
-        // Store the ranking criteria in state
-        setRankPrompt(criteria);
+        try {
+            // Start loading state for AI processing
+            setRankDetailLoading(true);
 
-        // Start loading state for AI processing
-        setJobDetailLoading(true);
+            // Reset any previous error states
+            setModalMessage(null);
+            setShowRankErrorModal(false);
+            setShowRankSuccessModal(false);
 
-        if (selectedJob && criteria) {
-            try {
-                // First fetch the latest applicants
-                await fetchApplicants(selectedJob.jobId);
-                
-                // Then send the applicants array and ranking criteria to the backend
+            // Fetch applicants and job data to ensure latest information
+            await fetchApplicants(selectedJob.jobId);
+            await fetchJob(selectedJob.jobId);
+
+            // Validate input
+            if (!selectedJob || !prompt) {
+                throw new Error("Missing job or ranking prompt");
+            }
+
+            // Check if this is a new prompt or a repeat
+            if (!(prompt === rankPrompt && selectedJob.jobId === processedJobId)) {
+                // Send ranking request to backend
                 const response = await fetch(`http://localhost:8000/api/candidates/rank`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        jobId: selectedJob.jobId,
-                        criteria: criteria,
-                        applicants: applicants
+                        prompt: prompt,
+                        applicants: applicants,
+                        job_document: selectedJob
                     })
                 });
-                
+
+                // Handle potential network or server errors
                 if (!response.ok) {
-                    throw new Error(`Failed to rank applicants: ${response.statusText}`);
+                    const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+                    throw new Error(errorData.detail || `Ranking request failed: ${response.statusText}`);
                 }
+
+                // Parse ranking results
+                const rankingResults = await response.json();
+
+                // Validate ranking results
+                if (!rankingResults || !rankingResults.weights) {
+                    throw new Error("Invalid ranking results received");
+                }
+
+                console.log("Prompt:", prompt); // Debug: log the prompt
+                console.log("Received ranking results:", rankingResults); // Debug: log the results
+
+                // Update job with new weights
+                await fetch(`http://localhost:8000/api/jobs/${selectedJob.jobId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ...selectedJob,
+                        rank_weight: rankingResults.weights,
+                        prompt: prompt
+                    })
+                });
+
+                console.log("Applicants length:", rankingResults.applicants.length); // Debug: log the number of applicants
+
                 
-                // After the AI has processed the ranking, fetch the updated applicants with scores
-                await fetchApplicants(selectedJob.jobId);
-                
-                // Sort applicants by score (highest to lowest)
-                setApplicants(prev => [...prev].sort((a, b) => (b.score || 0) - (a.score || 0)));
-                
+                // Update candidate rankings if available
+                if (rankingResults.applicants && rankingResults.applicants.length > 0) {
+                    for (const applicant of rankingResults.applicants) {
+                        if (applicant.candidateId) {
+                            await fetch(`http://localhost:8000/api/candidates/candidate/${applicant.candidateId}`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    ...applicant,
+                                    rank_score: applicant.rank_score,
+                                    reasoning: applicant.reasoning,
+                                    job_id: selectedJob.jobId
+                                })
+                            });
+                        }
+                    }
+
+                    // Update local applicants state
+                    setApplicants(rankingResults.applicants);
+                }
+
+                // Store the new ranking prompt
+                setRankPrompt(prompt);
+
+                // Store the processed job id
+                setProcessedJobId(selectedJob.jobId);
+
                 // Show success message
                 setModalMessage("Applicants have been ranked based on your criteria.");
-                setShowSuccessModal(true);
-            } catch (error) {
-                console.error("Error in ranking applicants:", error);
-                setModalMessage(`Failed to rank applicants: ${error.message}`);
-                setShowErrorModal(true);
-            } finally {
-                setJobDetailLoading(false);
+                setShowRankSuccessModal(true);
+            } else {
+                // Same prompt used again for the same job
+                setModalMessage("Using existing ranking based on the same criteria.");
+                setShowRankSuccessModal(true);
             }
+        } catch (error) {
+            // Centralized error handling
+            console.error("Error in ranking applicants:", error);
+            setModalMessage(`Failed to rank applicants: ${error.message}`);
+            setShowRankErrorModal(true);
+        } finally {
+            // Ensure loading state is always turned off
+            setRankDetailLoading(false);
         }
     };
 
@@ -445,7 +539,7 @@ export default function Dashboard() {
                         <polyline points="22 4 12 14.01 9 11.01"></polyline>
                     </svg>
                 </div>
-                <h3 className="status-title">Job Updated Successfully!</h3>
+                <h3 className="status-title">{"Job Updated Successfully!"}</h3>
                 <p className="status-description">{modalMessage || "Your changes have been saved."}</p>
                 <div className="status-buttons">
                     <button className="status-button primary-button" onClick={() => setShowSuccessModal(false)}>
@@ -466,10 +560,51 @@ export default function Dashboard() {
                         <line x1="9" y1="9" x2="15" y2="15"></line>
                     </svg>
                 </div>
-                <h3 className="status-title">Update Failed!</h3>
+                <h3 className="status-title">{"Update Failed!"}</h3>
                 <p className="status-description">{modalMessage || "Failed to update job details."}</p>
                 <div className="status-buttons">
                     <button className="status-button primary-button" onClick={() => setShowErrorModal(false)}>
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    const RankSuccessModal = () => (
+        <div className="status-modal-overlay" role="dialog" aria-modal="true">
+            <div className="status-modal success-modal">
+                <div className="status-icon success-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                </div>
+                <h3 className="status-title">{"Rank Successful!"}</h3>
+                <p className="status-description">{modalMessage || "Applicants have been ranked according to the prompt."}</p>
+                <div className="status-buttons">
+                    <button className="status-button primary-button" onClick={() => setShowRankSuccessModal(false)}>
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    const RankErrorModal = () => (
+        <div className="status-modal-overlay" role="dialog" aria-modal="true">
+            <div className="status-modal error-modal">
+                <div className="status-icon error-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                </div>
+                <h3 className="status-title">{"Rank Failed!"}</h3>
+                <p className="status-description">{modalMessage || "Failed to rank applicants."}</p>
+                <div className="status-buttons">
+                    <button className="status-button primary-button" onClick={() => setShowRankErrorModal(false)}>
                         Close
                     </button>
                 </div>
@@ -505,26 +640,26 @@ export default function Dashboard() {
     // Function to check if any changes were made to the job
     const hasChanges = () => {
         if (!selectedJob || !editedJob) return false;
-        
+
         // Check basic fields
         if (selectedJob.jobTitle !== editedJob.jobTitle) return true;
         if (selectedJob.jobDescription !== editedJob.jobDescription) return true;
         if (selectedJob.minimumCGPA !== editedJob.minimumCGPA) return true;
-        
+
         // Check arrays (departments and skills)
         if (selectedJob.departments.length !== editedJob.departments.length) return true;
         if (selectedJob.requiredSkills.length !== editedJob.requiredSkills.length) return true;
-        
+
         // Check if departments have changed
         for (let i = 0; i < selectedJob.departments.length; i++) {
             if (!editedJob.departments.includes(selectedJob.departments[i])) return true;
         }
-        
+
         // Check if required skills have changed
         for (let i = 0; i < selectedJob.requiredSkills.length; i++) {
             if (!editedJob.requiredSkills.includes(selectedJob.requiredSkills[i])) return true;
         }
-        
+
         return false;
     };
 
@@ -615,7 +750,7 @@ export default function Dashboard() {
             setDepartmentInput("");
         }
     };
-    
+
     const handleDepartmentKeyPress = (e) => {
         if (e.key === 'Enter' && departmentInput.trim()) {
             e.preventDefault();
@@ -672,11 +807,11 @@ export default function Dashboard() {
 
     if (isLoading) {
         return (
-            <div className="dashboard-container" style={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                minHeight: '80vh' 
+            <div className="dashboard-container" style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                minHeight: '80vh'
             }}>
                 <div className="loading-indicator" style={{ textAlign: 'center' }}>
                     <LoadingAnimation />
@@ -689,15 +824,32 @@ export default function Dashboard() {
     // Add loading state for job details view
     if (selectedJob && jobDetailLoading) {
         return (
-            <div className="dashboard-container" style={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                minHeight: '80vh' 
+            <div className="dashboard-container" style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                minHeight: '80vh'
             }}>
                 <div className="loading-indicator" style={{ textAlign: 'center' }}>
                     <LoadingAnimation />
-                    <p style={{ marginTop: '20px' }}>Loading job details...</p>
+                    <p style={{ marginTop: '20px' }}>{"Loading job details..."}</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Add loading state for rank details view
+    if (selectedJob && rankDetailLoading) {
+        return (
+            <div className="dashboard-container" style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                minHeight: '80vh'
+            }}>
+                <div className="loading-indicator" style={{ textAlign: 'center' }}>
+                    <LoadingAnimation />
+                    <p style={{ marginTop: '20px' }}>{"Processing rank..."}</p>
                 </div>
             </div>
         );
@@ -719,6 +871,8 @@ export default function Dashboard() {
         <div className="dashboard-container">
             {showSuccessModal && <SuccessModal />}
             {showErrorModal && <ErrorModal />}
+            {showRankSuccessModal && <RankSuccessModal />}
+            {showRankErrorModal && <RankErrorModal />}
             {showConfirmModal && <ConfirmModal />}
             {showUploadCVModal && (
                 <UploadMoreCVModal  // Updated component name
@@ -733,7 +887,9 @@ export default function Dashboard() {
                 <RankApplicantsModal
                     isOpen={showRankApplicantsModal}
                     onClose={() => setShowRankApplicantsModal(false)}
-                    onPromptComplete={handlePromptComplete}
+                    jobId={selectedJob?.jobId}
+                    jobTitle={selectedJob?.jobTitle}
+                    onSubmit={handlePromptComplete}
                 />
             )}
             {!selectedJob ? (
@@ -742,7 +898,7 @@ export default function Dashboard() {
                         <h1>Job Dashboard</h1>
                         <button className="create-job-button" onClick={handleCreateNewJob}>Create New Job</button>
                     </div>
-                    
+
                     <div className="search-container">
                         <div className="search-input-wrapper">
                             <input
@@ -752,8 +908,8 @@ export default function Dashboard() {
                                 value={searchTerm}
                                 onChange={handleSearchChange}
                             />
-                            <select 
-                                className="search-category" 
+                            <select
+                                className="search-category"
                                 value={searchCategory}
                                 onChange={handleCategoryChange}
                             >
@@ -762,12 +918,12 @@ export default function Dashboard() {
                                 <option value="requiredSkills">Required Skills</option>
                             </select>
                         </div>
-                        
+
                         <div className="sort-container">
                             <label htmlFor="sort-select">Sort by:</label>
-                            <select 
+                            <select
                                 id="sort-select"
-                                className="sort-select" 
+                                className="sort-select"
                                 value={sortBy}
                                 onChange={handleSortChange}
                             >
@@ -779,7 +935,7 @@ export default function Dashboard() {
                             </select>
                         </div>
                     </div>
-                    
+
                     <div className="jobs-list-single-column">
                         {sortedJobs.length === 0 ? (
                             <div className="no-jobs">
@@ -787,8 +943,8 @@ export default function Dashboard() {
                             </div>
                         ) : (
                             sortedJobs.map((job) => (
-                                <div 
-                                    key={job.jobId} 
+                                <div
+                                    key={job.jobId}
                                     className="job-card-row"
                                     onClick={() => handleJobSelect(job)}
                                 >
@@ -803,11 +959,11 @@ export default function Dashboard() {
                                     </div>
                                     <div className="job-card-side-content">
                                         <p className="job-card-date">
-                                            <span className="detail-label">Posted: </span> 
+                                            <span className="detail-label">Posted: </span>
                                             {formatDate(job.createdAt)}
                                         </p>
                                         <p className="job-card-applications">
-                                            <span className="detail-label">Applications: </span> 
+                                            <span className="detail-label">Applications: </span>
                                             {job.applicationCount}
                                         </p>
                                         <div className="job-card-skills">
@@ -828,7 +984,7 @@ export default function Dashboard() {
                 <div className="job-detail-view">
                     <button className="back-button" onClick={handleBackToJobs}>
                         <svg className="back-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
                         </svg>
                         Back
                     </button>
@@ -843,8 +999,8 @@ export default function Dashboard() {
                                 </>
                             ) : (
                                 <>
-                                    <button 
-                                        className="cancel-button" 
+                                    <button
+                                        className="cancel-button"
                                         onClick={handleCancelClick}
                                     >
                                         Cancel
@@ -856,7 +1012,7 @@ export default function Dashboard() {
                             )}
                         </div>
                     </div>
-                    
+
                     <div className="job-detail-content">
                         <div className="job-info-container">
                             <div className="section-header">
@@ -870,19 +1026,19 @@ export default function Dashboard() {
                                     </button>
                                 )}
                             </div>
-                            
+
                             {isEditing ? (
                                 <div className="job-edit-form">
                                     <div className="form-group">
                                         <label>Job Title</label>
-                                        <input 
+                                        <input
                                             type="text"
                                             name="jobTitle"
                                             value={editedJob.jobTitle}
                                             onChange={handleInputChange}
                                         />
                                     </div>
-                                    
+
                                     <div className="form-group">
                                         <label>Job Description</label>
                                         <textarea
@@ -893,11 +1049,11 @@ export default function Dashboard() {
                                             className="auto-resize-textarea"
                                         />
                                     </div>
-                                    
+
                                     <div className="form-group">
                                         <label>Minimum CGPA</label>
-                                        <input 
-                                            type="number" 
+                                        <input
+                                            type="number"
                                             name="minimumCGPA"
                                             value={editedJob.minimumCGPA}
                                             onChange={handleInputChange}
@@ -926,8 +1082,8 @@ export default function Dashboard() {
                                                         }, 200);
                                                     }}
                                                 />
-                                                <button 
-                                                    type="button" 
+                                                <button
+                                                    type="button"
                                                     className="add-button"
                                                     onClick={handleAddDepartment}
                                                     disabled={!departmentInput.trim()}
@@ -938,8 +1094,8 @@ export default function Dashboard() {
                                             {showDepartmentSuggestions && (
                                                 <ul className="suggestions-list">
                                                     {departmentSuggestions.map((suggestion, index) => (
-                                                        <li 
-                                                            key={index} 
+                                                        <li
+                                                            key={index}
                                                             onMouseDown={(e) => {
                                                                 e.preventDefault();
                                                                 handleDepartmentSelect(suggestion);
@@ -956,7 +1112,7 @@ export default function Dashboard() {
                                                 {editedJob.departments.map((department, index) => (
                                                     <div key={index} className="tag">
                                                         {department}
-                                                        <button 
+                                                        <button
                                                             type="button"
                                                             className="tag-remove"
                                                             onClick={() => removeDepartment(department)}
@@ -987,8 +1143,8 @@ export default function Dashboard() {
                                                         }, 200);
                                                     }}
                                                 />
-                                                <button 
-                                                    type="button" 
+                                                <button
+                                                    type="button"
                                                     className="add-button"
                                                     onClick={handleAddSkill}
                                                     disabled={!skillInput.trim()}
@@ -999,8 +1155,8 @@ export default function Dashboard() {
                                             {showSkillSuggestions && (
                                                 <ul className="suggestions-list">
                                                     {skillSuggestions.map((suggestion, index) => (
-                                                        <li 
-                                                            key={index} 
+                                                        <li
+                                                            key={index}
                                                             onMouseDown={(e) => {
                                                                 e.preventDefault();
                                                                 handleSkillSelect(suggestion);
@@ -1017,7 +1173,7 @@ export default function Dashboard() {
                                                 {editedJob.requiredSkills.map((skill, index) => (
                                                     <div key={index} className="tag">
                                                         {skill}
-                                                        <button 
+                                                        <button
                                                             type="button"
                                                             className="tag-remove"
                                                             onClick={() => removeSkill(skill)}
@@ -1036,7 +1192,7 @@ export default function Dashboard() {
                                         <p className="info-label">Posted:</p>
                                         <p className="info-value">{formatDate(selectedJob.createdAt)}</p>
                                     </div>
-                                    
+
                                     <div className="info-group">
                                         <p className="info-label">Departments:</p>
                                         <div className="departments-display">
@@ -1045,12 +1201,12 @@ export default function Dashboard() {
                                             ))}
                                         </div>
                                     </div>
-                                    
+
                                     <div className="info-group">
                                         <p className="info-label">Minimum CGPA:</p>
                                         <p className="info-value">{selectedJob.minimumCGPA.toFixed(2)}</p>
                                     </div>
-                                    
+
                                     <div className="info-group">
                                         <p className="info-label">Required Skills:</p>
                                         <div className="skills-display">
@@ -1059,7 +1215,7 @@ export default function Dashboard() {
                                             ))}
                                         </div>
                                     </div>
-                                    
+
                                     <div className="info-group description-group">
                                         <p className="info-label">Description:</p>
                                         <p className="info-value">{selectedJob.jobDescription}</p>
@@ -1067,7 +1223,7 @@ export default function Dashboard() {
                                 </div>
                             )}
                         </div>
-                        
+
                         <div className="applicants-container">
                             <div className="applicants-header">
                                 <h3>Applicants ({applicants.length})</h3>
@@ -1082,7 +1238,7 @@ export default function Dashboard() {
                                     </div>
                                 )}
                             </div>
-                            
+
                             {applicants.length === 0 ? (
                                 <div className="no-applicants">
                                     <p>No applications have been received for this job yet.</p>
@@ -1093,14 +1249,16 @@ export default function Dashboard() {
                                         <div key={applicant.applicationId} className="applicant-card">
                                             <div className="applicant-info">
                                                 <h4>{renderApplicantID(applicant)}</h4>
-                                                <p className="applicant-email">{'CV Uploaded on ' +(renderApplicantSubmitDate(applicant))}</p>
+                                                <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(applicant))}</p>
                                             </div>
                                             <div className="applicant-status-actions">
                                                 <span className={`status-badge ${applicant.status || 'new'}`}>
                                                     {applicant.status || 'new'}
                                                 </span>
-                                                <button className="view-profile-button" 
-                                                        onClick={() => console.log("Full profile for:", applicant)}>
+                                                <button
+                                                    className="view-profile-button"
+                                                    onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${applicant.candidateId}`)}
+                                                >
                                                     Full Profile
                                                 </button>
                                             </div>
@@ -1125,7 +1283,7 @@ const renderApplicantID = (applicant) => {
 const renderApplicantSubmitDate = (applicant) => {
     // Check multiple possible locations for the upload date
     let uploadDate = null;
-    
+
     // Try direct uploadedAt property
     if (applicant.uploadedAt) {
         uploadDate = applicant.uploadedAt;
@@ -1151,14 +1309,14 @@ const renderApplicantSubmitDate = (applicant) => {
             uploadDate = applicant.timestamp;
         }
     }
-    
+
     // If we found a date value, format it
     if (uploadDate) {
         return formatDate(uploadDate);
     }
-    
+
     // For debugging, log the full applicant object to see its structure
     console.log("Applicant structure for debugging upload date:", applicant);
-    
+
     return "Upload Date Not Available";
 };

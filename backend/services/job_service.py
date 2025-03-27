@@ -30,7 +30,9 @@ class JobService:
                 'minimumCGPA': job_data.minimumCGPA,
                 'requiredSkills': job_data.requiredSkills,
                 'createdAt': current_time,
-                'applicationCount': 0
+                'applicationCount': 0,
+                'rank_weight': {},
+                'prompt': ""
             }
             
             # Store job in Firestore
@@ -144,6 +146,8 @@ class JobService:
                         app_with_candidate = {
                             **app,
                             'extractedText': candidate.get('extractedText'),
+                            'rank_score': candidate.get('rank_score'),
+                            'reasoning': candidate.get('reasoning'),
                             'resumeUrl': candidate.get('resumeUrl')
                         }
                         results.append(app_with_candidate)
