@@ -2,8 +2,6 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional
 from datetime import datetime
 
-
-
 class InterviewQuestionBase(BaseModel):
     question: str
     type: str  # "technical", "behavioral", "compulsory"
@@ -12,6 +10,7 @@ class InterviewQuestionBase(BaseModel):
     
 class InterviewQuestion(InterviewQuestionBase):
     questionId: str
+    sectionTitle: Optional[str] = None
 
 class GenerateInterviewLinkRequest(BaseModel):
     applicationId: str

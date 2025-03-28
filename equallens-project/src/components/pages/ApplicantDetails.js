@@ -65,8 +65,13 @@ const fetchJob = async (jobId) => {
 
 export default function ApplicantDetails() {
     const [isLoading, setIsLoading] = useState(true);
+    const [processingAction, setProcessingAction] = useState(false);
     const [error, setError] = useState(null);
     const [showErrorModal, setShowErrorModal] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [showInfoModal, setShowInfoModal] = useState(false);
+    const [confirmAction, setConfirmAction] = useState('');
     const [modalMessage, setModalMessage] = useState("");
     const navigate = useNavigate();
     const location = useLocation();
@@ -195,15 +200,130 @@ export default function ApplicantDetails() {
         }, 800);
     };
 
-    /* TODO: Implement accept and reject candidate functionality */
+    const checkApplicationStatus = (action) => {
+        // Check if application has a status that would prevent the action
+        if (!applicant || !applicant.status) {
+            // If no status, assume it's a new application
+            return true;
+        }
+
+        const status = applicant.status.toLowerCase();
+
+        if (action === 'accept') {
+            // If already interviewed or rejected, don't allow accepting
+            if (status === 'interview scheduled' || status === 'interview completed') {
+                setModalMessage("This candidate already has an interview scheduled.");
+                setShowInfoModal(true);
+                return false;
+            } else if (status === 'rejected') {
+                setModalMessage("This candidate has already been rejected.");
+                setShowInfoModal(true);
+                return false;
+            }
+        } else if (action === 'reject') {
+            // If already rejected or completed interview, don't allow rejecting
+            if (status === 'rejected') {
+                setModalMessage("This candidate has already been rejected.");
+                setShowInfoModal(true);
+                return false;
+            } else if (status === 'interview completed') {
+                setModalMessage("This candidate has already completed their interview.");
+                setShowInfoModal(true);
+                return false;
+            }
+        }
+
+        return true;
+    };
 
     const handleAcceptCandidate = () => {
+        if (!checkApplicationStatus('accept')) {
+            return;
+        }
 
-    }
+        setConfirmAction('accept');
+        setModalMessage("Are you sure you want to invite this candidate for an interview? The interview link will expire in 7 days.");
+        setShowConfirmModal(true);
+    };
+
     const handleRejectCandidate = () => {
+        if (!checkApplicationStatus('reject')) {
+            return;
+        }
+        setConfirmAction('reject');
+        setModalMessage("Are you sure you want to reject this candidate?");
+        setShowConfirmModal(true);
+    };
 
-    }
+    const handleConfirmAction = async () => {
+        setShowConfirmModal(false);
+        setProcessingAction(true);
 
+        try {
+            if (confirmAction === 'accept') {
+                // Generate interview link and send email
+                const response = await fetch('http://localhost:8000/api/interviews/generate-link', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        applicationId: applicant.applicationId,
+                        candidateId: applicant.candidateId,
+                        jobId: job_id,
+                        email: applicant.extractedText?.applicant_mail || ''
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to generate interview link');
+                }
+
+                const data = await response.json();
+                setModalMessage(`Interview invitation has been sent to the candidate. The link will expire in 7 days.`);
+                setShowSuccessModal(true);
+
+                // Update local applicant status
+                setApplicant({
+                    ...applicant,
+                    status: 'interview scheduled'
+                });
+            } else if (confirmAction === 'reject') {
+                // Reject the candidate
+                const response = await fetch(`http://localhost:8000/api/interviews/reject`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        applicationId: applicant.applicationId,
+                        candidateId: applicant.candidateId,
+                        jobId: job_id,
+                        email: applicant.extractedText?.applicant_mail || ''
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to reject candidate');
+                }
+
+                setModalMessage('Rejection email has been sent to the candidate.');
+                setShowSuccessModal(true);
+
+                // Update local applicant status
+                setApplicant({
+                    ...applicant,
+                    status: 'rejected'
+                });
+            }
+        } catch (error) {
+            console.error("Error processing candidate action:", error);
+            setModalMessage(`Error: ${error.message}`);
+            setShowErrorModal(true);
+        } finally {
+            setProcessingAction(false);
+        }
+    };
 
     const ErrorModal = () => (
         <div className="status-modal-overlay" role="dialog" aria-modal="true">
@@ -226,7 +346,99 @@ export default function ApplicantDetails() {
         </div>
     );
 
-    if (isLoading) {
+
+    const InfoModal = () => (
+        <div className="status-modal-overlay" role="dialog" aria-modal="true">
+            <div className="status-modal info-modal">
+                <div className="status-icon info-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#2196f3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                </div>
+                <h3 className="status-title">Information</h3>
+                <p className="status-description">{modalMessage}</p>
+                <div className="status-buttons">
+                    <button className="status-button primary-button" onClick={() => setShowInfoModal(false)}>
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    const SuccessModal = () => (
+        <div className="status-modal-overlay" role="dialog" aria-modal="true">
+            <div className="status-modal success-modal">
+                <div className="status-icon success-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                </div>
+                <h3 className="status-title">Success</h3>
+                <p className="status-description">{modalMessage}</p>
+                <div className="status-buttons">
+                    <button className="status-button primary-button" onClick={() => {
+                        setShowSuccessModal(false);
+                        // Navigate back to job details after success
+                        handleBackToJob();
+                    }}>
+                        Back to Job Details
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    const ConfirmModal = () => (
+        <div className="status-modal-overlay" role="dialog" aria-modal="true">
+            <div className="status-modal">
+                <div className="status-icon warning-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </div>
+                <h3 className="status-title">Confirm Action</h3>
+                <p className="status-description">{modalMessage}</p>
+
+                <div className="status-buttons">
+                    <button className="status-button secondary-button" onClick={() => setShowConfirmModal(false)}>
+                        Cancel
+                    </button>
+                    <button className="status-button primary-button" onClick={handleConfirmAction}>
+                        Confirm
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    const getStatusBadge = () => {
+        if (!applicant || !applicant.status) return null;
+
+        const status = applicant.status.toLowerCase();
+        let badgeClass = 'status-badge new';
+
+        if (status === 'interview scheduled') {
+            badgeClass = 'status-badge interview';
+        } else if (status === 'interview completed') {
+            badgeClass = 'status-badge completed';
+        } else if (status === 'rejected') {
+            badgeClass = 'status-badge rejected';
+        }
+
+        return (
+            <div className="applicant-status-badge">
+                <span className={badgeClass}>{applicant.status}</span>
+            </div>
+        );
+    };
+
+    if (isLoading || processingAction) {
         return (
             <div className="detail-container" style={{
                 display: 'flex',
@@ -237,7 +449,9 @@ export default function ApplicantDetails() {
             }}>
                 <div className="loading-indicator" style={{ textAlign: 'center' }}>
                     <LoadingAnimation />
-                    <p style={{ marginTop: '20px' }}>Loading profile details...</p>
+                    <p style={{ marginTop: '20px' }}>
+                        {processingAction ? "Processing your request..." : "Loading profile details..."}
+                    </p>
                 </div>
             </div>
         );
@@ -258,6 +472,9 @@ export default function ApplicantDetails() {
     return (
         <div className="detail-container">
             {showErrorModal && <ErrorModal />}
+            {showSuccessModal && <SuccessModal />}
+            {showConfirmModal && <ConfirmModal />}
+            {showInfoModal && <InfoModal />}
 
             {!isLoading && applicant && detail && (
                 <div className="applicant-detail-view">
@@ -268,10 +485,28 @@ export default function ApplicantDetails() {
                         Back to Job Details
                     </button>
                     <div className="applicant-detail-header">
+                        <div className="applicant-header-left">
                         <h1>{applicant.candidateId ? applicant.candidateId + "\'s" : ""} Profile</h1>
+                            {getStatusBadge()}
+                        </div>
                         <div className="applicant-action-buttons">
-                            <button className="accept-button" onClick={handleAcceptCandidate}>Accept</button>
-                            <button className="reject-button" onClick={handleRejectCandidate}>Reject</button>
+                            <button
+                                className="accept-button"
+                                onClick={handleAcceptCandidate}
+                                disabled={applicant.status === 'interview scheduled' ||
+                                    applicant.status === 'interview completed' ||
+                                    applicant.status === 'rejected'}
+                            >
+                                Accept
+                            </button>
+                            <button
+                                className="reject-button"
+                                onClick={handleRejectCandidate}
+                                disabled={applicant.status === 'rejected' ||
+                                    applicant.status === 'interview completed'}
+                            >
+                                Reject
+                            </button>
                         </div>
                     </div>
 
@@ -284,7 +519,8 @@ export default function ApplicantDetails() {
                                         <div className="experience-container">
                                             <div className="experience-card">{detail.detailed_profile.summary}</div>
                                         </div>
-                                    </div>) : <div></div>}
+                                    </div>
+                                ) : <div></div>}
                             </div>
                             <div className="additional-info-2" style={{ marginBottom: "10px" }}>
                                 <div className="info-group">
@@ -386,9 +622,23 @@ export default function ApplicantDetails() {
                                                 (applicant.rank_score?.experience_score * job.rank_weight.experience_weight / 10.0 + "/" + job?.rank_weight?.experience_weight) : "N/A"}</p>
                                         </div>
                                     </div>
-                                    <div className="info-group-2" style={{ marginTop: "10px" }}>
-                                        <p className="info-label">Prompt:</p>
-                                        <div style={{ flex: 1, fontSize: "1rem", color: "#555" }}> {job?.prompt ? job.prompt : "No prompt reference"} </div>
+                                </div>
+                                <div className="info-group-2" style={{ marginTop: "10px" }}>
+                                    <p className="info-label">Prompt:</p>
+                                    <div style={{ flex: 1, fontSize: "1rem", color: "#555" }}>
+                                        {job?.prompt ? job.prompt : "No prompt reference"}
+                                    </div>
+                                    <div className="experience-container">
+                                        {applicant.rank_score ? (
+                                            <div className="experience-card">
+                                                <p>Final Score: {applicant.rank_score.final_score || 'N/A'}</p>
+                                                <p>Skills: {applicant.rank_score.skill_score || 'N/A'}</p>
+                                                <p>Education: {applicant.rank_score.education_score || 'N/A'}</p>
+                                                <p>Experience: {applicant.rank_score.experience_score || 'N/A'}</p>
+                                            </div>
+                                        ) : (
+                                            <p>No rank score available</p>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -421,7 +671,8 @@ export default function ApplicantDetails() {
                                                 <span key={index} className="skill-tag">{skill}</span>
                                             ))}
                                         </div>
-                                    </div>) : <div></div>}
+                                    </div>
+                                ) : <div></div>}
                             </div>
                             {/* Language Container */}
                             <div className="applicant-info">
@@ -433,7 +684,8 @@ export default function ApplicantDetails() {
                                                 <span key={index} className="skill-tag">{skill}</span>
                                             ))}
                                         </div>
-                                    </div>) : <div></div>}
+                                    </div>
+                                ) : <div></div>}
                             </div>
                         </div>
 
@@ -452,7 +704,8 @@ export default function ApplicantDetails() {
                                                 <span key={index} className="education-tag">{level}</span>
                                             ))}
                                         </div>
-                                    </div>) : <div></div>}
+                                    </div>
+                                ) : <div></div>}
                             </div>
                             {/* Certifications Container */}
                             <div className="applicant-info">
@@ -464,7 +717,8 @@ export default function ApplicantDetails() {
                                                 <span key={index} className="education-tag">{level}</span>
                                             ))}
                                         </div>
-                                    </div>) : <div></div>}
+                                    </div>
+                                ) : <div></div>}
                             </div>
                             {/* Awards Container */}
                             <div className="applicant-info">
@@ -476,7 +730,8 @@ export default function ApplicantDetails() {
                                                 <span key={index} className="education-tag">{level}</span>
                                             ))}
                                         </div>
-                                    </div>) : <div></div>}
+                                    </div>
+                                ) : <div></div>}
                             </div>
                         </div>
 
@@ -495,7 +750,8 @@ export default function ApplicantDetails() {
                                                 <span key={index} className="experience-tag">{work}</span>
                                             ))}
                                         </div>
-                                    </div>) : <div></div>}
+                                    </div>
+                                ) : <div></div>}
                             </div>
                             {/* Projects Container */}
                             <div className="applicant-info">
@@ -507,7 +763,8 @@ export default function ApplicantDetails() {
                                                 <span key={index} className="experience-tag">{work}</span>
                                             ))}
                                         </div>
-                                    </div>) : <div></div>}
+                                    </div>
+                                ) : <div></div>}
                             </div>
                             {/* Co-curricular Activities Container */}
                             <div className="applicant-info">
@@ -519,7 +776,8 @@ export default function ApplicantDetails() {
                                                 <span key={index} className="experience-tag">{work}</span>
                                             ))}
                                         </div>
-                                    </div>) : <div></div>}
+                                    </div>
+                                ) : <div></div>}
                             </div>
                         </div>
                     </div>

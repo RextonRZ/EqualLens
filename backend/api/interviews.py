@@ -11,9 +11,11 @@ from models.interview import (
 )
 from services.interview_service import (
     get_db, get_storage, validate_interview_link, 
-    send_interview_email, generate_link_code
+    send_interview_email, generate_link_code, send_rejection_email
 )
 from services.face_verification import process_verification_image
+from firebase_admin import firestore
+
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -25,6 +27,7 @@ router = APIRouter()
 LINK_EXPIRY_DAYS = 7  # Number of days the interview link remains valid
 INTERVIEW_BASE_URL = "http://localhost:3001/interview"  # Base URL for frontend interview page
 
+# Update the generate_interview_link function to check application status
 @router.post("/generate-link", response_model=InterviewLinkResponse)
 async def generate_interview_link(
     request: GenerateInterviewLinkRequest,
@@ -39,8 +42,43 @@ async def generate_interview_link(
         if not application_doc.exists:
             raise HTTPException(status_code=404, detail="Application not found")
         
-        # Get job details for email
+        # Get application data
         application_data = application_doc.to_dict()
+        
+        # Check application status to prevent duplicate actions
+        current_status = application_data.get('status', '').lower()
+        
+        # If already rejected, don't allow scheduling interview
+        if current_status == 'rejected':
+            raise HTTPException(status_code=400, detail="This application has already been rejected")
+            
+        # If interview already completed, don't allow scheduling another
+        if current_status == 'interview completed':
+            raise HTTPException(status_code=400, detail="This candidate has already completed their interview")
+            
+        # Check if interview is already scheduled for this application
+        if current_status == 'interview scheduled':
+            # If there's an existing interview link, return it instead of creating a new one
+            if application_data.get('interview', {}).get('interviewLink'):
+                existing_link = application_data['interview']['interviewLink']
+                interview_id = existing_link.split('/')[-2]  # Extract ID from the link
+                link_code = existing_link.split('/')[-1]     # Extract code from the link
+                
+                # Find the existing interview document
+                interview_docs = db.collection('interviewLinks').where('interviewId', '==', interview_id).limit(1).get()
+                if len(interview_docs) > 0:
+                    interview_data = interview_docs[0].to_dict()
+                    return InterviewLinkResponse(
+                        interviewId=interview_id,
+                        linkCode=link_code,
+                        fullLink=existing_link,
+                        expiryDate=interview_data.get('expiryDate'),
+                        applicationId=request.applicationId,
+                        candidateId=request.candidateId,
+                        emailStatus='previously_sent'
+                    )
+                    
+        # Get job details for email
         job_id = application_data.get('jobId', request.jobId)
         job_ref = db.collection('jobs').document(job_id)
         job_doc = job_ref.get()
@@ -60,20 +98,24 @@ async def generate_interview_link(
             raise HTTPException(status_code=404, detail="Candidate not found")
         
         candidate_data = candidate_doc.to_dict()
-        candidate_name = f"{candidate_data.get('firstName', '')} {candidate_data.get('lastName', '')}"
+        candidate_name = f"{candidate_data.get('firstName', '')}"
+        
+        # Try to get name from extracted text if firstName not available
+        if not candidate_name.strip() and 'extractedText' in candidate_data:
+            candidate_name = candidate_data['extractedText'].get('applicant_name', 'Candidate')
         
         # Generate unique interview ID and link code
         interview_id = str(uuid.uuid4())
         link_code = generate_link_code(request.applicationId, candidate_id)
         
-        # Set expiry date
+        # Set expiry date - always 7 days from now
         expiry_date = datetime.utcnow() + timedelta(days=LINK_EXPIRY_DAYS)
         
         # Create full interview link
         full_link = f"{INTERVIEW_BASE_URL}/{interview_id}/{link_code}"
         
-        # Use provided scheduled date or default to 3 days from now
-        scheduled_date = request.scheduledDate or datetime.utcnow() + timedelta(days=3)
+        # Always set scheduled date to now + 7 days (to match expiry)
+        scheduled_date = datetime.utcnow() + timedelta(days=LINK_EXPIRY_DAYS)
         
         # Update application with interview information - matching the database structure
         application_ref.update({
@@ -93,7 +135,7 @@ async def generate_interview_link(
             'applicationId': request.applicationId,
             'candidateId': candidate_id,
             'jobId': job_id,
-            'email': request.email,
+            'email': request.email or candidate_data.get('extractedText', {}).get('applicant_mail', ''),
             'fullLink': full_link,
             'expiryDate': expiry_date,
             'createdAt': datetime.utcnow(),
@@ -116,9 +158,18 @@ async def generate_interview_link(
         
         db.collection('emailNotifications').document(notification_id).set(notification_data)
         
+        # Get the email address - try the request first, then fallback to candidate data
+        email_address = request.email
+        if not email_address:
+            email_address = candidate_data.get('extractedText', {}).get('applicant_mail')
+            if not email_address:
+                logger.warning(f"No email address found for candidate {candidate_id}")
+                # Create a default placeholder to avoid errors
+                email_address = "no-email-provided@placeholder.com"
+        
         # Send email
         email_sent = send_interview_email(
-            request.email,
+            email_address,
             candidate_name,
             job_title,
             full_link,
@@ -146,8 +197,94 @@ async def generate_interview_link(
         # Re-raise HTTP exceptions
         raise
     except Exception as e:
-        logger.error("Error generating interview link: %s", str(e))
+        logger.error(f"Error generating interview link: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate interview link: {str(e)}")
+    
+# Add this to your candidates.py router file
+@router.post("/reject")
+async def reject_candidate(request_data: Dict[Any, Any] = Body(...)):
+    """Reject a candidate and send rejection email"""
+    try:
+        application_id = request_data.get("applicationId")
+        candidate_id = request_data.get("candidateId")
+        job_id = request_data.get("jobId")
+        email = request_data.get("email")
+        
+        if not application_id or not candidate_id or not job_id:
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        # Check if application already has a status that would prevent rejection
+        from core.firebase import firebase_client
+        application_data = firebase_client.get_document('applications', application_id)
+        
+        if not application_data:
+            raise HTTPException(status_code=404, detail="Application not found")
+            
+        current_status = application_data.get('status', '').lower()
+        
+        # If already rejected, don't allow another rejection
+        if current_status == 'rejected':
+            raise HTTPException(status_code=400, detail="This application has already been rejected")
+            
+        # If interview already completed, don't allow rejection
+        if current_status == 'interview completed':
+            raise HTTPException(status_code=400, detail="This candidate has already completed their interview")
+        
+        # Get job details for email
+        from services.job_service import JobService
+        job = JobService.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        job_title = job.get('jobTitle', 'the position')
+        
+        # Get candidate details
+        from services.candidate_service import CandidateService
+        candidate = CandidateService.get_candidate(candidate_id)
+        if not candidate:
+            raise HTTPException(status_code=404, detail="Candidate not found")
+        
+        extracted_text = candidate.get('extractedText', {})
+        candidate_name = extracted_text.get('applicant_name', 'Candidate')
+        
+        # Update application status to 'rejected'
+        firebase_client.update_document('applications', application_id, {
+            'status': 'rejected',
+            'rejectedAt': datetime.now().isoformat()
+        })
+        
+        # Send rejection email
+        email_sent = send_rejection_email(
+            email,
+            candidate_name,
+            job_title
+        )
+        
+        # Create email notification record
+        notification_id = str(uuid.uuid4())
+        notification_data = {
+            'candidateId': candidate_id,
+            'applicationId': application_id,
+            'type': 'rejection',
+            'sentDate': datetime.now().isoformat(),
+            'content': f"Rejection email for {job_title}",
+            'status': 'sent' if email_sent else 'failed'
+        }
+        
+        firebase_client.create_document('emailNotifications', notification_id, notification_data)
+        
+        return {
+            "success": True,
+            "message": "Candidate rejected successfully",
+            "emailSent": email_sent
+        }
+    
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        logger.error("Error rejecting candidate: %s", str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to reject candidate: {str(e)}")
 
 @router.get("/validate/{interview_id}/{link_code}")
 async def validate_interview(
@@ -282,7 +419,8 @@ async def verify_identity(
         logger.error(f"Error verifying identity: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to verify identity: {str(e)}")
 
-@router.get("/questions/{interview_id}/{link_code}", response_model=List[InterviewQuestion])
+# In interviews.py, update the endpoint:
+@router.get("/questions/{interview_id}/{link_code}")
 async def get_interview_questions(
     interview_id: str = Path(...),
     link_code: str = Path(...),
@@ -293,65 +431,40 @@ async def get_interview_questions(
         # Validate interview link
         interview_data = validate_interview_link(interview_id, link_code)
         
-        # Get job ID
-        job_id = interview_data.get('jobId')
+        # Get application ID from interview data
+        application_id = interview_data.get('applicationId')
         
-        # Get job document to retrieve questions
-        job_ref = db.collection('jobs').document(job_id)
-        job_doc = job_ref.get()
+        if not application_id:
+            raise HTTPException(status_code=404, detail="Application ID not found")
         
-        if not job_doc.exists:
-            raise HTTPException(status_code=404, detail="Job not found")
+        # Query InterviewQuestionActual collection by applicationId
+        actual_questions_query = db.collection('InterviewQuestionActual').where('applicationId', '==', application_id).limit(1).get()
         
-        job_data = job_doc.to_dict()
+        questions = []
         
-        # Extract interview questions from job data
-        questions_data = job_data.get('interviewQuestions', [])
+        if not actual_questions_query or len(actual_questions_query) == 0:
+            # Fallback if no actual questions found
+            logger.warning(f"No actual questions found for application {application_id}")
+            return questions
         
-        if not questions_data:
-            # If no questions found, return sample questions for testing
-            # In production, you would handle this differently
-            questions = [
-                InterviewQuestion(
-                    questionId="sample1",
-                    question="Tell us about yourself and your experience.",
-                    type="behavioral",
-                    timeLimit=120,
-                    order=1
-                ),
-                InterviewQuestion(
-                    questionId="sample2",
-                    question="What are your strengths and weaknesses?",
-                    type="behavioral",
-                    timeLimit=90,
-                    order=2
-                ),
-                InterviewQuestion(
-                    questionId="sample3",
-                    question="Describe a challenge you faced at work and how you overcame it.",
-                    type="behavioral",
-                    timeLimit=120,
-                    order=3
-                )
-            ]
-        else:
-            # Convert questions from job data to response model
-            questions = []
-            for idx, q in enumerate(questions_data):
-                question_id = q.get('questionId', f"q-{idx+1}")
-                questions.append(
-                    InterviewQuestion(
-                        questionId=question_id,
-                        question=q.get('question', 'No question text available'),
-                        type=q.get('type', 'behavioral'),
-                        timeLimit=q.get('timeLimit', 60),
-                        order=q.get('order', idx+1)
-                    )
-                )
-            
-            # Sort questions by order
-            questions.sort(key=lambda x: x.order)
+        # Get the first (and should be only) actual question set
+        actual_questions_data = actual_questions_query[0].to_dict()
         
+        if not actual_questions_data or 'questions' not in actual_questions_data:
+            logger.warning(f"No questions array in actual questions data for application {application_id}")
+            return questions
+        
+        # Format questions from InterviewQuestionActual
+        for idx, q in enumerate(actual_questions_data.get('questions', [])):
+            questions.append({
+                "questionId": q.get('questionId', f"q-{idx+1}"),
+                "question": q.get('text', 'No question text available'),
+                "sectionTitle": q.get('sectionTitle', ''),
+                "timeLimit": q.get('timeLimit', 60),
+                "order": idx + 1
+            })
+        
+        logger.info(f"Returning {len(questions)} questions for application {application_id}")
         return questions
     
     except HTTPException:
@@ -360,7 +473,7 @@ async def get_interview_questions(
     except Exception as e:
         logger.error("Error fetching interview questions: %s", str(e))
         raise HTTPException(status_code=500, detail=f"Failed to fetch interview questions: {str(e)}")
-
+    
 @router.post("/submit-response", response_model=InterviewResponseResponse)
 async def submit_interview_response(
     request: InterviewResponseRequest,

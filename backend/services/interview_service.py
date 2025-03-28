@@ -16,21 +16,32 @@ LINK_EXPIRY_DAYS = 7
 
 def get_db():
     """Return the Firestore database client"""
-    return firestore.client()
+    try:
+        return firestore.client()
+    except Exception as e:
+        logger.error(f"Error getting Firestore client: {e}")
+        raise HTTPException(status_code=500, detail="Failed to connect to database")
 
 def get_storage():
-    from firebase_admin import storage
-    import os
-    
-    # Try to get bucket name from environment variable
-    bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET")
-    
-    # If no bucket name in environment, construct default name
-    if not bucket_name:
+    """Return the Firebase Storage bucket"""
+    try:
         from firebase_admin import storage
-        from firebase_admin import _apps
-        project_id = list(_apps.values())[0].project_id
-        bucket_name = f"{project_id}.firebasestorage.com"
+        import os
+        
+        # Try to get bucket name from environment variable
+        bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET")
+        
+        # If no bucket name in environment, construct default name
+        if not bucket_name:
+            from firebase_admin import storage
+            from firebase_admin import _apps
+            project_id = list(_apps.values())[0].project_id
+            bucket_name = f"{project_id}.firebasestorage.com"
+        
+        return storage.bucket(bucket_name)
+    except Exception as e:
+        logger.error(f"Error getting Storage bucket: {e}")
+        raise HTTPException(status_code=500, detail="Failed to connect to storage")
     
     return storage.bucket(bucket_name)
 
@@ -47,7 +58,7 @@ def generate_link_code(application_id: str, candidate_id: str) -> str:
     return f"{random_part}{hash_part}"
 
 def send_interview_email(email: str, candidate_name: str, job_title: str, 
-                         interview_link: str, scheduled_date: datetime) -> bool:
+                         interview_link: str, scheduled_date: datetime) -> bool:    
     """Send interview invitation email to candidate"""
     try:
         # Get email credentials from environment variables
@@ -113,6 +124,60 @@ def send_interview_email(email: str, candidate_name: str, job_title: str,
         return True
     except Exception as e:
         logger.error("Failed to send interview email: %s", str(e))
+        return False
+
+def send_rejection_email(email: str, candidate_name: str, job_title: str) -> bool:
+    """Send rejection email to candidate"""
+    try:
+        # Get email credentials from environment variables
+        smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        smtp_username = os.getenv("SMTP_USERNAME", "")
+        smtp_password = os.getenv("SMTP_PASSWORD", "")
+        
+        if not smtp_username or not smtp_password:
+            logger.warning("SMTP credentials not set. Email would have been sent to: %s", email)
+            return False
+        
+        # Create message
+        msg = MIMEMultipart()
+        msg['From'] = smtp_username
+        msg['To'] = email
+        msg['Subject'] = f"Update Regarding Your Application for {job_title} Position"
+        
+        # Email body
+        body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h1 style="color: #ef402d;">EqualLens</h1>
+                </div>
+                <p>Dear {candidate_name},</p>
+                <p>Thank you for your interest in the <strong>{job_title}</strong> position and for taking the time to apply.</p>
+                <p>After careful consideration of your application, we regret to inform you that we have decided to move forward with other candidates whose qualifications more closely align with our current needs.</p>
+                <p>We appreciate your interest in our organization and encourage you to apply for future positions that match your skills and experience.</p>
+                <p>We wish you the best of luck in your job search and professional endeavors.</p>
+                <p>Sincerely,</p>
+                <p>The EqualLens Recruiting Team</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        msg.attach(MIMEText(body, 'html'))
+        
+        # Connect to server and send email
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        server.send_message(msg)
+        server.quit()
+        
+        logger.info("Rejection email sent successfully to %s", email)
+        return True
+    except Exception as e:
+        logger.error("Failed to send rejection email: %s", str(e))
         return False
 
 def validate_interview_link(interview_id: str, link_code: str):

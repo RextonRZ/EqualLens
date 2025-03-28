@@ -25,10 +25,12 @@ function InterviewQuestions() {
     const [completed, setCompleted] = useState(false);
     const [interviewComplete, setInterviewComplete] = useState(false);
     const [error, setError] = useState(null);
+    const [sectionTitle, setSectionTitle] = useState('');
 
     // Timer state
     const [timeRemaining, setTimeRemaining] = useState(0);
     const [timerActive, setTimerActive] = useState(false);
+    const [maxTimeLimit, setMaxTimeLimit] = useState(0);
     const timerIntervalRef = useRef(null);
 
     // Recording state
@@ -61,15 +63,28 @@ function InterviewQuestions() {
                 }
 
                 const questionsData = await response.json();
+                console.log("Raw API response:", questionsData);
 
                 if (!questionsData || questionsData.length === 0) {
                     throw new Error('No questions found for this interview');
                 }
 
-                setQuestions(questionsData);
+                const Questions = questionsData.map(q => ({
+                    questionId: q.questionId,
+                    question: q.question,
+                    timeLimit: q.timeLimit,
+                    sectionTitle: q.sectionTitle
+                }));
 
-                // Set initial timer
-                setTimeRemaining(questionsData[0].timeLimit);
+                setQuestions(Questions);
+
+                if (Questions.length > 0) {
+                    setSectionTitle(Questions[0].sectionTitle);
+                }
+
+                const initialTimeLimit = Questions[0].timeLimit;
+                setTimeRemaining(initialTimeLimit);
+                setMaxTimeLimit(initialTimeLimit);
 
             } catch (error) {
                 console.error("Error fetching questions:", error);
@@ -93,6 +108,14 @@ function InterviewQuestions() {
         };
     }, [interviewId, linkCode]);
 
+    // Update section title when question changes
+    useEffect(() => {
+        if (questions.length > 0 && currentQuestionIndex < questions.length) {
+            setSectionTitle(questions[currentQuestionIndex].sectionTitle);
+        }
+    }, [currentQuestionIndex, questions]);
+
+
     // Setup media recorder when needed
     const setupMediaRecorder = async () => {
         if (streamRef.current) {
@@ -112,6 +135,8 @@ function InterviewQuestions() {
             // Display preview
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
+                // Preview is mirrored with CSS for natural view
+                videoRef.current.style.transform = "scaleX(-1)";
             }
 
             // Create media recorder
@@ -135,6 +160,8 @@ function InterviewQuestions() {
                     videoRef.current.srcObject = null;
                     videoRef.current.src = videoURL;
                     videoRef.current.controls = true;
+                    // Playback is not mirrored to show the correct orientation
+                    videoRef.current.style.transform = "none";
                 }
 
                 setRecorded(true);
@@ -175,6 +202,7 @@ function InterviewQuestions() {
         // Reset recording state
         chunksRef.current = [];
         setRecorded(false);
+        setTimeRemaining(maxTimeLimit)
 
         // Setup media recorder if not already done
         const success = await setupMediaRecorder();
@@ -196,8 +224,14 @@ function InterviewQuestions() {
         // Stop timer
         setTimerActive(false);
 
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+        }
+
         // Mark question as completed
-        setCompleted(true);
+        setRecording(false);
+        setRecorded(false);
+        chunksRef.current = [];
     };
 
     const uploadRecording = async () => {
@@ -295,8 +329,10 @@ function InterviewQuestions() {
             // Move to next question
             setCurrentQuestionIndex(prev => prev + 1);
 
-            // Set timer for next question
-            setTimeRemaining(questions[currentQuestionIndex + 1].timeLimit);
+            // Set timer for next question using its original time limit
+            const nextTimeLimit = questions[currentQuestionIndex + 1].timeLimit;
+            setTimeRemaining(nextTimeLimit);
+            setMaxTimeLimit(nextTimeLimit);
         } else {
             // All questions completed
             completeInterview();
@@ -497,6 +533,26 @@ function InterviewQuestions() {
                 </div>
             </div>
 
+            {/* Section Title */}
+            {sectionTitle && (
+                <div style={{
+                    backgroundColor: '#e3f2fd',
+                    padding: '15px',
+                    borderRadius: '8px',
+                    marginBottom: '20px',
+                    borderLeft: '4px solid #2196f3'
+                }}>
+                    <h2 style={{
+                        color: '#0d47a1',
+                        margin: 0,
+                        fontSize: '18px',
+                        fontWeight: '500'
+                    }}>
+                        {sectionTitle}
+                    </h2>
+                </div>
+            )}
+
             {/* Question */}
             <div style={{
                 backgroundColor: '#f9f9f9',
@@ -561,7 +617,7 @@ function InterviewQuestions() {
                             width: '100%',
                             height: '100%',
                             objectFit: 'cover',
-                            transform: 'scaleX(-1)' // Mirror effect while recording
+                            // CSS transform is applied to video display via JavaScript instead of here
                         }}
                     />
 
@@ -694,7 +750,6 @@ function InterviewQuestions() {
                             <button
                                 onClick={() => {
                                     setRecorded(false);
-                                    setTimeRemaining(getCurrentQuestion().timeLimit);
                                 }}
                                 style={{
                                     backgroundColor: '#f5f5f5',

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./AddInterviewQuestions.css";
 import '../pageloading.css'; // Import the loading animation CSS
-import axios from "axios"; // Add axios for API calls
+import axios from 'axios'; // Add axios for API calls
 
 // Add LoadingAnimation component for consistency
 const LoadingAnimation = () => {
