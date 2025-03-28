@@ -82,6 +82,8 @@ export default function ApplicantDetails() {
     const [totalScore, setTotalScore] = useState(0);
     const [outcomeScore, setOutcomeScore] = useState(0);
     const [prompt, setPrompt] = useState("");
+    const [showQuestionReminderModal, setShowQuestionReminderModal] = useState(false);
+
 
     useEffect(() => {
         // Set all to default
@@ -288,6 +290,14 @@ export default function ApplicantDetails() {
                     ...applicant,
                     status: 'interview scheduled'
                 });
+
+                // After showing success modal, we'll show question reminder
+                // We set a timeout to ensure the success modal is seen first
+                setTimeout(() => {
+                    setShowSuccessModal(false);
+                    setShowQuestionReminderModal(true);
+                }, 1500);
+
             } else if (confirmAction === 'reject') {
                 // Reject the candidate
                 const response = await fetch(`http://localhost:8000/api/interviews/reject`, {
@@ -324,6 +334,7 @@ export default function ApplicantDetails() {
             setProcessingAction(false);
         }
     };
+
 
     const ErrorModal = () => (
         <div className="status-modal-overlay" role="dialog" aria-modal="true">
@@ -382,10 +393,12 @@ export default function ApplicantDetails() {
                 <div className="status-buttons">
                     <button className="status-button primary-button" onClick={() => {
                         setShowSuccessModal(false);
-                        // Navigate back to job details after success
-                        handleBackToJob();
+                        // Only navigate back if it's not an 'accept' action
+                        if (confirmAction !== 'accept') {
+                            handleBackToJob();
+                        }
                     }}>
-                        Back to Job Details
+                        Close
                     </button>
                 </div>
             </div>
@@ -411,6 +424,44 @@ export default function ApplicantDetails() {
                     </button>
                     <button className="status-button primary-button" onClick={handleConfirmAction}>
                         Confirm
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    const QuestionReminderModal = () => (
+        <div className="status-modal-overlay" role="dialog" aria-modal="true">
+            <div className="status-modal">
+                <div className="status-icon warning-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ff9800" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                </div>
+                <h3 className="status-title">Create Interview Questions</h3>
+                <p className="status-description">
+                    Remember to create interview questions for this candidate to ensure a structured interview process. Would you like to create questions now?
+                </p>
+                <div className="status-buttons">
+                    <button
+                        className="status-button secondary-button"
+                        onClick={() => {
+                            setShowQuestionReminderModal(false);
+                            handleBackToJob(); // Return to job details if canceled
+                        }}
+                    >
+                        Not Now
+                    </button>
+                    <button
+                        className="status-button primary-button"
+                        onClick={() => {
+                            setShowQuestionReminderModal(false);
+                            window.location.href = `/add-interview-questions?jobId=${job_id}`;
+                        }}
+                    >
+                        Create Questions
                     </button>
                 </div>
             </div>
@@ -475,6 +526,7 @@ export default function ApplicantDetails() {
             {showSuccessModal && <SuccessModal />}
             {showConfirmModal && <ConfirmModal />}
             {showInfoModal && <InfoModal />}
+            {showQuestionReminderModal && <QuestionReminderModal />}
 
             {!isLoading && applicant && detail && (
                 <div className="applicant-detail-view">
