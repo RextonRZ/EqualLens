@@ -23,6 +23,9 @@ class InterviewQuestionSetService:
                 section["sectionId"] = section.get("sectionId") or firebase_client.generate_counter_id("sect")
                 for question in section["questions"]:
                     question["questionId"] = question.get("questionId") or firebase_client.generate_counter_id("ques")
+                    # Save original text for custom questions
+                    if not question.get("isAIGenerated"):
+                        question["originalText"] = ""
 
             # Log the full data being saved
             logger.info(f"Saving InterviewQuestionSet with data: {data_dict}")
@@ -232,6 +235,9 @@ class InterviewQuestionSetService:
                 section["sectionId"] = section.get("sectionId") or firebase_client.generate_counter_id("sect")
                 for question in section["questions"]:
                     question["questionId"] = question.get("questionId") or firebase_client.generate_counter_id("ques")
+                    # Save original text for custom questions
+                    if not question.get("isAIGenerated"):
+                        question["originalText"] = question["text"]
 
             # Track AI generation used
             if "aiGenerationUsed" in data:
