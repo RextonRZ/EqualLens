@@ -6,6 +6,7 @@ from models.candidate import CandidateResponse
 from services.job_service import JobService
 from services.candidate_service import CandidateService
 from services.gemini_service import GeminiService
+from services.gemini_IVQuestionService import GeminiIVQuestionService
 from models.candidate import CandidateUpdate
 
 router = APIRouter()
@@ -134,3 +135,32 @@ async def get_candidate_detail(candidate_id: str):
     except Exception as e:
         logger.error(f"Error generating candidate detail: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate candidate detail: {str(e)}")
+
+@router.get("/generate-interview-questions/{candidate_id}")
+async def generate_interview_questions(candidate_id: str, job_id: str = Query(..., description="Job ID to generate questions for")):
+    """Generate AI interview questions for a candidate based on their resume and job details."""
+    try:
+        logger.info(f"Generating interview questions for candidate: {candidate_id} for job: {job_id}")
+        
+        # Check if candidate exists
+        candidate = CandidateService.get_candidate(candidate_id)
+        if not candidate:
+            raise HTTPException(status_code=404, detail=f"Candidate {candidate_id} not found")
+        
+        # Check if job exists
+        job = JobService.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+        
+        # Create an instance of GeminiIVQuestionService
+        iv_question_service = GeminiIVQuestionService()
+        
+        # Generate the interview questions
+        interview_questions = await iv_question_service.generate_interview_questions(candidate_id, job_id)
+        
+        logger.info(f"Successfully generated interview questions for candidate {candidate_id}")
+        return interview_questions
+        
+    except Exception as e:
+        logger.error(f"Error generating interview questions: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate interview questions: {str(e)}")

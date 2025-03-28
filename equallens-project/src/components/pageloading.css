@@ -8,7 +8,7 @@
 .loading-animation {
     position: relative;
     width: var(--bar-width);
-    height: 180px;
+    height: 1000px;
     display: flex;
     align-items: center;
     justify-content: center;

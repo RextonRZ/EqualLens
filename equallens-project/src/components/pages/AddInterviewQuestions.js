@@ -653,9 +653,27 @@ const AddInterviewQuestions = () => {
     };
 
     const validateSections = () => {
-        // First check for empty question fields
+        // First check if there are any sections at all
+        if (sections.length === 0) {
+            setErrorMessage(
+                "No interview question sections added yet. Please add at least one section with questions before saving."
+            );
+            setShowErrorModal(true);
+            return false;
+        }
+        
+        // Check for empty sections (sections with no questions)
         for (let i = 0; i < sections.length; i++) {
             const section = sections[i];
+            if (section.questions.length === 0) {
+                setErrorMessage(
+                    `The "${section.title}" section has no questions. Please add at least one question to each section or remove empty sections.`
+                );
+                setShowErrorModal(true);
+                return false;
+            }
+            
+            // Check for empty question fields
             for (let j = 0; j < section.questions.length; j++) {
                 if (!section.questions[j].text.trim()) {
                     setErrorMessage(
@@ -730,7 +748,7 @@ const AddInterviewQuestions = () => {
                 
                 // Count seconds from compulsory questions
                 const compulsoryTime = compulsoryQuestions
-                    .reduce((sum, q) => sum + (q.timeLimit || 0), 0);
+                    .reduce((sum, q) => sum + (parseInt(q.timeLimit) || 0), 0);
                 
                 // Calculate average time for random questions
                 const nonCompulsoryQuestions = section.questions.filter(q => !q.isCompulsory);
@@ -738,7 +756,8 @@ const AddInterviewQuestions = () => {
                 
                 if (nonCompulsoryQuestions.length > 0 && randomCount > 0) {
                     // Calculate average time per non-compulsory question
-                    const avgTimePerQuestion = nonCompulsoryQuestions.reduce((sum, q) => sum + (q.timeLimit || 0), 0) / nonCompulsoryQuestions.length;
+                    const totalNonCompulsoryTime = nonCompulsoryQuestions.reduce((sum, q) => sum + (parseInt(q.timeLimit) || 0), 0);
+                    const avgTimePerQuestion = Math.round(totalNonCompulsoryTime / nonCompulsoryQuestions.length);
                     // Add time for random questions (average time * number of random questions)
                     totalSeconds += compulsoryTime + (avgTimePerQuestion * randomCount);
                 } else {
@@ -747,7 +766,7 @@ const AddInterviewQuestions = () => {
             } else {
                 // For sections without random selection, add up all question times
                 section.questions.forEach(question => {
-                    totalSeconds += question.timeLimit || 0;
+                    totalSeconds += parseInt(question.timeLimit) || 0;
                 });
                 // All questions count for effective total if random selection is disabled
                 effectiveQuestions += section.questions.length;
@@ -756,7 +775,7 @@ const AddInterviewQuestions = () => {
         
         // Convert to minutes and seconds
         const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
+        const seconds = Math.floor(totalSeconds % 60); // Use Math.floor to ensure no decimals
         
         setTotalInterviewTime({ 
             minutes, 
@@ -808,7 +827,7 @@ const AddInterviewQuestions = () => {
         }
     };
 
-    // Modify the handleSave function to also generate actual questions after saving
+    // Modify the handleSave function to also check for empty sections
     const handleSave = async () => {
         // Check if total interview time is less than 5 minutes
         const totalMinutes = totalInterviewTime.minutes + (totalInterviewTime.seconds > 0 ? 1 : 0); // Round up if there are seconds
@@ -828,6 +847,16 @@ const AddInterviewQuestions = () => {
 
         if (sections.length === 0 || !selectedApplicant) {
             setErrorMessage("Please add at least one section with questions and select an applicant before saving.");
+            setShowErrorModal(true);
+            return;
+        }
+
+        // Check for empty sections again as a final validation
+        const emptySections = sections.filter(section => section.questions.length === 0);
+        if (emptySections.length > 0) {
+            setErrorMessage(
+                `The "${emptySections[0].title}" section has no questions. Please add at least one question to each section or remove empty sections.`
+            );
             setShowErrorModal(true);
             return;
         }
@@ -957,8 +986,49 @@ const AddInterviewQuestions = () => {
 
     // Add a function to handle initiating the save process with confirmation
     const handleInitiateSave = () => {
-        if (sections.length === 0 || !selectedApplicant) {
-            setErrorMessage("Please add at least one section with questions and select an applicant before saving.");
+        if (!selectedApplicant) {
+            setErrorMessage("Please select an applicant before saving.");
+            setShowErrorModal(true);
+            return;
+        }
+        
+        // First check if there are any sections at all
+        if (sections.length === 0) {
+            setErrorMessage("No interview sections or questions added. Please add at least one section with questions before saving.");
+            setShowErrorModal(true);
+            return;
+        }
+        
+        // Check for empty questions in any section
+        let hasEmptyQuestions = false;
+        let sectionWithEmptyQuestion = "";
+        
+        for (let i = 0; i < sections.length; i++) {
+            const section = sections[i];
+            // First check for sections with no questions
+            if (section.questions.length === 0) {
+                setErrorMessage(
+                    `The "${section.title}" section has no questions. Please add at least one question to each section or remove empty sections.`
+                );
+                setShowErrorModal(true);
+                return;
+            }
+            
+            // Then check for empty question fields
+            for (let j = 0; j < section.questions.length; j++) {
+                if (!section.questions[j].text.trim()) {
+                    hasEmptyQuestions = true;
+                    sectionWithEmptyQuestion = section.title;
+                    break;
+                }
+            }
+            if (hasEmptyQuestions) break;
+        }
+        
+        if (hasEmptyQuestions) {
+            setErrorMessage(
+                `Please fill in all question fields. There is an empty question in the "${sectionWithEmptyQuestion}" section.`
+            );
             setShowErrorModal(true);
             return;
         }
@@ -987,27 +1057,6 @@ const AddInterviewQuestions = () => {
         } else {
             // Regular case - show the standard save confirmation
             setShowSaveConfirmModal(true);
-        }
-    };
-
-    // Modify handleGoBackToJobDetails to check for unsaved changes
-    const handleGoBackToJobDetails = () => {
-        // Check if there are unsaved changes
-        if (!changesSaved && sections.length > 0) {
-            // Double-check with string comparison for actual changes
-            const sectionsJSON = JSON.stringify(sections);
-            const initialSectionsJSON = JSON.stringify(initialSections);
-            
-            if (sectionsJSON !== initialSectionsJSON) {
-                // Show confirmation modal
-                setShowNavigationModal(true);
-            } else {
-                // No actual changes, navigate directly
-                navigateToJobDetails();
-            }
-        } else {
-            // No changes or changes saved, navigate directly
-            navigateToJobDetails();
         }
     };
 
@@ -1043,6 +1092,27 @@ const AddInterviewQuestions = () => {
     // Add handler for canceling navigation
     const handleCancelNavigation = () => {
         setShowNavigationModal(false);
+    };
+
+    // Modify handleGoBackToJobDetails to check for unsaved changes
+    const handleGoBackToJobDetails = () => {
+        // Check if there are unsaved changes
+        if (!changesSaved && sections.length > 0) {
+            // Double-check with string comparison for actual changes
+            const sectionsJSON = JSON.stringify(sections);
+            const initialSectionsJSON = JSON.stringify(initialSections);
+            
+            if (sectionsJSON !== initialSectionsJSON) {
+                // Show confirmation modal
+                setShowNavigationModal(true);
+            } else {
+                // No actual changes, navigate directly
+                navigateToJobDetails();
+            }
+        } else {
+            // No changes or changes saved, navigate directly
+            navigateToJobDetails();
+        }
     };
 
     // This function gets triggered when the user selects "Apply to All" from the dropdown
@@ -1270,8 +1340,9 @@ const AddInterviewQuestions = () => {
                 <div className="status-icon error-icon" aria-hidden="true">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" y1="8" x2="12" y2="12"></line>
-                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86"></polygon>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
                     </svg>
                 </div>
                 <h3 className="status-title">Validation Error</h3>
@@ -1294,9 +1365,9 @@ const AddInterviewQuestions = () => {
             <div className="status-modal">
                 <div className="status-icon warning-icon" aria-hidden="true">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                        <line x1="12" y1="9" x2="12" y2="13"></line>
-                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 8v4"></path>
+                        <path d="M12 16h.01"></path>
                     </svg>
                 </div>
                 <h3 className="status-title">Delete Section?</h3>
@@ -1319,9 +1390,9 @@ const AddInterviewQuestions = () => {
             <div className="status-modal">
                 <div className="status-icon confirm-icon" aria-hidden="true">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" y1="8" x2="12" y2="12"></line>
-                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
                     </svg>
                 </div>
                 <h3 className="status-title">Save Interview Questions?</h3>
@@ -1352,8 +1423,10 @@ const AddInterviewQuestions = () => {
             <div className="status-modal">
                 <div className="status-icon warning-icon" aria-hidden="true">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0-2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="11" x2="12" y2="15"></line>
                         <line x1="12" y1="17" x2="12.01" y2="17"></line>
                     </svg>
                 </div>
@@ -1378,8 +1451,9 @@ const AddInterviewQuestions = () => {
                 <div className="status-icon warning-icon" aria-hidden="true">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" y1="8" x2="12" y2="12"></line>
-                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <path d="M12 8v4"></path>
+                        <path d="M12 16h.01"></path>
                     </svg>
                 </div>
                 <h3 className="status-title">Apply to All Candidates</h3>
@@ -1412,9 +1486,10 @@ const AddInterviewQuestions = () => {
             <div className="status-modal">
                 <div className="status-icon warning-icon" aria-hidden="true">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
                         <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                        <line x1="12" y1="9" x2="12" y2="13"></line>
-                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        <path d="M12 8v4"></path>
+                        <path d="M12 16h.01"></path>
                     </svg>
                 </div>
                 <h3 className="status-title">Reset All Questions?</h3>
@@ -1463,9 +1538,12 @@ const AddInterviewQuestions = () => {
             <div className="status-modal">
                 <div className="status-icon warning-icon" aria-hidden="true">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                        <line x1="12" y1="9" x2="12" y2="13"></line>
-                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M3 6h18"></path>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
                     </svg>
                 </div>
                 <h3 className="status-title">Discard Unsaved Changes?</h3>
@@ -1504,9 +1582,10 @@ const AddInterviewQuestions = () => {
             <div className="status-modal">
                 <div className="status-icon warning-icon" aria-hidden="true">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
                         <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                        <line x1="12" y1="9" x2="12" y2="13"></line>
-                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        <path d="M12 8v4"></path>
+                        <path d="M12 16h.01"></path>
                     </svg>
                 </div>
                 <h3 className="status-title">Unsaved Changes</h3>
@@ -1548,146 +1627,65 @@ const AddInterviewQuestions = () => {
     };
 
     // New function to handle actual AI generation after confirmation
-    const handleConfirmAIGenerate = () => {
+    const handleConfirmAIGenerate = async () => {
         setShowAIConfirmModal(false);
         
-        // AI generation code moved here from handleAIGenerate
-        const aiGeneratedSections = [
-            {
-                title: "Technical Skills",
-                questions: [
-                    { 
-                        text: "Can you describe your experience with our required technologies?", 
-                        timeLimit: 60, 
-                        isCompulsory: true, 
-                        isAIGenerated: true,
-                        // Store original values to detect if restored
-                        originalText: "Can you describe your experience with our required technologies?",
-                        originalTimeLimit: 60,
-                        originalCompulsory: true
-                    },
-                    { 
-                        text: "What technical challenges have you faced in your previous roles?", 
-                        timeLimit: 90, 
-                        isCompulsory: false, 
-                        isAIGenerated: true,
-                        originalText: "What technical challenges have you faced in your previous roles?",
-                        originalTimeLimit: 90,
-                        originalCompulsory: false
-                    },
-                    { 
-                        text: "How do you stay updated with industry developments?", 
-                        timeLimit: 45, 
-                        isCompulsory: false, 
-                        isAIGenerated: true,
-                        originalText: "How do you stay updated with industry developments?",
-                        originalTimeLimit: 45,
-                        originalCompulsory: false
-                    }
-                ],
-                randomSettings: {
-                    enabled: true,
-                    count: 1
-                },
-                isAIGenerated: true
-            },
-            {
-                title: "Problem Solving",
-                questions: [
-                    { 
-                        text: "Describe a complex problem you solved in your previous role.", 
-                        timeLimit: 120, 
-                        isCompulsory: true, 
-                        isAIGenerated: true,
-                        originalText: "Describe a complex problem you solved in your previous role.",
-                        originalTimeLimit: 120,
-                        originalCompulsory: true
-                    },
-                    { 
-                        text: "How do you approach troubleshooting technical issues?", 
-                        timeLimit: 60, 
-                        isCompulsory: false, 
-                        isAIGenerated: true,
-                        originalText: "How do you approach troubleshooting technical issues?",
-                        originalTimeLimit: 60,
-                        originalCompulsory: false
-                    },
-                    { 
-                        text: "Tell me about a time when you had to make a decision with incomplete information.", 
-                        timeLimit: 90, 
-                        isCompulsory: false, 
-                        isAIGenerated: true,
-                        originalText: "Tell me about a time when you had to make a decision with incomplete information.",
-                        originalTimeLimit: 90,
-                        originalCompulsory: false
-                    }
-                ],
-                randomSettings: {
-                    enabled: true,
-                    count: 1
-                },
-                isAIGenerated: true
-            },
-            {
-                title: "Team Collaboration",
-                questions: [
-                    { 
-                        text: "How do you handle disagreements within your team?", 
-                        timeLimit: 60, 
-                        isCompulsory: true, 
-                        isAIGenerated: true,
-                        originalText: "How do you handle disagreements within your team?",
-                        originalTimeLimit: 60,
-                        originalCompulsory: true
-                    },
-                    { 
-                        text: "Describe your experience working in cross-functional teams.", 
-                        timeLimit: 75, 
-                        isCompulsory: false, 
-                        isAIGenerated: true,
-                        originalText: "Describe your experience working in cross-functional teams.",
-                        originalTimeLimit: 75,
-                        originalCompulsory: false
-                    },
-                    { 
-                        text: "How do you ensure effective communication in remote work settings?", 
-                        timeLimit: 60, 
-                        isCompulsory: false, 
-                        isAIGenerated: true,
-                        originalText: "How do you ensure effective communication in remote work settings?",
-                        originalTimeLimit: 60,
-                        originalCompulsory: false
-                    }
-                ],
-                randomSettings: {
-                    enabled: true,
-                    count: 1
-                },
-                isAIGenerated: true
+        // Show loading state while generating questions
+        setIsLoading(true);
+        setLoadingOperation("Generating");
+        
+        try {
+            // Get the job ID from the URL query params
+            const jobId = queryParams.get('jobId');
+            
+            // Make API call to generate questions
+            const response = await axios.get(
+                `http://localhost:8000/api/candidates/generate-interview-questions/${selectedApplicant}?job_id=${jobId}`
+            );
+            
+            if (response.status === 200) {
+                // Process the sections from the API response
+                const generatedData = response.data;
+                
+                // Append AI sections instead of replacing - if the API returns properly formatted sections
+                setSections(prevSections => [...prevSections, ...generatedData.sections]);
+                
+                // Mark that AI has been used but not yet saved
+                setAiGeneratedUnsaved(true);
+                
+                // If applicant is "all", don't add to aiGenerateUsedMap since it's for all applicants
+                if (selectedApplicant !== "all") {
+                    setAiGenerateUsedMap(prev => ({
+                        ...prev,
+                        [selectedApplicant]: true
+                    }));
+                }
+                
+                // Show success message
+                setShowAISuccess(true);
+                
+                // Hide the success message after 3 seconds
+                setTimeout(() => {
+                    setShowAISuccess(false);
+                }, 3000);
+            } else {
+                // Handle unexpected response status
+                setErrorMessage("Failed to generate questions. Please try again.");
+                setShowErrorModal(true);
             }
-        ];
-        
-        // Append AI sections instead of replacing
-        setSections(prevSections => [...prevSections, ...aiGeneratedSections]);
-        
-        // Mark that AI has been used but not yet saved
-        setAiGeneratedUnsaved(true);
-        
-        // If applicant is "all", don't add to aiGenerateUsedMap since it's for all applicants
-        if (selectedApplicant !== "all") {
-            setAiGenerateUsedMap(prev => ({
-                ...prev,
-                [selectedApplicant]: true
-            }));
+        } catch (error) {
+            console.error("Error generating questions:", error);
+            
+            // Extract error message from response if available
+            const errorMsg = error.response?.data?.detail || 
+                             error.message || 
+                             "An error occurred while generating questions";
+            
+            setErrorMessage(errorMsg);
+            setShowErrorModal(true);
+        } finally {
+            setIsLoading(false);
         }
-        
-        // Show success message
-        setShowAISuccess(true);
-        
-        // Hide the success message after 3 seconds
-        setTimeout(() => {
-            setShowAISuccess(false);
-        }, 3000);
     };
 
     const handleStartEditingSection = (sectionIndex, currentTitle) => {
@@ -1715,16 +1713,25 @@ const AddInterviewQuestions = () => {
     // Show loading when navigating back or initially fetching job details
     if (isNavigatingBack || isLoading) {
         return (
-            <div className="dashboard-container" style={{ 
+            <div style={{ 
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                width: '100vw',
+                height: '100vh',
+                backgroundColor: '#f8fafc',
                 display: 'flex', 
                 justifyContent: 'center', 
-                alignItems: 'center', 
-                minHeight: '80vh' 
+                alignItems: 'center',
+                zIndex: 1000
             }}>
                 <div className="loading-indicator" style={{ textAlign: 'center' }}>
                     <LoadingAnimation />
-                    <p style={{ marginTop: '20px' }}>
+                    <p style={{ marginTop: '20px', color: '#4b5563', fontWeight: '500' }}>
                         {isNavigatingBack ? "Returning to Job Details..." : 
+                         loadingOperation === "Generating" ? "Generating Interview Questions Set..." :
                          `${loadingOperation} Interview Questions...`}
                     </p>
                 </div>
@@ -1902,7 +1909,7 @@ const AddInterviewQuestions = () => {
                 ) : sections.length === 0 ? (
                     <div className="no-sections">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="empty-icon">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 9h8M8 13h6M8 17h4M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z"></path>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 9h8M8 13h6M8 17h4M19 3H5a2 2 0 00-2 2v14a2 2 0 00-2 2h14a2 2 0 002-2V5a2 2 0 00-2-2z"></path>
                         </svg>
                         <p>No interview question sections added yet.</p>
                         <p>Add a section to get started or use AI Generate.</p>
@@ -2144,7 +2151,7 @@ const AddInterviewQuestions = () => {
                         <div className="stats-item question-stats">
                             <div className="stats-icon">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M8 9h8M8 13h6M8 17h4M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z"></path>
+                                    <path d="M8 9h8M8 13h6M8 17h4M19 3H5a2 2 0 00-2 2v14a2 2 0 00-2 2h14a2 2 0 002-2V5a2 2 0 00-2-2z"></path>
                                 </svg>
                             </div>
                             <div className="stats-content">
@@ -2174,7 +2181,10 @@ const AddInterviewQuestions = () => {
                             <button 
                                 className="save-button" 
                                 onClick={handleInitiateSave}
-                                disabled={sections.length === 0 || !selectedApplicant}
+                                disabled={sections.length === 0}
+                                title={sections.length === 0 ? 
+                                    "Please add at least one section with questions before saving" : 
+                                    "Save interview questions"}
                             >
                                 Save Questions
                             </button>

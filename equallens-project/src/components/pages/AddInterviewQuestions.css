@@ -796,6 +796,22 @@
     box-shadow: 0 4px 8px rgba(249, 100, 95, 0.25);
 }
 
+/* Add a more visible disabled button state */
+.save-button:disabled {
+    background-color: #ccc;
+    color: #666;
+    cursor: not-allowed;
+    box-shadow: none;
+    opacity: 0.7;
+    transform: none;
+}
+
+.save-button:disabled:hover {
+    background-color: #ccc;
+    transform: none;
+    box-shadow: none;
+}
+
 /* Loading Styles */
 .loading-container {
     display: flex;
@@ -1229,11 +1245,27 @@
 /* Error modal styles */
 .error-modal {
     border-top: 4px solid #ef4444;
+    animation: errorShake 0.4s ease-in-out;
+}
+
+@keyframes errorShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    50% { transform: translateX(5px); }
+    75% { transform: translateX(-5px); }
 }
 
 .error-icon {
     color: #ef4444;
     background-color: #fee2e2;
+}
+
+/* Ensure the error message has good contrast and is clearly visible */
+.error-modal .status-description {
+    color: #333;
+    font-weight: 500;
+    white-space: pre-line; /* This allows line breaks in the error message */
+    margin: 1rem 0;
 }
 
 /* Update modal width */
