@@ -4,6 +4,7 @@ import uuid
 import random
 import google.generativeai as genai
 import os
+import time  # Add this import to generate unique seeds
 from typing import Dict, Any, List, Optional
 from core.firebase import firebase_client
 
@@ -13,7 +14,7 @@ class GeminiIVQuestionService:
     """Service for generating interview questions using Google's Gemini model."""
     
     def __init__(self):
-        """Initialize the Gemini IV Question Service with API key."""
+        """Initialize the Gemini IV Question Service with API key and pre-generate questions."""
         try:
             # Get API key from environment variable
             api_key = os.getenv("GEMINI_API_KEY")
@@ -24,11 +25,55 @@ class GeminiIVQuestionService:
             # Configure the Gemini API
             genai.configure(api_key=api_key)
             self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.pre_generated_questions = self._generate_question_pool()
             logger.info("GeminiIVQuestionService initialized successfully")
         except Exception as e:
             logger.error(f"Error initializing GeminiIVQuestionService: {e}")
             raise
-    
+
+    def _generate_question_pool(self) -> List[str]:
+        """Pre-generate a pool of questions."""
+        question_templates = [
+            "How would you approach {task} given your experience in {field}?",
+            "Can you describe a time when you successfully handled {challenge}?",
+            "What strategies would you use to {goal} in the context of {scenario}?",
+            "Based on your background in {field}, how would you tackle {problem}?",
+            "What steps would you take to {objective} while considering {constraint}?",
+            # Add more templates as needed
+        ]
+        fields = ["data analysis", "IT support", "project management", "software development"]
+        tasks = ["troubleshooting", "optimizing workflows", "managing teams", "resolving conflicts"]
+        challenges = ["a tight deadline", "a difficult client", "a technical issue", "a team disagreement"]
+        goals = ["improve efficiency", "reduce costs", "enhance user experience", "meet project deadlines"]
+        scenarios = ["a high-pressure environment", "a remote team", "a startup culture", "a corporate setting"]
+        problems = ["system outages", "data inconsistencies", "security vulnerabilities", "scalability issues"]
+        objectives = ["achieve success", "deliver results", "meet expectations", "exceed goals"]
+        constraints = ["limited resources", "tight budgets", "short timelines", "complex requirements"]
+
+        questions = []
+        for template in question_templates:
+            for field in fields:
+                for task in tasks:
+                    for challenge in challenges:
+                        for goal in goals:
+                            for scenario in scenarios:
+                                for problem in problems:
+                                    for objective in objectives:
+                                        for constraint in constraints:
+                                            question = template.format(
+                                                task=task, field=field, challenge=challenge,
+                                                goal=goal, scenario=scenario, problem=problem,
+                                                objective=objective, constraint=constraint
+                                            )
+                                            questions.append(question)
+                                            if len(questions) >= 10000:  # Limit to 10,000 questions
+                                                return questions
+        return questions
+
+    def _get_random_question(self) -> str:
+        """Pick a random question from the pre-generated pool."""
+        return random.choice(self.pre_generated_questions)
+
     async def generate_interview_questions(self, candidate_id: str, job_id: str) -> Dict[str, Any]:
         """Generate interview questions for a specific candidate and job."""
         try:
@@ -53,7 +98,32 @@ class GeminiIVQuestionService:
         except Exception as e:
             logger.error(f"Error generating interview questions: {e}")
             raise
-    
+
+    async def generate_interview_question(self, candidate_id: str, job_id: str, section_title: str) -> Dict[str, Any]:
+        """Generate a single interview question by creating a pool of questions and randomly picking one."""
+        try:
+            # Fetch candidate and job data
+            candidate_data = self._get_candidate_data(candidate_id)
+            job_data = self._get_job_data(job_id)
+            
+            if not candidate_data or not job_data:
+                raise ValueError("Could not retrieve candidate or job data")
+            
+            # Create the prompt for Gemini
+            prompt = self._create_single_question_prompt(candidate_data, job_data, section_title)
+            
+            # Generate response from Gemini
+            response = await self._generate_gemini_response(prompt)
+            
+            # Process the response to extract a single question
+            return self._process_single_gemini_response(response)
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing Gemini response as JSON: {e}. Raw response: {response}")
+            return self._create_fallback_question()  # Return fallback instead of raising
+        except Exception as e:
+            logger.error(f"Error generating interview question: {e}")
+            return self._create_fallback_question()  # Return fallback instead of raising
+
     def _get_candidate_data(self, candidate_id: str) -> Dict[str, Any]:
         """Fetch candidate data from Firebase."""
         try:
@@ -108,7 +178,7 @@ class GeminiIVQuestionService:
 
         Create a structured interview plan with the following 7 sections:
 
-        SECTION 1: GENERAL QUESTIONS (COMPULSORY)
+        SECTION 1: GENERAL QUESTIONS
         - Include an introduction question that asks the candidate to introduce themselves
         - Ask about strengths and weaknesses relevant to the job
         - Reference specific details from the candidate's resume but don't clash with section 3
@@ -207,16 +277,67 @@ class GeminiIVQuestionService:
         """
         
         return prompt
-    
+
+    def _create_single_question_prompt(self, candidate_data: Dict[str, Any], job_data: Dict[str, Any], section_title: str) -> str:
+        """Create a prompt for Gemini to generate a pool of questions and randomly pick one for the single question."""
+        # Extract resume text from candidate data
+        resume_text = candidate_data.get('extractedText', {})
+        
+        # Extract job details
+        job_title = job_data.get('jobTitle', 'Unknown Position')
+        job_description = job_data.get('jobDescription', '')
+        required_skills = job_data.get('requiredSkills', [])
+        departments = job_data.get('departments', [])
+        
+        # Create the structured prompt for Gemini to generate a pool of questions (reduced from 5000 to 20)
+        prompt = f"""
+        As an expert interviewer, generate a pool of 20 high-quality interview questions for the "{section_title}" section.
+
+        CANDIDATE RESUME INFORMATION:
+        {json.dumps(resume_text, indent=2)}
+
+        JOB DETAILS:
+        Title: {job_title}
+        Department(s): {', '.join(departments)}
+        Required Skills: {', '.join(required_skills)}
+        Description: {job_description}
+
+        IMPORTANT GUIDELINES:
+        - Each question must be tailored to the candidate's experience and the job requirements.
+        - Ensure all questions are relevant to the "{section_title}" section.
+        - Use varied sentence structures to ensure diversity in generated questions.
+        - Keep each question concise (maximum 60 words).
+        - Assign a reasonable time limit (30-150 seconds) for each question.
+
+        FORMATTING REQUIREMENTS:
+        - Return a JSON object with the following structure, and nothing else:
+        {{
+          "questions": [
+            {{
+              "text": "Question text",
+              "timeLimit": 45,
+              "isCompulsory": true
+            }},
+            ...
+          ]
+        }}
+
+        Do not include any code block markers, comments, or any additional text in your response. Only provide the valid JSON.
+        """
+        return prompt
+
     async def _generate_gemini_response(self, prompt: str) -> str:
         """Generate a response from Gemini model."""
         try:
             response = await self.model.generate_content_async(prompt)
+            if not response or not response.text.strip():
+                logger.error(f"Empty response received from Gemini API. Prompt: {prompt}")
+                raise ValueError("Empty response received from Gemini API")
             return response.text
         except Exception as e:
-            logger.error(f"Error generating content with Gemini: {e}")
-            raise
-    
+            logger.error(f"Error generating content with Gemini: {e}. Prompt: {prompt}")
+            raise ValueError("Failed to generate content with Gemini API") from e
+
     def _process_gemini_response(self, response: str) -> Dict[str, Any]:
         """Process and format the Gemini response to ensure it's valid and properly structured."""
         try:
@@ -325,7 +446,85 @@ class GeminiIVQuestionService:
         except Exception as e:
             logger.error(f"Error processing Gemini response: {e}")
             return self._create_fallback_questions()
-    
+
+    def _process_single_gemini_response(self, response: str) -> Dict[str, Any]:
+        """Process and format the Gemini response for a single question."""
+        try:
+            # Clean up response to extract only the JSON part
+            clean_response = response.strip()
+            
+            # Check if response contains a code block and remove it
+            if "```json" in clean_response:
+                json_start = clean_response.find("```json") + 7
+                json_end = clean_response.rfind("```")
+                if json_end > json_start:
+                    clean_response = clean_response[json_start:json_end].strip()
+            elif "```" in clean_response:
+                json_start = clean_response.find("```") + 3
+                json_end = clean_response.rfind("```")
+                if json_end > json_start:
+                    clean_response = clean_response[json_start:json_end].strip()
+            
+            # Remove any comments or explanatory text
+            # First try to find a valid JSON object
+            try:
+                # Find the first opening curly brace and last closing curly brace
+                first_brace = clean_response.find('{')
+                last_brace = clean_response.rfind('}')
+                
+                if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+                    json_str = clean_response[first_brace:last_brace+1]
+                    response_data = json.loads(json_str)
+                else:
+                    # Try parsing the whole string as JSON
+                    response_data = json.loads(clean_response)
+            except json.JSONDecodeError:
+                # If that fails, clean more aggressively
+                # Remove lines that look like comments (start with //)
+                lines = clean_response.split('\n')
+                json_lines = [line for line in lines if not line.strip().startswith('//')]
+                clean_response = '\n'.join(json_lines)
+                
+                # Try again with more aggressive cleaning
+                response_data = json.loads(clean_response)
+            
+            questions_pool = response_data.get("questions", [])
+            
+            if not questions_pool or not isinstance(questions_pool, list):
+                logger.error(f"Invalid or empty questions pool in response: {response_data}")
+                return self._create_fallback_question()
+            
+            # Filter out any questions without text
+            valid_questions = [q for q in questions_pool if isinstance(q, dict) and "text" in q and q["text"]]
+            
+            if not valid_questions:
+                logger.error("No valid questions found in the pool")
+                return self._create_fallback_question()
+            
+            # Randomly pick one question from the pool
+            selected_question = random.choice(valid_questions)
+            
+            # Ensure timeLimit is present and valid
+            if "timeLimit" not in selected_question or not isinstance(selected_question["timeLimit"], (int, float)) or selected_question["timeLimit"] <= 0:
+                selected_question["timeLimit"] = 60  # Default to 60 seconds
+            
+            # Ensure isCompulsory is present and valid
+            if "isCompulsory" not in selected_question or not isinstance(selected_question["isCompulsory"], bool):
+                selected_question["isCompulsory"] = True  # Default to compulsory
+            
+            # Add metadata to the selected question
+            selected_question["questionId"] = f"ques-{uuid.uuid4()}"
+            selected_question["isAIGenerated"] = True
+            selected_question["originalText"] = selected_question["text"]
+            selected_question["originalTimeLimit"] = selected_question["timeLimit"]
+            selected_question["originalCompulsory"] = selected_question["isCompulsory"]
+            selected_question["isAIModified"] = False
+            
+            return {"question": selected_question}
+        except Exception as e:
+            logger.error(f"Error processing Gemini response: {e}. Raw response: {response}")
+            return self._create_fallback_question()  # Return fallback instead of raising
+
     def _create_fallback_questions(self) -> Dict[str, Any]:
         """Create a fallback set of basic interview questions if Gemini fails."""
         sections = [
@@ -764,3 +963,18 @@ class GeminiIVQuestionService:
             "sections": sections,
             "aiGenerationUsed": True
         }
+
+    def _create_fallback_question(self) -> Dict[str, Any]:
+        """Create a fallback question if Gemini fails."""
+        question = {
+            "text": "Please answer this question.",
+            "timeLimit": 60,
+            "isCompulsory": True,
+            "questionId": f"ques-{uuid.uuid4()}",
+            "isAIGenerated": True,
+            "originalText": "Please answer this question.",
+            "originalTimeLimit": 60,
+            "originalCompulsory": True,
+            "isAIModified": False
+        }
+        return {"question": question}

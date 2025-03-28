@@ -164,3 +164,49 @@ async def generate_interview_questions(candidate_id: str, job_id: str = Query(..
     except Exception as e:
         logger.error(f"Error generating interview questions: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate interview questions: {str(e)}")
+
+@router.post("/generate-interview-question")
+async def generate_interview_question(request: Dict[str, Any]):
+    """Generate a single interview question for a specific candidate, job, and section."""
+    try:
+        logger.info(f"Generating a single interview question with request: {request}")
+        
+        # Extract required fields
+        candidate_id = request.get("candidateId")
+        job_id = request.get("jobId")
+        section_title = request.get("sectionTitle")
+        
+        # Validate request
+        if not candidate_id:
+            raise HTTPException(status_code=400, detail="candidateId is required")
+        if not job_id:
+            raise HTTPException(status_code=400, detail="jobId is required")
+        if not section_title:
+            raise HTTPException(status_code=400, detail="sectionTitle is required")
+        
+        # Check if candidate exists
+        candidate = CandidateService.get_candidate(candidate_id)
+        if not candidate:
+            raise HTTPException(status_code=404, detail=f"Candidate {candidate_id} not found")
+        
+        # Check if job exists
+        job = JobService.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+        
+        # Create an instance of GeminiIVQuestionService
+        iv_question_service = GeminiIVQuestionService()
+        
+        # Generate a single interview question
+        result = await iv_question_service.generate_interview_question(
+            candidate_id=candidate_id,
+            job_id=job_id,
+            section_title=section_title
+        )
+        
+        logger.info(f"Successfully generated interview question for candidate {candidate_id}, section {section_title}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error generating interview question: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate interview question: {str(e)}")

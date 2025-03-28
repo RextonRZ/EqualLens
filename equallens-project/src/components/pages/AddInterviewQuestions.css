@@ -748,6 +748,8 @@
 }
 
 .add-question-button {
+    flex-basis: 70%;
+    margin: 0;
     background-color: #f1f5f9;
     color: #64748b;
     border: none;
@@ -757,7 +759,6 @@
     cursor: pointer;
     transition: all 0.3s ease;
     border: 1px dashed #cbd5e1;
-    width: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1005,6 +1006,53 @@
         padding: 0.75rem;
         gap: 0.5rem;
     }
+}
+
+/* Update styles for question actions container to reverse button order */
+.question-actions-container {
+    display: flex;
+    gap: 0.75rem;
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.add-question-button {
+    flex-basis: 70%;
+    margin: 0;
+    background-color: #f1f5f9;
+    color: #64748b;
+    border: none;
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px dashed #cbd5e1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.ai-generate-question-button {
+    flex-basis: 30%;
+    background: linear-gradient(90deg, #ff7575, #ff62a9, #ff9eca);
+    color: white;
+    border: none;
+    padding: 0.6rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+    box-shadow: 0 4px 8px rgba(241, 99, 139, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
 }
 
 .question-content {
@@ -1945,4 +1993,177 @@
     .stats-item {
         padding: 15px;
     }
+}
+
+/* Add styles for question actions container and AI Generate Question button */
+.question-actions-container {
+    display: flex;
+    gap: 0.75rem;
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.ai-generate-question-button {
+    flex-basis: 30%;
+    background: linear-gradient(90deg, #ff7575, #ff62a9, #ff9eca);
+    color: white;
+    border: none;
+    padding: 0.6rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+    box-shadow: 0 4px 8px rgba(241, 99, 139, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.ai-generate-question-button::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        to bottom right,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.1) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    transform: rotate(45deg);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.ai-generate-question-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(241, 99, 139, 0.3);
+}
+
+.ai-generate-question-button:hover::before {
+    animation: shimmer 1.5s infinite;
+    opacity: 1;
+}
+
+.ai-generate-question-button .ai-icon {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Define shimmer animation for the button */
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%) rotate(45deg);
+    }
+    100% {
+        transform: translateX(100%) rotate(45deg);
+    }
+}
+
+/* Style for disabled AI generate question button */
+.ai-generate-question-button:disabled {
+    background: linear-gradient(90deg, #cbd5e1, #94a3b8);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    opacity: 0.7;
+}
+
+.ai-generate-question-button:disabled:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.ai-generate-question-button:disabled::before {
+    display: none;
+}
+
+/* Responsive adjustments for mobile */
+@media (max-width: 768px) {
+    .question-actions-container {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .ai-generate-question-button,
+    .add-question-button {
+        flex-basis: auto;
+        width: 100%;
+    }
+}
+
+/* Typing animation for question generation */
+.question-typing-animation {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid #ffccd5;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.typing-header {
+    font-size: 0.9rem;
+    color: #ff758c;
+}
+
+.typing-content {
+    display: flex;
+    align-items: center;
+    font-size: 0.95rem;
+    color: #4b5563;
+}
+
+.typing-dots {
+    display: flex;
+    gap: 5px;
+}
+
+.typing-dots span {
+    width: 8px;
+    height: 8px;
+    background-color: #ff758c;
+    border-radius: 50%;
+    display: inline-block;
+    opacity: 0.6;
+}
+
+.typing-dots span:nth-child(1) {
+    animation: typingDot 1s infinite 0s;
+}
+
+.typing-dots span:nth-child(2) {
+    animation: typingDot 1s infinite 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+    animation: typingDot 1s infinite 0.4s;
+}
+
+@keyframes typingDot {
+    0%, 100% {
+        opacity: 0.6;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.1);
+    }
+}
+
+/* When a specific section is generating a question, add a subtle highlight */
+.generating-question {
+    background-color: #fff9fb;
+    transition: background-color 0.3s ease;
 }
