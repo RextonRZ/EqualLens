@@ -1130,7 +1130,7 @@ export default function Dashboard() {
 
                     <div className="job-detail-content">
                         <div className="job-info-container">
-                            <div className="section-header">
+                            <div className="applicants-header">
                                 <h3>Job Details</h3>
                                 {!isEditing && (
                                     <button

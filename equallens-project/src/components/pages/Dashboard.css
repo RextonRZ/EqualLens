@@ -477,6 +477,7 @@
 }
 
 .info-group {
+  margin-top: 0.7rem;
   margin-bottom: 0.5rem; /* More space between info groups */
   padding-bottom: 0.5rem; /* Add padding at the bottom of each group */
 }
