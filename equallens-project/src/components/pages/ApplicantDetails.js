@@ -82,7 +82,7 @@ export default function ApplicantDetails() {
     const [totalScore, setTotalScore] = useState(0);
     const [outcomeScore, setOutcomeScore] = useState(0);
     const [prompt, setPrompt] = useState("");
-
+    let id = null;
     useEffect(() => {
         // Set all to default
         setIsLoading(true);
@@ -98,10 +98,9 @@ export default function ApplicantDetails() {
         setPrompt("");
 
         const fetchData = async () => {
-
             // Extract candidateId from the URL path
             const pathSegments = location.pathname.split("/");
-            const id = pathSegments[pathSegments.length - 1]; // Gets the last segment
+            id = pathSegments[pathSegments.length - 1]; // Gets the last segment
             const jobId = pathSegments[pathSegments.length - 2]; // Gets the second-to-last segment
             setJob_id(jobId);
 
@@ -146,11 +145,37 @@ export default function ApplicantDetails() {
                     throw new Error(`Candidate with ID ${id} not found in the applicants list.`);
                 }
 
-                const detailData = await generateApplicantDetail(id);
                 setApplicant(candidateData);
                 setJob(jobData);
-                setDetail(detailData);
 
+                let detailData;
+
+                console.log("Candidate data:", candidateData);
+
+                // Check if the candidateData has the attribute detailed_profile and the detailed_profile is not empty
+                if (!candidateData.detailed_profile || candidateData.detailed_profile === "") {
+                    detailData = await handleCreateDetail();
+
+                    console.log("Generated detail text:", detailData);
+                } else {
+                    // candidateData already has the detailed information
+                    try {    
+                        // Check if the candidate data has the expected structure
+                        if (candidateData && candidateData.detailed_profile && candidateData.detailed_profile.summary) {
+                            detailData = { detailed_profile: candidateData.detailed_profile };
+                            setDetail(detailData);
+                        } else {
+                            // If structure is wrong, regenerate the details
+                            console.warn("Detail text found but didn't have the expected structure, regenerating...");
+                            detailData = await handleCreateDetail();
+                        }
+                    } catch (error) {
+                        // If parsing fails, regenerate the details
+                        console.warn("Failed to parse existing detail text, regenerating...", error);
+                        detailData = await handleCreateDetail();
+                    }
+                }
+                
                 if (
                     candidateData?.rank_score?.skill_score &&
                     jobData?.rank_weight?.skill_weight
@@ -170,6 +195,7 @@ export default function ApplicantDetails() {
                 }
 
                 setIsLoading(false);
+
             } catch (err) {
                 console.error("Comprehensive error fetching candidate:", err);
                 setModalMessage(`Error: ${err.message}`);
@@ -183,6 +209,37 @@ export default function ApplicantDetails() {
 
         fetchData();
     }, [navigate]);
+
+    const handleCreateDetail = async () => {
+        // Check if id has been set
+        if (!id) {
+            setModalMessage("Candidate ID not found in URL.");
+            setShowErrorModal(true);
+            setTimeout(() => {
+                navigate(-1);
+            }, 3000);
+            return;
+        }
+
+        const response = await generateApplicantDetail(id);
+        setDetail(response);
+
+        console.log("Updating applicant with detailed profile:", response);
+
+        // Update the applicant in Firestore with the new detailed profile
+        await fetch(`http://localhost:8000/api/candidates/candidate/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                ...applicant,
+                detailed_profile: response.detailed_profile
+            })
+        });
+
+        return response;
+    }
 
     const handleBackToJob = () => {
         // Use React Router's navigate
@@ -486,7 +543,7 @@ export default function ApplicantDetails() {
                     </button>
                     <div className="applicant-detail-header">
                         <div className="applicant-header-left">
-                        <h1>{applicant.candidateId ? applicant.candidateId + "\'s" : ""} Profile</h1>
+                            <h1>{applicant.candidateId ? applicant.candidateId + "\'s" : ""} Profile</h1>
                             {getStatusBadge()}
                         </div>
                         <div className="applicant-action-buttons">

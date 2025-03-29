@@ -40,6 +40,7 @@ class CandidateResponse(CandidateBase):
     status: Optional[str] = None
     rank_score: Optional[Dict[str, float]] = None  
     reasoning: Optional[Dict[str, str]] = None  
+    detailed_profile: Optional[Dict[str, Any]] = None
 
     class Config:
         schema_extra = {
@@ -58,6 +59,18 @@ class CandidateResponse(CandidateBase):
                     "experience": "Strong experience in software development",
                     "skills": "Proficient in Python, Java, and C++",
                     "education": "Graduated with honors in Computer Science"
+                },
+                "detailed_profile": {
+                    "summary": "Software developer with 5 years of experience",
+                    "soft_skills": ["Communication", "Problem-solving", "Teamwork"],
+                    "technical_skills": ["Python", "Java", "C++"],
+                    "languages": ["English", "Spanish"],
+                    "education": ["Bachelor's degree in Computer Science", "Master's degree in Software Engineering"],
+                    "certifications": ["AWS Certified Developer", "Google Cloud Professional Cloud Architect"],
+                    "awards": ["Employee of the Month (June 2022)", "Best Team Player (2021)"],
+                    "work_experience": ["Software Developer at Company A (2019-2023)", "Intern at Company B (2018)"],
+                    "projects": ["Developed a web application for tracking sales", "Implemented a machine learning model for predicting customer churn"],
+                    "co_curricular_activities": ["Volunteer at local animal shelter", "Mentor at coding bootcamp"]
                 }
             }
         }
@@ -74,6 +87,7 @@ class CandidateUpdate(BaseModel):
     status: Optional[str] = None
     rank_score: Optional[Dict[str, float]] = None
     reasoning: Optional[Dict[str, str]] = None
+    detailed_profile: Optional[Dict[str, Any]] = None
 
 
 class ApplicationResponse(Application):

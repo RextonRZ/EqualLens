@@ -1345,7 +1345,7 @@ export default function Dashboard() {
                                 {!isEditing && (
                                     <div className="applicants-actions">
                                         <button className="rank-button" onClick={handleRankApplicants}>
-                                            Rank Applicants
+                                            {selectedJob.prompt ? "Rerank Applicants" : "Rank Applicants"}
                                         </button>
                                         <button className="upload-more-cv-button" onClick={handleUploadMoreCV}>
                                             Upload More CV

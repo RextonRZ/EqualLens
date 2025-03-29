@@ -148,6 +148,7 @@ class JobService:
                             'extractedText': candidate.get('extractedText'),
                             'rank_score': candidate.get('rank_score'),
                             'reasoning': candidate.get('reasoning'),
+                            'detailed_profile': candidate.get('detailed_profile'),
                             'resumeUrl': candidate.get('resumeUrl')
                         }
                         results.append(app_with_candidate)
