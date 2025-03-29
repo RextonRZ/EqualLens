@@ -471,18 +471,399 @@
     gap: 2rem;
 }
 
+/* Improved section header layout with better spacing and edit functionality */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0;
+    padding: 1rem 2rem;
+    border-bottom: 1px solid #e0e0e0;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    position: relative;
+    min-height: 3.5rem;
+    overflow: visible; /* Allow edit container to overflow */
+}
+
+.section-header:hover {
+    background-color: #f8fafc;
+}
+
+/* Fix section title editable container with proper event handling */
+.section-title-editable {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.75rem; /* Increased from 0.1rem to provide more space between title and edit button */
+    pointer-events: none; /* Make the container itself non-interactive */
+    margin-left: 5.5rem;
+    flex: 1;
+    position: relative;
+    z-index: 3;
+}
+
+/* Make the title and edit button individually interactive */
+.section-title {
+    font-size: 1.3rem;
+    color: #333;
+    margin: 0;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 500px;
+    line-height: 1.3;
+    pointer-events: auto; /* Allow clicking on title */
+}
+
+/* Fix the edit button to ensure it's clickable */
+.edit-title-button {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    position: relative;
+    z-index: 10; /* Higher z-index to ensure it's above other elements */
+    width: 2rem;
+    height: 2rem;
+    pointer-events: auto; /* Explicitly enable pointer events */
+}
+
+.edit-title-button:hover {
+    color: #F9645F;
+    background-color: #f1f5f9;
+}
+
+.edit-title-button svg {
+    width: 1rem;
+    height: 1rem;
+    pointer-events: none; /* Prevent the SVG from capturing clicks instead of the button */
+}
+
+/* Improve section title edit container to prevent event bubbling */
+.section-title-edit-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    max-width: 80%; /* Limit width to prevent overlapping with section actions */
+    position: relative;
+    background-color: rgba(255, 255, 255, 0);
+    border-radius: 6px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+    padding: 4px;
+    z-index: 50; /* Higher z-index to appear above other elements */
+    margin-left: 5.5rem; /* Match the margin-left of section-title-editable */
+}
+
+/* Improve section title input styling for better usability */
+.section-title-input-edit {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #333;
+    border: 1px solid #F9645F;
+    border-radius: 6px;
+    padding: 0.25rem 0.5rem;
+    background: rgba(255, 255, 255, 0);
+    width: 100%;
+    flex: 1;
+}
+
+.section-title-input-edit:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(249, 100, 95, 0.15);
+    border-color: #F9645F;
+}
+
+/* Fix edit actions to be more contained */
+.edit-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0; /* Prevent shrinking */
+}
+
+.save-edit-button,
+.cancel-edit-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem;
+    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    transition: all 0.2s ease;
+    flex-shrink: 0; /* Prevent shrinking */
+}
+
+.save-edit-button {
+    color: #10b981;
+    background-color: #d1fae500;
+}
+
+.cancel-edit-button {
+    color: #ef4444;
+    background-color: #fee2e200;
+}
+
+.save-edit-button:hover {
+    background-color: #a7f3d0;
+}
+
+.cancel-edit-button:hover {
+    background-color: #fecaca;
+}
+
+.save-edit-button svg,
+.cancel-edit-button svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Fix section number badge for better vertical alignment */
+.section-card .section-header::before {
+    content: attr(data-section);
+    position: absolute;
+    top: 50%;
+    left: 1.25rem;
+    transform: translateY(-50%);
+    background-color: #e2e8f0;
+    color: #475569;
+    border-radius: 999px;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    z-index: 1;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    min-width: 4rem;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 2rem;
+}
+
+/* Ensure proper spacing in actions area and fix z-index */
+.section-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    z-index: 5; /* Ensure it's above other elements but below edit controls */
+    margin-left: 2rem;
+    pointer-events: auto; /* Make sure buttons are clickable */
+    position: relative; /* Add positioning context */
+    flex-shrink: 0; /* Prevent shrinking */
+    min-width: 100px; /* Ensure minimum width */
+}
+
+/* Fix for the edit title container to ensure it works correctly when editing */
+.section-title-edit-container {
+    cursor: text;
+    position: relative;
+    background-color: rgba(255, 255, 255, 0); /* Ensure it has a background to cover other elements */
+    border-radius: 6px;
+    pointer-events: auto !important; /* Force pointer events to be enabled */
+}
+
+/* Additional styling to fix edit actions buttons */
+.edit-actions {
+    display: flex;
+    gap: 0.5rem;
+    z-index: 20; /* Even higher z-index */
+    pointer-events: auto; /* Ensure buttons are clickable */
+}
+
+.save-edit-button,
+.cancel-edit-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem;
+    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    transition: all 0.2s ease;
+    pointer-events: auto; /* Explicitly enable */
+    z-index: 20; /* Ensure they're above everything */
+}
+
+.save-edit-button {
+    color: #10b981;
+    background-color: #d1fae5;
+}
+
+.cancel-edit-button {
+    color: #ef4444;
+    background-color: #fee2e2;
+}
+
+.save-edit-button:hover {
+    background-color: #a7f3d0;
+}
+
+.cancel-edit-button:hover {
+    background-color: #fecaca;
+}
+
+.save-edit-button svg,
+.cancel-edit-button svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Sections container */
+.sections-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.section-content {
+    overflow: hidden;
+    transition: max-height 0.3s ease-in-out, opacity 0.3s ease, padding 0.3s ease;
+    opacity: 1;
+    max-height: 3000px; /* Large enough to fit content */
+    padding: 1.5rem;
+}
+
+.collapsed .section-content {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    pointer-events: none; /* Prevent interaction when collapsed */
+}
+
+.collapsed .section-header {
+    border-bottom: none;
+}
+
+/* Fix the header toggle cursor */
+.section-header {
+    cursor: pointer;
+}
+
+.section-title-edit-container {
+    cursor: text;
+}
+
+/* Avoid border flash when collapsed */
+.collapsed .section-content {
+    border-top: none;
+}
+
+/* Improve section card appearance */
 .section-card {
     background-color: white;
-    padding: 1.5rem;
     border-radius: 12px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
     border: 1px solid #f1f1f1;
     transition: all 0.3s ease;
+    overflow: hidden;
+    padding: 0; /* Remove padding as it's now in section header and content */
 }
 
 .section-card:hover {
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
     transform: translateY(-2px);
+}
+
+/* Remove any padding from original section-card as we've moved it */
+.section-card {
+    padding: 0;
+}
+
+/* Fix for the editable title container which needs to be clickable */
+.section-title-edit-container {
+    width: 100%;
+    max-width: 600px;
+    z-index: 2;
+}
+
+/* Fix remove section button to work with the new layout */
+.remove-section-button {
+    margin-left: 0;
+    z-index: 2;
+    pointer-events: auto;
+}
+
+/* Add a section counter badge */
+.section-card .section-header::before {
+    content: attr(data-section);
+    position: absolute;
+    top: 50%;
+    left: 0.75rem;
+    transform: translateY(-50%);
+    background-color: #e2e8f0;
+    color: #475569;
+    border-radius: 999px;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+/* Styles for section move buttons */
+.section-move-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-right: 1rem;
+}
+
+.move-section-button {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.move-section-button:hover {
+    background-color: #e2e8f0;
+    color: #1e293b;
+}
+
+.move-section-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.move-section-button:disabled:hover {
+    background-color: transparent;
+    color: #94a3b8;
+}
+
+.move-section-button svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* Ensure edit and remove buttons remain clickable */
+.edit-title-button, 
+.remove-section-button {
+    z-index: 5;
+    position: relative;
 }
 
 /* Update section card styles */

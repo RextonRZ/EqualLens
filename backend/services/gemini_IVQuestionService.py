@@ -183,7 +183,7 @@ class GeminiIVQuestionService:
         - Ask about strengths and weaknesses relevant to the job
         - Reference specific details from the candidate's resume but don't clash with section 3
         - Make all these questions compulsory with appropriate time limits
-        - Total 3 compulsory questions without any optional questions
+        - Only 3 compulsory questions without any optional questions
 
         SECTION 2: JOB-SPECIFIC QUESTIONS
         - Ask why they applied for this specific position
@@ -359,6 +359,20 @@ class GeminiIVQuestionService:
             
             # Add IDs and additional metadata to each section and question
             for section in question_data.get("sections", []):
+                # Remove "SECTION NUM:" or "SECTION NUM: " from section titles
+                if "title" in section and isinstance(section["title"], str):
+                    # Clean up section titles to remove any "SECTION X" prefixes
+                    section_title = section["title"]
+                    # Remove patterns like "SECTION 1:", "SECTION ONE:", etc.
+                    import re
+                    section_title = re.sub(r'^SECTION\s+\d+\s*:\s*', '', section_title, flags=re.IGNORECASE)
+                    section_title = re.sub(r'^SECTION\s+[A-Z]+\s*:\s*', '', section_title, flags=re.IGNORECASE)
+                    # Also handle numeric words like ONE, TWO, etc.
+                    number_words = ["ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE"]
+                    for i, word in enumerate(number_words, 1):
+                        section_title = re.sub(f'^SECTION\\s+{word}\\s*:\\s*', '', section_title, flags=re.IGNORECASE)
+                    section["title"] = section_title.strip()
+                
                 section["sectionId"] = f"sect-{uuid.uuid4()}"
                 section["isAIGenerated"] = True
                 
