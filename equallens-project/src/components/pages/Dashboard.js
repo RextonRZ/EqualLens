@@ -237,7 +237,7 @@ export default function Dashboard() {
 
             // Merge the sorted applicants with the unsorted ones
             const mergedApplicants = [...sortedApplicantsWithScores, ...applicantsWithoutScores];
-            
+
             setApplicants(mergedApplicants);
         } catch (err) {
             console.error("Error fetching applicants:", err);
@@ -480,7 +480,7 @@ export default function Dashboard() {
 
     // Handle scoring applicants when they are not scored but others are
     const handleUnscoredApplicants = async () => {
-        if (selectedJob.rank_weight !== null && selectedJob.prompt !== null) {
+        if (selectedJob.rank_weight !== null && selectedJob.prompt !== "" && selectedJob.prompt !== null) {
             // Filter out the new applicants from the existing list
             // New applicants are those without rank_score or with an empty rank_score
             const unscoredApplicants = await fetchUnscoredApplicants(selectedJob.jobId);
@@ -1303,31 +1303,42 @@ export default function Dashboard() {
                                 </div>
                             ) : (
                                 <div className="job-info">
-                                    <div className="info-group">
-                                        <p className="info-label">Posted:</p>
-                                        <p className="info-value">{formatDate(selectedJob.createdAt)}</p>
-                                    </div>
+                                    <div className="info-columns">
+                                        <div className="info-column">
+                                            <div className="info-group">
+                                                <p className="info-label">Posted:</p>
+                                                <p className="info-value">{formatDate(selectedJob.createdAt)}</p>
+                                            </div>
 
-                                    <div className="info-group">
-                                        <p className="info-label">Departments:</p>
-                                        <div className="departments-display">
-                                            {selectedJob.departments.map((dept, index) => (
-                                                <span key={index} className="department-tag">{dept}</span>
-                                            ))}
+                                            <div className="info-group">
+                                                <p className="info-label">Departments:</p>
+                                                <div className="departments-display">
+                                                    {selectedJob.departments.map((dept, index) => (
+                                                        <span key={index} className="department-tag">{dept}</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <div className="info-group">
+                                                <p className="info-label">Minimum CGPA:</p>
+                                                <p className="info-value">{selectedJob.minimumCGPA.toFixed(2)}</p>
+                                            </div>
+
+                                            <div className="info-group">
+                                                <p className="info-label">Required Skills:</p>
+                                                <div className="skills-display">
+                                                    {selectedJob.requiredSkills && selectedJob.requiredSkills.map((skill, index) => (
+                                                        <span key={index} className="skill-tag">{skill}</span>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    <div className="info-group">
-                                        <p className="info-label">Minimum CGPA:</p>
-                                        <p className="info-value">{selectedJob.minimumCGPA.toFixed(2)}</p>
-                                    </div>
-
-                                    <div className="info-group">
-                                        <p className="info-label">Required Skills:</p>
-                                        <div className="skills-display">
-                                            {selectedJob.requiredSkills && selectedJob.requiredSkills.map((skill, index) => (
-                                                <span key={index} className="skill-tag">{skill}</span>
-                                            ))}
+                                        <div className="info-column">
+                                            <div className="info-group">
+                                                <p className="info-label">Prompt:</p>
+                                                <p className="info-value">{selectedJob.prompt ? selectedJob.prompt : "N/A"}</p>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -1360,11 +1371,249 @@ export default function Dashboard() {
                                 </div>
                             ) : (
                                 <div className="applicants-list">
-                                    {applicants.map((applicant) => (
-                                        <div key={applicant.applicationId} className="applicant-card">
-                                            <div className="applicant-info">
-                                                <h4>{renderApplicantID(applicant)}</h4>
-                                                <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(applicant))}</p>
+                                    {applicants.length === 1 && (
+                                        /* Single applicant layout - only middle position */
+                                        <div key={applicants[0].candidateId} className="applicant-card">
+                                            <div className="applicant-rank-info">
+                                                <div className="rank-number">
+                                                    <span className="rank-circle">1</span>
+                                                </div>
+                                                <div className="applicant-info">
+                                                    <h4>{renderApplicantID(applicants[0])}</h4>
+                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(applicants[0]))}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="applicant-status-actions">
+                                                <span className={`status-badge ${applicants[0].status || 'new'}`}>
+                                                    {applicants[0].status || 'new'}
+                                                </span>
+                                                <div className="rank-score-container">
+                                                    <span className="rank-score-label">Score: </span>
+                                                    <span className="rank-score-value">
+                                                        {applicants[0].rank_score && applicants[0].rank_score.final_score
+                                                            ? applicants[0].rank_score.final_score.toFixed(2)
+                                                            : "N/A"}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    className="view-profile-button"
+                                                    onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${applicants[0].candidateId}`)}
+                                                >
+                                                    Full Profile
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="top-applicants-container">
+                                        <div className="top-three-applicants">
+                                            <div className="top-applicants-row">
+                                                {/* Display different layouts based on number of applicants */}
+                                                {applicants.length === 2 && (
+                                                    /* Two applicants layout - position 1 and 2 */
+                                                    <>
+                                                        {/* First applicant */}
+                                                        <div className="applicant-card top-applicant-card" style={{ flex: '1' }}>
+                                                            <div className="rank-number-container">
+                                                                <div className="rank-number">
+                                                                    <span className="rank-circle">1</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-info">
+                                                                    <h4>{renderApplicantID(applicants[0])}</h4>
+                                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(applicants[0]))}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-status-actions-2">
+                                                                    <span className={`status-badge ${applicants[0].status || 'new'}`}>
+                                                                        {applicants[0].status || 'new'}
+                                                                    </span>
+                                                                    <div className="rank-score-container">
+                                                                        <span className="rank-score-label">Score: </span>
+                                                                        <span className="rank-score-value">
+                                                                            {applicants[0].rank_score && applicants[0].rank_score.final_score
+                                                                                ? applicants[0].rank_score.final_score.toFixed(2)
+                                                                                : "N/A"}
+                                                                        </span>
+                                                                    </div>
+                                                                    <button
+                                                                        className="view-profile-button"
+                                                                        onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${applicants[0].candidateId}`)}
+                                                                    >
+                                                                        Full Profile
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Second applicant */}
+                                                        <div className="applicant-card top-applicant-card" style={{ flex: '1' }}>
+                                                            <div className="rank-number-container">
+                                                                <div className="rank-number">
+                                                                    <span className="rank-circle">2</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-info">
+                                                                    <h4>{renderApplicantID(applicants[1])}</h4>
+                                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(applicants[1]))}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-status-actions-2">
+                                                                    <span className={`status-badge ${applicants[1].status || 'new'}`}>
+                                                                        {applicants[1].status || 'new'}
+                                                                    </span>
+                                                                    <div className="rank-score-container">
+                                                                        <span className="rank-score-label">Score: </span>
+                                                                        <span className="rank-score-value">
+                                                                            {applicants[1].rank_score && applicants[1].rank_score.final_score
+                                                                                ? applicants[1].rank_score.final_score.toFixed(2)
+                                                                                : "N/A"}
+                                                                        </span>
+                                                                    </div>
+                                                                    <button
+                                                                        className="view-profile-button"
+                                                                        onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${applicants[1].candidateId}`)}
+                                                                    >
+                                                                        Full Profile
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                )}
+
+                                                {applicants.length >= 3 && (
+                                                    /* Three or more applicants - show top 3 */
+                                                    <>
+                                                        {/* First applicant - displayed first */}
+                                                        <div className="applicant-card top-applicant-card">
+                                                            <div className="rank-number-container">
+                                                                <div className="rank-number">
+                                                                    <span className="rank-circle">1</span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-info">
+                                                                    <h4>{renderApplicantID(applicants[0])}</h4>
+                                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(applicants[0]))}</p>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-status-actions-2">
+                                                                    <span className={`status-badge ${applicants[0].status || 'new'}`}>
+                                                                        {applicants[0].status || 'new'}
+                                                                    </span>
+                                                                    <div className="rank-score-container">
+                                                                        <span className="rank-score-label">Score: </span>
+                                                                        <span className="rank-score-value">
+                                                                            {applicants[0].rank_score && applicants[0].rank_score.final_score
+                                                                                ? applicants[0].rank_score.final_score.toFixed(2)
+                                                                                : "N/A"}
+                                                                        </span>
+                                                                    </div>
+                                                                    <button
+                                                                        className="view-profile-button"
+                                                                        onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${applicants[0].candidateId}`)}
+                                                                    >
+                                                                        Full Profile
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Second applicant - displayed second */}
+                                                        <div className="applicant-card top-applicant-card">
+                                                            <div className="rank-number-container">
+                                                                <div className="rank-number">
+                                                                    <span className="rank-circle">2</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-info">
+                                                                    <h4>{renderApplicantID(applicants[1])}</h4>
+                                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(applicants[1]))}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-status-actions-2">
+                                                                    <span className={`status-badge ${applicants[1].status || 'new'}`}>
+                                                                        {applicants[1].status || 'new'}
+                                                                    </span>
+                                                                    <div className="rank-score-container">
+                                                                        <span className="rank-score-label">Score: </span>
+                                                                        <span className="rank-score-value">
+                                                                            {applicants[1].rank_score && applicants[1].rank_score.final_score
+                                                                                ? applicants[1].rank_score.final_score.toFixed(2)
+                                                                                : "N/A"}
+                                                                        </span>
+                                                                    </div>
+                                                                    <button
+                                                                        className="view-profile-button"
+                                                                        onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${applicants[1].candidateId}`)}
+                                                                    >
+                                                                        Full Profile
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Third applicant - displayed last */}
+                                                        <div className="applicant-card top-applicant-card">
+                                                            <div className="rank-number-container">
+                                                                <div className="rank-number">
+                                                                    <span className="rank-circle">3</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-info">
+                                                                    <h4>{renderApplicantID(applicants[2])}</h4>
+                                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(applicants[2]))}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-status-actions-2">
+                                                                    <span className={`status-badge ${applicants[2].status || 'new'}`}>
+                                                                        {applicants[2].status || 'new'}
+                                                                    </span>
+                                                                    <div className="rank-score-container">
+                                                                        <span className="rank-score-label">Score: </span>
+                                                                        <span className="rank-score-value">
+                                                                            {applicants[2].rank_score && applicants[2].rank_score.final_score
+                                                                                ? applicants[2].rank_score.final_score.toFixed(2)
+                                                                                : "N/A"}
+                                                                        </span>
+                                                                    </div>
+                                                                    <button
+                                                                        className="view-profile-button"
+                                                                        onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${applicants[2].candidateId}`)}
+                                                                    >
+                                                                        Full Profile
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {/* Remaining applicants - displayed in a list with simpler rank numbers */}
+                                    {applicants.slice(3).map((applicant, index) => (
+                                        <div key={applicant.candidateId || index} className="applicant-card">
+                                            <div className="applicant-rank-info">
+                                                <div className="rank-number">
+                                                    <span className="rank-circle">{index + 4}</span>
+                                                </div>
+                                                <div className="applicant-info">
+                                                    <h4>{renderApplicantID(applicant)}</h4>
+                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(applicant))}</p>
+                                                </div>
                                             </div>
 
                                             <div className="applicant-status-actions">
