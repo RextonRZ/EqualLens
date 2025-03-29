@@ -438,85 +438,100 @@ export default function Dashboard() {
 
     // Handle upload complete event
     const handleUploadComplete = async (count) => {
-        // Close the upload CV modal first
-        setShowUploadCVModal(false);
+        try {
+            // Close the upload CV modal first
+            setShowUploadCVModal(false);
 
-        // Set loading view
-        setRankDetailLoading(true);
+            // Set loading view only if there are new CVs uploaded
+            if (count > 0) {
+                // Always show the loading screen during uploads - important for all processing
+                setRankDetailLoading(true);
+                setModalMessage(`Processing ${count} new CV${count !== 1 ? 's' : ''}...`);
 
-        // Refresh applicants data when upload is complete
-        if (selectedJob && count > 0) {
+                // Update job and applicants list
+                await fetchJob(selectedJob.jobId);
+                await fetchApplicants(selectedJob.jobId);
 
-            // Update job and applicants list
-            fetchJob(selectedJob.jobId);
-            fetchApplicants(selectedJob.jobId);
+                // Check if the job has ranking criteria set up
+                const hasRankingSetup = selectedJob.rank_weight !== null && 
+                                       selectedJob.prompt && 
+                                       selectedJob.prompt.trim() !== "";
 
-            handleUnscoredApplicants();
+                // Only do the ranking if there's a ranking setup
+                if (hasRankingSetup) {
+                    const unscoredApplicants = await fetchUnscoredApplicants(selectedJob.jobId);
+                    
+                    // Only process ranking if there are unscored applicants
+                    if (unscoredApplicants && unscoredApplicants.length > 0) {
+                        setModalMessage(`Ranking ${unscoredApplicants.length} new candidate${unscoredApplicants.length !== 1 ? 's' : ''}...`);
+                        
+                        // Score the new applicants
+                        const scoredApplicants = await scoreApplicants(unscoredApplicants);
+                        
+                        // Update candidate rankings if available
+                        if (scoredApplicants && scoredApplicants.applicants && scoredApplicants.applicants.length > 0) {
+                            const updatePromises = scoredApplicants.applicants.map(applicant => {
+                                if (applicant.candidateId) {
+                                    return fetch(`http://localhost:8000/api/candidates/candidate/${applicant.candidateId}`, {
+                                        method: 'PUT',
+                                        headers: {
+                                            'Content-Type': 'application/json'
+                                        },
+                                        body: JSON.stringify({
+                                            ...applicant,
+                                            rank_score: applicant.rank_score,
+                                            reasoning: applicant.reasoning,
+                                            job_id: selectedJob.jobId
+                                        })
+                                    });
+                                }
+                                return Promise.resolve();
+                            });
+                            
+                            // Wait for all updates to complete
+                            await Promise.all(updatePromises);
+                        }
+                        
+                        // Fetch the updated applicants list with new rankings
+                        await fetchApplicants(selectedJob.jobId);
+                    }
+                }
 
-            // Update the local job object with the new application count
-            const updatedJob = {
-                ...selectedJob,
-                applicationCount: (selectedJob.applicationCount || 0) + count
-            };
+                // Update the local job object with the new application count
+                const updatedJob = {
+                    ...selectedJob,
+                    applicationCount: (selectedJob.applicationCount || 0) + count
+                };
 
-            // Update the job in both selectedJob and jobs array
-            setSelectedJob(updatedJob);
-            setJobs(prevJobs => prevJobs.map(job =>
-                job.jobId === updatedJob.jobId ? updatedJob : job
-            ));
+                // Update the job in both selectedJob and jobs array
+                setSelectedJob(updatedJob);
+                setJobs(prevJobs => prevJobs.map(job =>
+                    job.jobId === updatedJob.jobId ? updatedJob : job
+                ));
 
+                // Show success message
+                const successMessage = hasRankingSetup
+                    ? `${count} new CV${count !== 1 ? 's' : ''} uploaded and ranked successfully.`
+                    : `${count} new CV${count !== 1 ? 's' : ''} uploaded successfully.`;
+                
+                setModalMessage(successMessage);
+                setShowSuccessModal(true);
+            }
+        } catch (error) {
+            console.error("Error processing uploaded CVs:", error);
+            setModalMessage(`Error processing new CVs: ${error.message}`);
+            setShowErrorModal(true);
+        } finally {
             // Set loading state to false
             setRankDetailLoading(false);
-
-            // Show success message
-            setModalMessage(`${count} new CV${count !== 1 ? 's' : ''} uploaded successfully.`);
-
-            // Use setTimeout to ensure modal appears after the upload modal is closed
-            setTimeout(() => {
-                setShowSuccessModal(true);
-            }, 300);
         }
     };
 
     // Handle scoring applicants when they are not scored but others are
     const handleUnscoredApplicants = async () => {
-        if (selectedJob.rank_weight !== null && selectedJob.prompt !== "" && selectedJob.prompt !== null) {
-            // Filter out the new applicants from the existing list
-            // New applicants are those without rank_score or with an empty rank_score
-            const unscoredApplicants = await fetchUnscoredApplicants(selectedJob.jobId);
-
-            // Only proceed if there are new applicants to rank
-            if (unscoredApplicants.length > 0) {
-                // Parse applicant results
-                const scoredApplicants = await scoreApplicants(unscoredApplicants);
-
-                // Update candidate rankings if available
-                if (scoredApplicants.applicants && scoredApplicants.applicants.length > 0) {
-                    for (const applicant of scoredApplicants.applicants) {
-                        if (applicant.candidateId) {
-                            await fetch(`http://localhost:8000/api/candidates/candidate/${applicant.candidateId}`, {
-                                method: 'PUT',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                    ...applicant,
-                                    rank_score: applicant.rank_score,
-                                    reasoning: applicant.reasoning,
-                                    job_id: selectedJob.jobId
-                                })
-                            });
-                        }
-                    }
-                }
-
-                fetchApplicants(selectedJob.jobId);
-            } else {
-                console.log("No new applicants to rank");
-                return; // Skip the rest of the function if no new applicants
-            }
-        }
-    }
+        // This function is now handled directly within handleUploadComplete
+        // We'll keep it for backward compatibility and other use cases
+    };
 
     // Handle Rank Applicants button click
     const handleRankApplicants = () => {
@@ -917,6 +932,17 @@ export default function Dashboard() {
         console.log("After removing skill:", editedJob.requiredSkills); // Debug logging
     };
 
+    // Add a new function to handle interview questions navigation
+    const handleInterviewQuestionsClick = () => {
+        setJobDetailLoading(true);
+        setModalMessage("Loading interview questions...");
+        
+        // Small timeout to ensure loading state is visible
+        setTimeout(() => {
+            window.location.href = `/add-interview-questions?jobId=${selectedJob.jobId}`;
+        }, 100);
+    };
+
     if (isLoading) {
         return (
             <div className="dashboard-container" style={{
@@ -946,7 +972,9 @@ export default function Dashboard() {
             }}>
                 <div className="loading-indicator" style={{ textAlign: 'center' }}>
                     <LoadingAnimation />
-                    <p style={{ marginTop: '20px' }}>{"Loading job details..."}</p>
+                    <p style={{ marginTop: '20px', fontSize: '1.1rem', fontWeight: '500' }}>
+                        {modalMessage || "Loading job details..."}
+                    </p>
                 </div>
             </div>
         );
@@ -964,7 +992,12 @@ export default function Dashboard() {
             }}>
                 <div className="loading-indicator" style={{ textAlign: 'center' }}>
                     <LoadingAnimation />
-                    <p style={{ marginTop: '20px' }}>{"Processing scores..."}</p>
+                    <p style={{ marginTop: '20px', fontSize: '1.1rem', fontWeight: '500' }}>
+                        {modalMessage || "Processing candidates..."}
+                    </p>
+                    <p style={{ marginTop: '10px', fontSize: '0.9rem', color: '#666' }}>
+                        This may take a moment as we analyze and rank the new candidates
+                    </p>
                 </div>
             </div>
         );
@@ -1135,7 +1168,7 @@ export default function Dashboard() {
                                 {!isEditing && (
                                     <button
                                         className="interview-questions-button"
-                                        onClick={() => window.location.href = `/add-interview-questions?jobId=${selectedJob.jobId}`}
+                                        onClick={handleInterviewQuestionsClick}
                                     >
                                         Interview Questions
                                     </button>
