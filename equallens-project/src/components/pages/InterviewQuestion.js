@@ -27,10 +27,16 @@ function InterviewQuestions() {
     const [error, setError] = useState(null);
     const [sectionTitle, setSectionTitle] = useState('');
 
+    // Reading timer state - new addition
+    const [readingTimeRemaining, setReadingTimeRemaining] = useState(20); // 20 seconds to read
+    const [isReading, setIsReading] = useState(true);
+    const readingTimerIntervalRef = useRef(null);
+
     // Timer state
     const [timeRemaining, setTimeRemaining] = useState(0);
     const [timerActive, setTimerActive] = useState(false);
     const [maxTimeLimit, setMaxTimeLimit] = useState(0);
+    const [totalElapsedTime, setTotalElapsedTime] = useState(0); // Track total elapsed time - new addition
     const timerIntervalRef = useRef(null);
 
     // Recording state
@@ -39,6 +45,7 @@ function InterviewQuestions() {
     const [uploading, setUploading] = useState(false);
     const [videoBlob, setVideoBlob] = useState(null);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [hasRecordedOnce, setHasRecordedOnce] = useState(false); // Track if user has recorded at all - new addition
 
     // Media recorder refs
     const mediaRecorderRef = useRef(null);
@@ -86,6 +93,10 @@ function InterviewQuestions() {
                 setTimeRemaining(initialTimeLimit);
                 setMaxTimeLimit(initialTimeLimit);
 
+                // Start the reading timer
+                setIsReading(true);
+                setReadingTimeRemaining(20);
+
             } catch (error) {
                 console.error("Error fetching questions:", error);
                 setError(error.message);
@@ -105,6 +116,10 @@ function InterviewQuestions() {
             if (timerIntervalRef.current) {
                 clearInterval(timerIntervalRef.current);
             }
+
+            if (readingTimerIntervalRef.current) {
+                clearInterval(readingTimerIntervalRef.current);
+            }
         };
     }, [interviewId, linkCode]);
 
@@ -112,9 +127,42 @@ function InterviewQuestions() {
     useEffect(() => {
         if (questions.length > 0 && currentQuestionIndex < questions.length) {
             setSectionTitle(questions[currentQuestionIndex].sectionTitle);
+
+            // Reset state for new question
+            setIsReading(true);
+            setReadingTimeRemaining(20);
+            setTotalElapsedTime(0);
+            setHasRecordedOnce(false);
+
+            // Set timer for new question using its original time limit
+            const newTimeLimit = questions[currentQuestionIndex].timeLimit;
+            setTimeRemaining(newTimeLimit);
+            setMaxTimeLimit(newTimeLimit);
         }
     }, [currentQuestionIndex, questions]);
 
+    // Reading timer effect
+    useEffect(() => {
+        // Only start reading timer if we're in reading mode
+        if (isReading && readingTimeRemaining > 0) {
+            readingTimerIntervalRef.current = setInterval(() => {
+                setReadingTimeRemaining(prev => {
+                    if (prev <= 1) {
+                        clearInterval(readingTimerIntervalRef.current);
+                        setIsReading(false);
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+        }
+
+        return () => {
+            if (readingTimerIntervalRef.current) {
+                clearInterval(readingTimerIntervalRef.current);
+            }
+        };
+    }, [isReading, readingTimeRemaining]);
 
     // Setup media recorder when needed
     const setupMediaRecorder = async () => {
@@ -135,8 +183,7 @@ function InterviewQuestions() {
             // Display preview
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
-                // Preview is mirrored with CSS for natural view
-                videoRef.current.style.transform = "scaleX(-1)";
+                // No longer setting transform style here
             }
 
             // Create media recorder
@@ -160,8 +207,7 @@ function InterviewQuestions() {
                     videoRef.current.srcObject = null;
                     videoRef.current.src = videoURL;
                     videoRef.current.controls = true;
-                    // Playback is not mirrored to show the correct orientation
-                    videoRef.current.style.transform = "none";
+                    // No longer setting transform style here
                 }
 
                 setRecorded(true);
@@ -176,7 +222,7 @@ function InterviewQuestions() {
         }
     };
 
-    // Timer effect
+    // Timer effect - modified to account for elapsed time
     useEffect(() => {
         if (timerActive && timeRemaining > 0) {
             timerIntervalRef.current = setInterval(() => {
@@ -188,6 +234,10 @@ function InterviewQuestions() {
                     }
                     return prev - 1;
                 });
+
+                // Update total elapsed time
+                setTotalElapsedTime(prev => prev + 1);
+
             }, 1000);
         }
 
@@ -199,10 +249,19 @@ function InterviewQuestions() {
     }, [timerActive]);
 
     const startRecording = async () => {
-        // Reset recording state
-        chunksRef.current = [];
+        // If this is the first recording for this question, reset chunks
+        // Otherwise, keep existing chunks for continuous recording
+        if (!hasRecordedOnce) {
+            chunksRef.current = [];
+            setHasRecordedOnce(true);
+        }
+
         setRecorded(false);
-        setTimeRemaining(maxTimeLimit)
+
+        // Don't reset time if already recorded once
+        if (!hasRecordedOnce) {
+            setTimeRemaining(maxTimeLimit);
+        }
 
         // Setup media recorder if not already done
         const success = await setupMediaRecorder();
@@ -228,10 +287,8 @@ function InterviewQuestions() {
             streamRef.current.getTracks().forEach(track => track.stop());
         }
 
-        // Mark question as completed
+        // Mark recording as paused but not reset
         setRecording(false);
-        setRecorded(false);
-        chunksRef.current = [];
     };
 
     const uploadRecording = async () => {
@@ -328,11 +385,6 @@ function InterviewQuestions() {
         if (currentQuestionIndex < questions.length - 1) {
             // Move to next question
             setCurrentQuestionIndex(prev => prev + 1);
-
-            // Set timer for next question using its original time limit
-            const nextTimeLimit = questions[currentQuestionIndex + 1].timeLimit;
-            setTimeRemaining(nextTimeLimit);
-            setMaxTimeLimit(nextTimeLimit);
         } else {
             // All questions completed
             completeInterview();
@@ -553,6 +605,45 @@ function InterviewQuestions() {
                 </div>
             )}
 
+            {/* Reading Timer - New addition */}
+            {isReading && (
+                <div style={{
+                    backgroundColor: '#fff8e1',
+                    padding: '15px',
+                    borderRadius: '8px',
+                    marginBottom: '20px',
+                    borderLeft: '4px solid #ff9800',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                }}>
+                    <div>
+                        <h3 style={{ color: '#e65100', marginBottom: '5px', fontSize: '16px' }}>
+                            Reading Time
+                        </h3>
+                        <p style={{ color: '#795548', margin: 0, fontSize: '14px' }}>
+                            Take a moment to understand the question before recording.
+                        </p>
+                    </div>
+                    <div style={{
+                        backgroundColor: '#ff9800',
+                        color: 'white',
+                        borderRadius: '20px',
+                        padding: '5px 15px',
+                        fontSize: '18px',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center'
+                    }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '5px' }}>
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        {readingTimeRemaining}s
+                    </div>
+                </div>
+            )}
+
             {/* Question */}
             <div style={{
                 backgroundColor: '#f9f9f9',
@@ -584,7 +675,7 @@ function InterviewQuestions() {
                         color: timerActive ? '#f57c00' : '#666',
                         fontWeight: timerActive ? 'bold' : 'normal'
                     }}>
-                        Time limit: {formatTime(timeRemaining)}
+                        Time limit: {formatTime(timeRemaining)} {hasRecordedOnce && !isReading ? `(${formatTime(maxTimeLimit - totalElapsedTime)} total remaining)` : ''}
                     </span>
                 </div>
             </div>
@@ -605,21 +696,31 @@ function InterviewQuestions() {
                     overflow: 'hidden',
                     marginBottom: '20px'
                 }}>
-                    <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted={!recorded} // Only mute during recording preview
-                        style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            // CSS transform is applied to video display via JavaScript instead of here
-                        }}
-                    />
+                    {/* Apply the mirror effect to a wrapper div rather than the video element */}
+                    <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        transform: recording && !recorded ? 'scaleX(-1)' : 'none'
+                    }}>
+                        <video
+                            ref={videoRef}
+                            autoPlay
+                            playsInline
+                            muted={!recorded} // Only mute during recording preview
+                            style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover'
+                                // No transform applied here anymore
+                            }}
+                        />
+                    </div>
 
                     {recording && (
                         <div style={{
@@ -631,7 +732,8 @@ function InterviewQuestions() {
                             padding: '5px 10px',
                             borderRadius: '4px',
                             display: 'flex',
-                            alignItems: 'center'
+                            alignItems: 'center',
+                            zIndex: 10 // Ensure this is above the video
                         }}>
                             <span style={{
                                 display: 'inline-block',
@@ -644,12 +746,12 @@ function InterviewQuestions() {
                             }} />
                             <span>Recording... {formatTime(timeRemaining)}</span>
                             <style>{`
-                                @keyframes pulse {
-                                    0% { opacity: 1; }
-                                    50% { opacity: 0.5; }
-                                    100% { opacity: 1; }
-                                }
-                            `}</style>
+                    @keyframes pulse {
+                        0% { opacity: 1; }
+                        50% { opacity: 0.5; }
+                        100% { opacity: 1; }
+                    }
+                `}</style>
                         </div>
                     )}
 
@@ -690,6 +792,41 @@ function InterviewQuestions() {
                             </div>
                         </div>
                     )}
+
+                    {/* Display Reading Timer Overlay on video */}
+                    {isReading && (
+                        <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            backgroundColor: 'rgba(255, 193, 7, 0.4)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            color: 'white'
+                        }}>
+                            <div style={{
+                                backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                                padding: '20px',
+                                borderRadius: '8px',
+                                textAlign: 'center',
+                                maxWidth: '80%'
+                            }}>
+                                <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '22px' }}>
+                                    Reading Time: {readingTimeRemaining}s
+                                </h3>
+                                <p style={{ color: 'white', fontSize: '16px' }}>
+                                    Please take a moment to understand the question before recording.
+                                </p>
+                                <p style={{ color: 'white', fontSize: '14px', marginTop: '10px', opacity: 0.8 }}>
+                                    Recording will be available when the timer reaches zero.
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div style={{
@@ -698,7 +835,7 @@ function InterviewQuestions() {
                     gap: '15px',
                     marginTop: '20px'
                 }}>
-                    {!recording && !recorded && !completed && (
+                    {!isReading && !recording && !recorded && !completed && (
                         <button
                             onClick={startRecording}
                             style={{
@@ -711,14 +848,47 @@ function InterviewQuestions() {
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '8px'
+                                gap: '8px',
+                                opacity: hasRecordedOnce && totalElapsedTime >= maxTimeLimit ? 0.5 : 1,
+                                pointerEvents: hasRecordedOnce && totalElapsedTime >= maxTimeLimit ? 'none' : 'auto'
                             }}
+                            disabled={hasRecordedOnce && totalElapsedTime >= maxTimeLimit}
                         >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <circle cx="12" cy="12" r="10"></circle>
                                 <circle cx="12" cy="12" r="3"></circle>
                             </svg>
-                            Start Recording
+                            {hasRecordedOnce ? "Continue Recording" : "Start Recording"}
+                            {hasRecordedOnce && (
+                                <span style={{ marginLeft: '5px', fontSize: '14px' }}>
+                                    ({formatTime(maxTimeLimit - totalElapsedTime)} left)
+                                </span>
+                            )}
+                        </button>
+                    )}
+
+                    {isReading && (
+                        <button
+                            style={{
+                                backgroundColor: '#9e9e9e',
+                                color: 'white',
+                                border: 'none',
+                                padding: '12px 30px',
+                                borderRadius: '4px',
+                                fontSize: '16px',
+                                cursor: 'not-allowed',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                opacity: 0.7
+                            }}
+                            disabled={true}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            Reading Question... ({readingTimeRemaining}s)
                         </button>
                     )}
 
@@ -758,10 +928,13 @@ function InterviewQuestions() {
                                     padding: '12px 20px',
                                     borderRadius: '4px',
                                     fontSize: '16px',
-                                    cursor: 'pointer'
+                                    cursor: 'pointer',
+                                    opacity: totalElapsedTime >= maxTimeLimit ? 0.5 : 1,
+                                    pointerEvents: totalElapsedTime >= maxTimeLimit ? 'none' : 'auto'
                                 }}
+                                disabled={totalElapsedTime >= maxTimeLimit}
                             >
-                                Record Again
+                                {totalElapsedTime >= maxTimeLimit ? "No time remaining" : "Record Again"}
                             </button>
 
                             <button
@@ -812,6 +985,68 @@ function InterviewQuestions() {
                 </div>
             </div>
 
+            {/* Time Used Indicator - New Addition */}
+            {hasRecordedOnce && !isReading && (
+                <div style={{
+                    backgroundColor: '#e0f7fa',
+                    padding: '15px',
+                    borderRadius: '8px',
+                    marginBottom: '20px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }}>
+                    <div style={{ flex: 1 }}>
+                        <h3 style={{ margin: 0, fontSize: '16px', color: '#00838f' }}>
+                            Recording Time
+                        </h3>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            marginTop: '10px',
+                            justifyContent: 'space-between',
+                            width: '100%'
+                        }}>
+                            <span style={{ color: '#00838f', fontSize: '14px' }}>
+                                0s
+                            </span>
+                            <span style={{ color: '#00838f', fontSize: '14px' }}>
+                                {formatTime(maxTimeLimit)}
+                            </span>
+                        </div>
+                        <div style={{
+                            width: '100%',
+                            height: '8px',
+                            backgroundColor: '#b2ebf2',
+                            borderRadius: '4px',
+                            marginBottom: '5px',
+                            overflow: 'hidden'
+                        }}>
+                            <div style={{
+                                height: '100%',
+                                width: `${(totalElapsedTime / maxTimeLimit) * 100}%`,
+                                backgroundColor: totalElapsedTime >= maxTimeLimit ? '#f44336' : '#00acc1',
+                                borderRadius: '4px'
+                            }} />
+                        </div>
+                    </div>
+                    <div style={{
+                        marginLeft: '20px',
+                        backgroundColor: totalElapsedTime >= maxTimeLimit ? '#ffebee' : '#e0f7fa',
+                        padding: '8px 15px',
+                        borderRadius: '20px',
+                        color: totalElapsedTime >= maxTimeLimit ? '#d32f2f' : '#00838f',
+                        fontWeight: 'bold',
+                        fontSize: '16px'
+                    }}>
+                        {totalElapsedTime >= maxTimeLimit ?
+                            "Time's up!" :
+                            `${formatTime(totalElapsedTime)} used of ${formatTime(maxTimeLimit)}`
+                        }
+                    </div>
+                </div>
+            )}
+
             {/* Instructions */}
             <div style={{
                 backgroundColor: '#f9f9f9',
@@ -820,9 +1055,11 @@ function InterviewQuestions() {
             }}>
                 <h3 style={{ color: '#333', marginBottom: '15px', fontSize: '18px' }}>Instructions:</h3>
                 <ul style={{ color: '#555', paddingLeft: '20px', lineHeight: '1.5' }}>
+                    <li>You have 20 seconds to read and understand the question</li>
                     <li>Click "Start Recording" when you're ready to answer</li>
                     <li>You have {formatTime(getCurrentQuestion().timeLimit)} to respond</li>
                     <li>Recording will automatically stop when time is up</li>
+                    <li>Your total recording time is limited to {formatTime(maxTimeLimit)}</li>
                     <li>Review your recording before submitting</li>
                     <li>When you're satisfied with your answer, click "Submit Response"</li>
                 </ul>
