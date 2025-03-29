@@ -312,7 +312,7 @@ const AddInterviewQuestions = () => {
                     timeLimit: 60,
                     isCompulsory: true,
                     isAIModified: false,  // Explicitly set to false
-                    originalText: null    // Set to null to mark as a brand new question
+                    originalText: null    // Set to null to indicate it's a brand new question
                 }],
                 randomSettings: {
                     enabled: false,
@@ -388,10 +388,10 @@ const AddInterviewQuestions = () => {
         const updatedSections = [...sections];
         const newQuestion = { 
             text: "", 
-            timeLimit: 150,
+            timeLimit: 60,  // Change default to 60 seconds
             isCompulsory: true,
             isAIModified: false,
-            originalText: null // Set to null explicitly for new questions
+            originalText: null  // Set to null to indicate it's a brand new question
         };
 
         updatedSections[sectionIndex].questions.push(newQuestion);
@@ -402,37 +402,26 @@ const AddInterviewQuestions = () => {
         const updatedSections = [...sections];
         const question = updatedSections[sectionIndex].questions[questionIndex];
         
-        // For newly created questions, don't mark as modified
+        // Brand new question (originalText is null)
         if (question.originalText === null) {
+            // Don't set any modified flags for brand new questions
             question.text = value;
+            // We'll set originalText when saving, not during editing
             setSections(updatedSections);
             return;
         }
         
-        if (question.isAIGenerated) {
-            if (!question.originalText && !question.isAIModified) {
-                question.originalText = question.text;
-            }
-            
-            if (question.originalText && value === question.originalText) {
-                question.isAIModified = false;
-            } else if (question.text !== value) {
-                question.isAIModified = true;
-            }
-        } else {
-            if (!question.originalText) {
-                question.originalText = question.text;
-            }
-            if (question.originalText === null || question.originalText === undefined) {
-                question.isAIModified = false;
-            } else if (question.originalText && value === question.originalText) {
-                question.isAIModified = false;
-            } else if (question.text !== value) {
-                question.isAIModified = true;
-            }
+        // Store original text if this is first edit
+        if (!question.originalText) {
+            question.originalText = question.text;
         }
         
+        // Update the text value
         question.text = value;
+        
+        // Now determine if the question should be marked as modified by checking ALL properties
+        updateModificationStatus(question);
+        
         setSections(updatedSections);
     };
     
@@ -441,33 +430,26 @@ const AddInterviewQuestions = () => {
         const timeLimit = Math.max(1, parseInt(value) || 0);
         const question = updatedSections[sectionIndex].questions[questionIndex];
         
-        if (question.isAIGenerated && !question.originalTimeLimit && !question.isAIModified) {
+        // For brand new questions, just update the value without modification flags
+        if (question.originalText === null) {
+            question.timeLimit = timeLimit;
+            setSections(updatedSections);
+            return;
+        }
+        
+        // First time changing time limit, store the original value
+        if (question.isAIGenerated && !question.originalTimeLimit) {
             question.originalTimeLimit = question.timeLimit;
-        } else {
-            if (!question.originalTimeLimit) {
-                question.originalTimeLimit = question.timeLimit;
-            }
-            if (question.originalTimeLimit && timeLimit === question.originalTimeLimit) {
-                question.isAIModified = false;
-            } else if (question.timeLimit !== timeLimit) {
-                question.isAIModified = true;
-            }
+        } else if (!question.originalTimeLimit) {
+            question.originalTimeLimit = question.timeLimit;
         }
         
-        if (question.isAIGenerated) {
-            if (question.originalTimeLimit && timeLimit === question.originalTimeLimit) {
-                const isTextOriginal = !question.originalText || question.text === question.originalText;
-                const isCompulsoryOriginal = !question.hasOwnProperty('originalCompulsory') || question.isCompulsory === question.originalCompulsory;
-                
-                if (isTextOriginal && isCompulsoryOriginal) {
-                    question.isAIModified = false;
-                }
-            } else if (question.timeLimit !== timeLimit) {
-                question.isAIModified = true;
-            }
-        }
-        
+        // Update the time limit value
         question.timeLimit = timeLimit;
+        
+        // Now determine if the question should be marked as modified by checking ALL properties
+        updateModificationStatus(question);
+        
         setSections(updatedSections);
     };
 
@@ -475,41 +457,32 @@ const AddInterviewQuestions = () => {
         const updatedSections = [...sections];
         const question = updatedSections[sectionIndex].questions[questionIndex];
         
-        if (question.isAIGenerated && !question.hasOwnProperty('originalCompulsory') && !question.isAIModified) {
-            question.originalCompulsory = question.isCompulsory;
+        // For brand new questions, just update without modification flags
+        if (question.originalText === null) {
+            question.isCompulsory = isCompulsory;
         } else {
+            // First time changing compulsory, store the original value
             if (!question.hasOwnProperty('originalCompulsory')) {
                 question.originalCompulsory = question.isCompulsory;
             }
-            if (question.hasOwnProperty('originalCompulsory') && isCompulsory === question.originalCompulsory) {
-                question.isAIModified = false;
-            } else if (question.isCompulsory !== isCompulsory) {
-                question.isAIModified = true;
-            }
+            
+            // Update the compulsory value
+            question.isCompulsory = isCompulsory;
+            
+            // Now determine if the question should be marked as modified
+            updateModificationStatus(question);
         }
         
-        if (question.isAIGenerated) {
-            if (question.hasOwnProperty('originalCompulsory') && isCompulsory === question.originalCompulsory) {
-                const isTextOriginal = !question.originalText || question.text === question.originalText;
-                const isTimeOriginal = !question.originalTimeLimit || question.timeLimit === question.originalTimeLimit;
-                
-                if (isTextOriginal && isTimeOriginal) {
-                    question.isAIModified = false;
-                }
-            } else if (question.isCompulsory !== isCompulsory) {
-                question.isAIModified = true;
-            }
-        }
-        
-        question.isCompulsory = isCompulsory;
-        
+        // Count non-compulsory questions after the change
         const nonCompulsoryCount = updatedSections[sectionIndex].questions.filter(q => !q.isCompulsory).length;
         
+        // Auto-disable random selection if we have fewer than 2 non-compulsory questions
         if (isCompulsory && nonCompulsoryCount < 2 && updatedSections[sectionIndex].randomSettings.enabled) {
             updatedSections[sectionIndex].randomSettings.enabled = false;
         }
         
-        if (!isCompulsory && nonCompulsoryCount >= 2 && !updatedSections[sectionIndex].randomSettings.enabled) {
+        // Auto-enable random selection if we have 2+ non-compulsory questions
+        if (!isCompulsory && nonCompulsoryCount >= 2) {
             updatedSections[sectionIndex].randomSettings.enabled = true;
             const maxAllowed = Math.max(1, nonCompulsoryCount - 1);
             const defaultCount = Math.min(Math.floor(nonCompulsoryCount / 2), maxAllowed);
@@ -519,6 +492,41 @@ const AddInterviewQuestions = () => {
         setSections(updatedSections);
     };
     
+    const updateModificationStatus = (question) => {
+        // Skip for brand new questions
+        if (question.originalText === null) return;
+        
+        if (question.isAIGenerated) {
+            // For AI-generated questions, always compare with the original AI text
+            // We never update originalText for AI questions, only check if current text matches it
+            const textMatches = question.text === question.originalText;
+            const timeLimitMatches = !question.originalTimeLimit || question.timeLimit === question.originalTimeLimit;
+            const compulsoryMatches = !question.hasOwnProperty('originalCompulsory') || 
+                                      question.isCompulsory === question.originalCompulsory;
+            
+            // Modified if ANY property doesn't match original AI values
+            question.isAIModified = !(textMatches && timeLimitMatches && compulsoryMatches);
+        } else {
+            // For regular questions
+            // Check if text matches original (if we have an original)
+            const textMatches = !question.originalText || question.text === question.originalText;
+            
+            // Check if time limit matches original (if we have an original)
+            const timeLimitMatches = !question.originalTimeLimit || question.timeLimit === question.originalTimeLimit;
+            
+            // Check if compulsory matches original (if we have an original)
+            const compulsoryMatches = !question.hasOwnProperty('originalCompulsory') || 
+                                      question.isCompulsory === question.originalCompulsory;
+            
+            // Only if ALL properties match their originals, the question is unmodified
+            if (textMatches && timeLimitMatches && compulsoryMatches) {
+                question.isAIModified = false;
+            } else {
+                question.isAIModified = true;
+            }
+        }
+    };
+
     const handleSectionRandomSettingsChange = (sectionIndex, enabled) => {
         const updatedSections = [...sections];
         const nonCompulsoryCount = updatedSections[sectionIndex].questions.filter(q => !q.isCompulsory).length;
@@ -626,6 +634,19 @@ const AddInterviewQuestions = () => {
                 }
             }
             
+            // Check for non-compulsory questions without random selection
+            const nonCompulsoryCount = section.questions.filter(q => !q.isCompulsory).length;
+            
+            if (nonCompulsoryCount > 0 && !section.randomSettings.enabled) {
+                // If we have any non-compulsory questions but random selection is not enabled
+                setErrorMessage(
+                    `The "${section.title}" section has ${nonCompulsoryCount} non-compulsory question${nonCompulsoryCount === 1 ? '' : 's'}, 
+                    but random selection is not enabled. Either make all questions compulsory or enable random selection.`
+                );
+                setShowErrorModal(true);
+                return false;
+            }
+            
             if (section.randomSettings.enabled) {
                 const nonCompulsoryCount = section.questions.filter(q => !q.isCompulsory).length;
                 const selectedCount = section.randomSettings.count;
@@ -643,16 +664,6 @@ const AddInterviewQuestions = () => {
                 if (selectedCount <= 0 || selectedCount > maxAllowed) {
                     setErrorMessage(
                         `In "${section.title}" section, you can select between 1 and ${maxAllowed} random questions.`
-                    );
-                    setShowErrorModal(true);
-                    return false;
-                }
-            } else {
-                const nonCompulsoryCount = section.questions.filter(q => !q.isCompulsory).length;
-                if (nonCompulsoryCount === 1) {
-                    setErrorMessage(
-                        `The "${section.title}" section has exactly 1 non-compulsory question. 
-                        Either make all questions compulsory or make at least one more question non-compulsory and enable random selection.`
                     );
                     setShowErrorModal(true);
                     return false;
@@ -786,13 +797,40 @@ const AddInterviewQuestions = () => {
                 ...section,
                 sectionId: section.sectionId || `sect-${Date.now()}`, // Generate sectionId if missing
                 questions: section.questions.map(question => {
-                    const processedQuestion = {
-                        ...question,
-                        questionId: question.questionId || `ques-${Date.now()}`, // Generate questionId if missing
-                    };
+                    const processedQuestion = { ...question };
                     
-                    if (processedQuestion.isAIGenerated && processedQuestion.isAIModified) {
-                        processedQuestion.isAIModified = true;
+                    // For new questions (originalText is null), set the original values to the current values
+                    if (processedQuestion.originalText === null) {
+                        processedQuestion.originalText = processedQuestion.text;
+                        processedQuestion.originalTimeLimit = processedQuestion.timeLimit;
+                        processedQuestion.originalCompulsory = processedQuestion.isCompulsory;
+                        processedQuestion.isAIModified = false;
+                    }
+                    
+                    // Ensure all questions have all three original properties tracked
+                    if (!processedQuestion.hasOwnProperty('originalTimeLimit')) {
+                        processedQuestion.originalTimeLimit = processedQuestion.timeLimit;
+                    }
+                    
+                    if (!processedQuestion.hasOwnProperty('originalCompulsory')) {
+                        processedQuestion.originalCompulsory = processedQuestion.isCompulsory;
+                    }
+                    
+                    // For AI-generated questions, check modification status but preserve original text
+                    if (processedQuestion.isAIGenerated) {
+                        // Never change the original AI values, only check if current text matches them
+                        const textMatches = processedQuestion.text === processedQuestion.originalText;
+                        const timeLimitMatches = !processedQuestion.originalTimeLimit || 
+                                               processedQuestion.timeLimit === processedQuestion.originalTimeLimit;
+                        const compulsoryMatches = !processedQuestion.hasOwnProperty('originalCompulsory') || 
+                                                processedQuestion.isCompulsory === processedQuestion.originalCompulsory;
+                        
+                        processedQuestion.isAIModified = !(textMatches && timeLimitMatches && compulsoryMatches);
+                    }
+                    
+                    // Add questionId if missing
+                    if (!processedQuestion.questionId) {
+                        processedQuestion.questionId = `ques-${Date.now()}`;
                     }
                     
                     return processedQuestion;
@@ -841,8 +879,19 @@ const AddInterviewQuestions = () => {
                 console.log("Questions saved successfully:", saveResponse.data);
                 setChangesSaved(true); // Mark changes as saved after successful save
                 
-                const sectionsCopy = JSON.parse(JSON.stringify(sections));
-                setInitialSections(sectionsCopy);
+                // Create a deep copy with all properties preserved, especially isAIModified flags
+                const deepCopy = JSON.parse(JSON.stringify(sections));
+                
+                // Ensure all questions have appropriate originalText values for change detection
+                deepCopy.forEach(section => {
+                    section.questions.forEach(question => {
+                        if (!question.originalText) {
+                            question.originalText = question.text;
+                        }
+                    });
+                });
+                
+                setInitialSections(deepCopy);
                 
                 if (aiGeneratedUnsaved) {
                     setAiGenerateUsedMap(prev => ({
@@ -852,9 +901,11 @@ const AddInterviewQuestions = () => {
                     setAiGeneratedUnsaved(false);
                 }
                 
+                setShowSuccessModal(true); // Show success modal
+                
                 if (selectedApplicant !== "all") {
                     try {
-                        setLoadingOperation("Generating Interview Questions");
+                        console.log("Silently generating actual questions in the background...");
                         
                         const genResponse = await axios.post(
                             `http://localhost:8000/api/interview-questions/generate-actual-questions/${selectedApplicant}`
@@ -869,8 +920,6 @@ const AddInterviewQuestions = () => {
                         console.error("Error generating actual questions after saving:", genError);
                     }
                 }
-                
-                setShowSuccessModal(true); // Show success modal
             } else {
                 console.error("Unexpected response status:", saveResponse.status);
                 setErrorMessage("Failed to save questions. Please try again.");
@@ -1116,6 +1165,16 @@ const AddInterviewQuestions = () => {
                 setSections([]);
                 setChangesSaved(true);
                 
+                // Reset AI generation flag for this candidate after successful deletion
+                setAiGenerateUsedMap(prev => {
+                    const newMap = {...prev};
+                    delete newMap[selectedApplicant]; // Remove this candidate from the map to enable AI generation again
+                    return newMap;
+                });
+                
+                // Reset any unsaved AI generated content flag
+                setAiGeneratedUnsaved(false);
+                
                 setShowResetSuccessModal(true);
             } else {
                 throw new Error("Unexpected response status");
@@ -1165,9 +1224,55 @@ const AddInterviewQuestions = () => {
                 <div className="status-buttons">
                     <button 
                         className="status-button primary-button" 
-                        onClick={() => {
-                            setInitialSections(JSON.parse(JSON.stringify(sections)));
+                        onClick={async () => {
                             setShowSuccessModal(false);
+                            
+                            // After saving, we need to fetch the updated data from the database
+                            // to ensure we have the correct modification status
+                            if (selectedApplicant && selectedApplicant !== "all") {
+                                try {
+                                    setIsLoading(true);
+                                    setLoadingOperation("Refreshing");
+                                    
+                                    // Fetch the latest data from the server
+                                    const response = await axios.get(
+                                        `http://localhost:8000/api/interview-questions/question-set/${selectedApplicant}`
+                                    );
+                                    
+                                    if (response.data) {
+                                        // Process sections to ensure correct flags
+                                        const updatedSections = response.data.sections.map(section => ({
+                                            ...section,
+                                            questions: section.questions.map(question => {
+                                                // Make sure all questions have the proper properties
+                                                return {
+                                                    ...question,
+                                                    // Explicitly handle AI modification status
+                                                    isAIModified: question.isAIGenerated 
+                                                        ? (question.text !== question.originalText || 
+                                                           question.timeLimit !== question.originalTimeLimit ||
+                                                           question.isCompulsory !== question.originalCompulsory)
+                                                        : false // Regular questions reset to unmodified after save
+                                                };
+                                            })
+                                        }));
+                                        
+                                        setSections(updatedSections);
+                                        
+                                        // This is crucial - update initialSections with the latest state
+                                        // so change detection works correctly
+                                        setInitialSections(JSON.parse(JSON.stringify(updatedSections)));
+                                        
+                                        // Reset change tracking
+                                        setChangesSaved(true);
+                                    }
+                                } catch (error) {
+                                    console.error("Error refreshing question data:", error);
+                                } finally {
+                                    setIsLoading(false);
+                                }
+                            }
+                            
                             if (selectedApplicant === "all") {
                                 setSelectedApplicant("");
                             }
@@ -1372,7 +1477,18 @@ const AddInterviewQuestions = () => {
                 <div className="status-buttons">
                     <button 
                         className="status-button primary-button" 
-                        onClick={() => setShowResetSuccessModal(false)}
+                        onClick={() => {
+                            setShowResetSuccessModal(false);
+                            // Ensure the AI generation map is updated by fetching fresh data
+                            if (selectedApplicant) {
+                                // Explicitly mark this candidate as not having used AI generation yet
+                                setAiGenerateUsedMap(prev => {
+                                    const newMap = {...prev};
+                                    delete newMap[selectedApplicant];
+                                    return newMap;
+                                });
+                            }
+                        }}
                     >
                         Continue
                     </button>
@@ -1411,6 +1527,13 @@ const AddInterviewQuestions = () => {
                         } else {
                             resetUI(true);
                             setChangesSaved(true);
+                            // Reset AI generation status for this candidate
+                            setAiGenerateUsedMap(prev => {
+                                const newMap = {...prev};
+                                delete newMap[selectedApplicant];
+                                return newMap;
+                            });
+                            setAiGeneratedUnsaved(false);
                             setShowResetSuccessModal(true);
                         }
                     }}>
@@ -1538,6 +1661,57 @@ const AddInterviewQuestions = () => {
         }
     };
 
+    const handleAIGenerateQuestion = async (sectionIndex) => {
+        if (!selectedApplicant || selectedApplicant === "all") {
+            setErrorMessage("Please select a specific applicant to generate questions for.");
+            setShowErrorModal(true);
+            return;
+        }
+        
+        setGeneratingQuestionForSection(sectionIndex);
+        
+        try {
+            const jobId = queryParams.get('jobId');
+            const sectionTitle = sections[sectionIndex].title;
+            
+            const response = await axios.post(
+                `http://localhost:8000/api/candidates/generate-interview-question`,
+                {
+                    candidateId: selectedApplicant,
+                    jobId: jobId,
+                    sectionTitle: sectionTitle
+                }
+            );
+            
+            if (response.status === 200) {
+                const generatedQuestion = response.data.question;
+                const updatedSections = [...sections];
+                
+                // Add the AI question with proper flags and original values
+                updatedSections[sectionIndex].questions.push({
+                    ...generatedQuestion,
+                    isAIGenerated: true,
+                    isAIModified: false,
+                    // Store original values so we can detect modifications
+                    originalText: generatedQuestion.text,
+                    originalTimeLimit: generatedQuestion.timeLimit,
+                    originalCompulsory: generatedQuestion.isCompulsory || true
+                });
+                
+                setSections(updatedSections);
+            } else {
+                throw new Error("Failed to generate question. Please try again.");
+            }
+        } catch (error) {
+            console.error("Error generating question:", error);
+            const errorMsg = error.response?.data?.detail || error.message || "An error occurred while generating the question.";
+            setErrorMessage(errorMsg);
+            setShowErrorModal(true);
+        } finally {
+            setGeneratingQuestionForSection(null);
+        }
+    };
+
     if (isNavigatingBack || isLoading) {
         return (
             <div style={{ 
@@ -1558,7 +1732,6 @@ const AddInterviewQuestions = () => {
                     <LoadingAnimation />
                     <p style={{ marginTop: '20px', color: '#4b5563', fontWeight: '500' }}>
                         {isNavigatingBack ? "Returning to Job Details..." : 
-                         loadingOperation === "Generating" ? "Generating Interview Questions Set..." :
                          `${loadingOperation} Interview Questions...`}
                     </p>
                 </div>
@@ -1597,50 +1770,6 @@ const AddInterviewQuestions = () => {
             </div>
         </div>
     );
-
-    const handleAIGenerateQuestion = async (sectionIndex) => {
-        if (!selectedApplicant || selectedApplicant === "all") {
-            setErrorMessage("Please select a specific applicant to generate questions for.");
-            setShowErrorModal(true);
-            return;
-        }
-        
-        setGeneratingQuestionForSection(sectionIndex);
-        
-        try {
-            const jobId = queryParams.get('jobId');
-            const sectionTitle = sections[sectionIndex].title;
-            
-            const response = await axios.post(
-                `http://localhost:8000/api/candidates/generate-interview-question`,
-                {
-                    candidateId: selectedApplicant,
-                    jobId: jobId,
-                    sectionTitle: sectionTitle
-                }
-            );
-            
-            if (response.status === 200) {
-                const generatedQuestion = response.data.question;
-                const updatedSections = [...sections];
-                updatedSections[sectionIndex].questions.push({
-                    ...generatedQuestion,
-                    isAIGenerated: true,
-                    isAIModified: false
-                });
-                setSections(updatedSections);
-            } else {
-                throw new Error("Failed to generate question. Please try again.");
-            }
-        } catch (error) {
-            console.error("Error generating question:", error);
-            const errorMsg = error.response?.data?.detail || error.message || "An error occurred while generating the question.";
-            setErrorMessage(errorMsg);
-            setShowErrorModal(true);
-        } finally {
-            setGeneratingQuestionForSection(null);
-        }
-    };
 
     return (
         <div className="add-interview-questions-container">
@@ -1846,14 +1975,20 @@ const AddInterviewQuestions = () => {
                                 
                                 <div className="section-random-settings">
                                     <div className="random-toggle">
-                                        <label className="random-label">
+                                        <label className={`random-label ${section.questions.filter(q => !q.isCompulsory).length >= 2 ? 'auto-enabled' : ''}`}>
                                             <input
                                                 type="checkbox"
-                                                checked={section.randomSettings.enabled}
+                                                checked={section.randomSettings.enabled || section.questions.filter(q => !q.isCompulsory).length >= 2}
                                                 onChange={(e) => handleSectionRandomSettingsChange(sectionIndex, e.target.checked)}
                                                 className="random-checkbox"
+                                                disabled={section.questions.filter(q => !q.isCompulsory).length >= 2}
                                             />
-                                            <span>Enable random question selection</span>
+                                            <span>
+                                                {section.questions.filter(q => !q.isCompulsory).length >= 2 
+                                                    ? "Random question selection enabled automatically" 
+                                                    : "Enable random question selection"
+                                                }
+                                            </span>
                                         </label>
                                         
                                         {section.questions.filter(q => !q.isCompulsory).length < 2 && (
@@ -1916,10 +2051,10 @@ const AddInterviewQuestions = () => {
                                                         
                                                         {question.isAIGenerated && (
                                                             <span className={`ai-badge ${question.isAIModified ? 'ai-modified' : ''}`}>
-                                                                {question.isAIModified ? 'AI Generated (Modified)' : 'AI Generated'}
+                                                                {question.isAIModified ? 'AI Generated (Edited)' : 'AI Generated'}
                                                             </span>
                                                         )}
-                                                        {!question.isAIGenerated && question.isAIModified && question.originalText && (
+                                                        {!question.isAIGenerated && question.isAIModified && (
                                                             <span className={`ai-badge ai-modified`}>
                                                                 Modified
                                                             </span>
