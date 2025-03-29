@@ -1,0 +1,195 @@
+.hero-container {
+    height: 100vh;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+}
+
+video {
+    object-fit: cover;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: -1;
+    display: block; /* Ensure it displays as a block element */
+    object-position: 70% center; /* Move focus to right where the eye is */
+}
+
+.hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        135deg, 
+        rgba(210, 45, 60, 0.85) 0%, 
+        rgba(249, 100, 95, 0.7) 40%,
+        rgba(249, 100, 95, 0.3) 70%,
+        rgba(249, 100, 95, 0.2) 100%
+    );
+    z-index: 0;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 1400px;
+    display: flex;
+    justify-content: flex-start;
+    padding: 0 20px;
+}
+
+.left-content {
+    width: 50%;
+    max-width: 600px;
+    text-align: left;
+    animation: fadeIn 1.2s ease-in-out;
+    margin-left: 5%;
+}
+
+.left-content h1 {
+    color: #fff;
+    font-size: 60px;
+    font-weight: 800;
+    margin-bottom: 30px;
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+    line-height: 1.1;
+}
+
+.left-content p {
+    color: #fff;
+    font-size: 24px;
+    font-weight: 400;
+    line-height: 1.5;
+    margin-bottom: 40px;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.hero-btns {
+    display: flex;
+    gap: 20px;
+    justify-content: flex-start; /* Changed from center to flex-start for left alignment */
+}
+
+.btn--large {
+    padding: 14px 32px;
+    font-size: 18px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+}
+
+.btn--primary {
+    background-color: rgb(210, 45, 60);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 8px rgba(210, 45, 60, 0.3);
+}
+
+.btn--primary:hover {
+    background-color: rgb(180, 35, 50);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(210, 45, 60, 0.4);
+}
+
+.btn--outline {
+    background-color: transparent;
+    color: white; /* Changed from rgb(210, 45, 60) to white */
+    border: 2px solid white; /* Changed from rgb(210, 45, 60) to white */
+}
+
+.btn--outline:hover {
+    background-color: rgba(255, 255, 255, 0.2); /* Changed for a subtle hover effect */
+    color: white; /* Keep white on hover */
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); /* Adjusted shadow color */
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media screen and (max-width: 1200px) {
+    .left-content {
+        width: 60%;
+    }
+}
+
+@media screen and (max-width: 960px) {
+    .left-content {
+        width: 80%;
+        margin-left: 0;
+    }
+    
+    .left-content h1 {
+        font-size: 48px;
+    }
+    
+    .left-content p {
+        font-size: 20px;
+    }
+    
+    video {
+        object-position: 80% center; /* Adjust for smaller screens */
+    }
+}
+
+@media screen and (max-width: 768px) {
+    .hero-content {
+        justify-content: center;
+    }
+    
+    .left-content {
+        width: 100%;
+        text-align: center;
+        padding: 0 15px;
+    }
+    
+    .left-content h1 {
+        font-size: 42px;
+    }
+    
+    .left-content p {
+        font-size: 18px;
+    }
+    
+    .hero-btns {
+        justify-content: center; /* Keep center alignment on mobile for better appearance */
+    }
+    
+    .btn--large {
+        padding: 12px 24px;
+        font-size: 16px;
+        width: 100%;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .left-content h1 {
+        font-size: 32px;
+    }
+    
+    .left-content p {
+        font-size: 16px;
+        margin-bottom: 30px;
+    }
+    
+    video {
+        object-position: 85% center; /* Further adjust for mobile */
+    }
+}
