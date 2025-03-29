@@ -88,10 +88,10 @@
 
 /* Button styling for SIGN UP button */
 .btn--primary {
-    background-color: #fff;
-    color: rgb(232, 72, 85);
+    background-color: transparent; /* Changed from #fff to transparent */
+    color: #5e0505; /* Changed from rgb(232, 72, 85) to #fff */
     padding: 8px 20px;
-    border: 2px solid #fff;
+    border: 2px solid #750000;
     transition: all 0.3s ease-out;
     border-radius: 4px;
     font-weight: bold;
@@ -100,8 +100,8 @@
 }
 
 .btn--primary:hover {
-    background: rgba(255, 255, 255, 0.9);
-    color: rgb(220, 53, 69);
+    background: rgba(255, 255, 255, 0.2); /* Adjusted for subtle hover effect */
+    color: #fff; /* Keep white text on hover */
     transition: all 0.3s ease;
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
