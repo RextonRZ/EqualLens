@@ -4,7 +4,6 @@ import Navbar from './components/Navbar';
 import Home from './components/pages/Home';
 import UploadCV from './components/pages/UploadCV';
 import SignUp from './components/pages/SignUp';
-import InterviewLinkGenerator from './components/pages/InterviewLinkGenerator';
 import InterviewReview from './components/pages/InterviewReview';
 import Dashboard from './components/pages/Dashboard';
 import AddInterviewQuestions from "./components/pages/AddInterviewQuestions";
@@ -25,7 +24,6 @@ function App() {
         <Route path="/sign-up" element={<SignUp />} />
 
         {/* HR routes */}
-        <Route path="/interview-generator" element={<InterviewLinkGenerator />} />
         <Route path="/interview-review/:interviewId" element={<InterviewReview />} />
 
         {/* Candidate interview routes */}

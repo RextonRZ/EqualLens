@@ -4,6 +4,17 @@ from datetime import datetime, timedelta
 from firebase_admin import firestore
 import uuid
 import logging
+import subprocess
+import os
+import io
+import tempfile
+from concurrent.futures import ThreadPoolExecutor
+import base64
+import speech_recognition as sr
+from moviepy import VideoFileClip
+import nltk
+from nltk.tokenize import word_tokenize
+from concurrent.futures import ThreadPoolExecutor
 from models.interview import (
     InterviewQuestion, GenerateInterviewLinkRequest, InterviewLinkResponse, 
     IdentityVerificationRequest, IdentityVerificationResponse, 
@@ -11,7 +22,7 @@ from models.interview import (
 )
 from services.interview_service import (
     get_db, get_storage, validate_interview_link, 
-    send_interview_email, generate_link_code, send_rejection_email
+    send_interview_email, generate_link_code, send_rejection_email, transcribe_audio_with_google_cloud, extract_audio_with_ffmpeg, apply_voice_effect
 )
 from services.face_verification import process_verification_image
 from firebase_admin import firestore
@@ -481,6 +492,11 @@ async def submit_interview_response(
     storage_bucket = Depends(get_storage)
 ):
     """Submit a video response for an interview question"""
+    nltk.download('punkt', quiet=True)
+    temp_video_file_path = None
+    temp_audio_file_path = None
+    temp_modified_audio_path = None  # Added for voice modification
+
     try:
         # Validate interview link
         interview_data = validate_interview_link(request.interviewId, request.linkCode)
@@ -488,76 +504,151 @@ async def submit_interview_response(
         # Get application ID
         application_id = interview_data.get('applicationId')
         
-        # Generate response ID
-        response_id = str(uuid.uuid4())
+        # Check if document already exists for this application
+        interview_doc_ref = db.collection('interviewResponses').document(application_id)
+        interview_doc = interview_doc_ref.get()
+        
+        # Generate response ID for this question
+        question_response_id = str(uuid.uuid4())
+
+        # Default return values
+        video_url = None
+        audio_extract_url = None
+        modified_audio_url = None
+        transcript = None
+        word_count = 0
+        confidence = 0.0
         
         # If video data is provided directly in the request
         if request.videoResponse:
-            # Remove data URL prefix if present
-            if ',' in request.videoResponse:
-                video_data = request.videoResponse.split(',')[1]
-            else:
-                video_data = request.videoResponse
-            
-            import base64
-            video_bytes = base64.b64decode(video_data)
-            
-            # Upload video to Firebase Storage
-            video_storage_path = f"interview_responses/{application_id}/{request.interviewId}/{request.questionId}.webm"
-            video_blob = storage_bucket.blob(video_storage_path)
-            video_blob.upload_from_string(video_bytes, content_type="video/webm")
-            video_blob.make_public()
-            
-            # Get public URL
-            video_url = video_blob.public_url
-            
-            # Process the video to extract audio and create transcript
-            # This would be implemented in a real system, perhaps using a background job
-            # For now, we'll just create placeholders
-            audio_extract_url = None
-            modified_audio_url = None
-            transcript = None
-            
-            # In a production system, you would:
-            # 1. Extract audio from video
-            # 2. Process audio for clearer speech
-            # 3. Generate transcript using Speech-to-Text
-            
-            # For demo purposes, we'll skip these steps
-        else:
-            # If frontend uploads directly to Firebase, the URL would be provided later
-            video_url = None
-            audio_extract_url = None
-            modified_audio_url = None
-            transcript = None
+            try:
+                # Remove data URL prefix if present
+                if ',' in request.videoResponse:
+                    video_data = request.videoResponse.split(',')[1]
+                else:
+                    video_data = request.videoResponse
+                
+                # Decode base64 video data
+                video_bytes = base64.b64decode(video_data)
+
+                # Create a temporary file to process video
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_video_file:
+                    temp_video_file.write(video_bytes)
+                    temp_video_file_path = temp_video_file.name
+                
+                # Upload video to Firebase Storage
+                video_storage_path = f"interview_responses/{application_id}/{request.interviewId}/{request.questionId}.webm"
+                video_blob = storage_bucket.blob(video_storage_path)
+                video_blob.upload_from_string(video_bytes, content_type="video/webm")
+                video_blob.make_public()
+                
+                # Get public URL
+                video_url = video_blob.public_url
+
+                # Process the video to extract audio and create transcript
+                try:
+                    # Create temporary audio file path
+                    temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix="_audio.wav")
+                    temp_audio_file_path = temp_audio_file.name
+                    temp_audio_file.close()
+
+                    # Use FFmpeg for audio extraction
+                    extract_audio_with_ffmpeg(temp_video_file_path, temp_audio_file_path)
+                    
+                    if os.path.exists(temp_audio_file_path):
+                        # Upload extracted audio to Firebase Storage
+                        audio_storage_path = f"interview_responses/{application_id}/{request.interviewId}/{question_response_id}_audio.wav"
+                        audio_blob = storage_bucket.blob(audio_storage_path)
+                        audio_blob.upload_from_filename(temp_audio_file_path, content_type="audio/wav")
+                        audio_blob.make_public()
+                        audio_extract_url = audio_blob.public_url
+
+                        # Create temporary file for modified audio with voice effect
+                        temp_modified_file = tempfile.NamedTemporaryFile(delete=False, suffix="_modified.wav")
+                        temp_modified_audio_path = temp_modified_file.name
+                        temp_modified_file.close()
+                        
+                        # Apply voice effect to the extracted audio
+                        apply_voice_effect(
+                            temp_audio_file_path, 
+                            effect_type="helium", 
+                            output_audio_path=temp_modified_audio_path
+                        )
+                        
+                        # Upload modified audio to Firebase Storage
+                        modified_audio_storage_path = f"interview_responses/{application_id}/{request.interviewId}/{question_response_id}_modified_audio.wav"
+                        modified_audio_blob = storage_bucket.blob(modified_audio_storage_path)
+                        modified_audio_blob.upload_from_filename(temp_modified_audio_path, content_type="audio/wav")
+                        modified_audio_blob.make_public()
+                        modified_audio_url = modified_audio_blob.public_url
+
+                        # Transcribe audio using Google Cloud Speech-to-Text
+                        transcription_result = transcribe_audio_with_google_cloud(temp_audio_file_path)
+                
+                        transcript = transcription_result['transcript']
+                        confidence = transcription_result['confidence']
+                        
+                        if transcript:
+                            word_count = len(word_tokenize(transcript))
+                    else:
+                        logger.error("Audio extraction failed: File not found")
+                        transcript = "Audio extraction failed"
+
+                except Exception as transcription_error:
+                    logger.error(f"Transcription error: {str(transcription_error)}")
+                    transcript = f"Transcription failed: {str(transcription_error)}"
+                    word_count = 0
+                    confidence = 0.0
+            except Exception as video_error:
+                logger.error(f"Video processing error: {str(video_error)}")
+                transcript = f"Video processing failed: {str(video_error)}"
         
-        # Create interview response document matching the database structure
-        response_data = {
-            'responseId': response_id,
-            'applicationId': application_id,
+        # Create the question response object
+        question_response = {
             'questionId': request.questionId,
+            'responseId': question_response_id,
+            'submitTime': datetime.utcnow(),
+            'transcript': transcript,
+            'wordCount': word_count,
             'videoResponseUrl': video_url,
             'audioExtractUrl': audio_extract_url,
             'modifiedAudioUrl': modified_audio_url,
-            'transcript': transcript,
-            'submitTime': datetime.utcnow(),
-            'analysis': {
-                'clarity': None,
-                'confidence': None,
-                'relevance': None,
-                'totalScore': None,
-                'feedback': None
-            }
+            'AIFeedback': None
         }
         
-        # Save to Firestore
-        db.collection('interviewResponses').document(response_id).set(response_data)
+        # If the document doesn't exist yet, create it
+        if not interview_doc.exists:
+            # Initialize document with the first question
+            interview_response_data = {
+                'applicationId': application_id,
+                'analysis': {
+                    'clarity': None,
+                    'confidence': confidence,
+                    'relevance': None,
+                    'totalScore': None,
+                    'feedback': None
+                },
+                'questions': [question_response],
+                'createdAt': datetime.utcnow(),
+                'updatedAt': datetime.utcnow()
+            }
+            
+            # Save new document to Firestore
+            interview_doc_ref.set(interview_response_data)
+        else:
+            # Update the existing document by appending the new question
+            interview_doc_ref.update({
+                'questions': firestore.ArrayUnion([question_response]),
+                'updatedAt': datetime.utcnow()
+            })
         
         # Return response
         return InterviewResponseResponse(
             success=True,
-            responseId=response_id,
-            message="Response recorded successfully"
+            responseId=question_response_id,
+            message="Response recorded successfully",
+            transcript=transcript,
+            word_count=word_count,
         )
     
     except HTTPException:
@@ -566,6 +657,15 @@ async def submit_interview_response(
     except Exception as e:
         logger.error("Error submitting interview response: %s", str(e))
         raise HTTPException(status_code=500, detail=f"Failed to submit interview response: {str(e)}")
+
+    finally:
+        # Clean up temporary files
+        for temp_file in [temp_video_file_path, temp_audio_file_path, temp_modified_audio_path]:
+            if temp_file and os.path.exists(temp_file):
+                try:
+                    os.unlink(temp_file)
+                except Exception as e:
+                    logger.error(f"Error deleting temporary file {temp_file}: {str(e)}")
 
 @router.post("/complete-interview")
 async def complete_interview(

@@ -47,3 +47,5 @@ class InterviewResponseResponse(BaseModel):
     success: bool
     responseId: str
     message: str = "Response recorded successfully"
+    transcript: Optional[str] = None
+    word_count: Optional[int] = 0

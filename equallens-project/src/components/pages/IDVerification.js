@@ -14,6 +14,43 @@ const LoadingAnimation = () => {
     );
 };
 
+// Custom header for interview pages only
+const InterviewHeader = () => {
+    return (
+        <div style={{
+            background: 'linear-gradient(90deg, rgb(249, 100, 95) 0%, rgb(249, 100, 95) 100%)',
+            height: '80px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            position: 'sticky',
+            top: 0,
+            zIndex: 1000,
+            width: '100%'
+        }}>
+            <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '80px',
+                maxWidth: '1500px',
+                width: '100%'
+            }}>
+                <div style={{
+                    color: '#fff',
+                    fontSize: '2rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    fontWeight: 'bold'
+                }}>
+                    EqualLens Interview
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 function IDVerification() {
     const { interviewId, linkCode } = useParams();
     const navigate = useNavigate();
@@ -33,6 +70,26 @@ function IDVerification() {
     const fileInputRef = useRef(null);
     const videoRef = useRef(null);
     const streamRef = useRef(null);
+
+    // Hide the main navbar when this component is mounted
+    useEffect(() => {
+        // Apply CSS to hide the navbar
+        const style = document.createElement('style');
+        style.innerHTML = `
+            .navbar {
+                display: none !important;
+            }
+            body {
+                padding-top: 0 !important;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Clean up when component unmounts
+        return () => {
+            document.head.removeChild(style);
+        };
+    }, []);
 
     // Validate the interview link on component mount
     useEffect(() => {
@@ -374,212 +431,168 @@ function IDVerification() {
     }
 
     return (
-        <div style={{
-            maxWidth: '800px',
-            margin: '40px auto',
-            padding: '30px',
-            backgroundColor: '#fff',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-        }}>
-            <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-                <h1 style={{ color: '#ef402d', fontSize: '28px', marginBottom: '20px' }}>Identity Verification</h1>
-                {interviewData && (
-                    <p style={{ color: '#666', fontSize: '18px' }}>
-                        For: <span style={{ color: '#ef402d', fontWeight: 'bold' }}>{interviewData.jobTitle}</span>
-                    </p>
-                )}
-            </div>
-
+        <div>
+            <InterviewHeader />
             <div style={{
-                backgroundColor: '#f9f9f9',
-                padding: '20px',
+                maxWidth: '800px',
+                margin: '40px auto',
+                padding: '30px',
+                backgroundColor: '#fff',
                 borderRadius: '8px',
-                marginBottom: '30px'
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
             }}>
-                <h3 style={{ color: '#333', marginBottom: '15px' }}>Instructions:</h3>
-                <ol style={{ paddingLeft: '25px', color: '#555', lineHeight: '1.6' }}>
-                    <li>Take a photo of yourself holding your ID card/passport</li>
-                    <li>Ensure both your face and ID are clearly visible</li>
-                    <li>Make sure the ID text is readable</li>
-                    <li>You can use your camera or upload a pre-taken photo</li>
-                </ol>
-            </div>
-
-            {/* Error message */}
-            {errorMessage && (
-                <div style={{
-                    backgroundColor: '#ffdddd',
-                    color: '#e53935',
-                    padding: '15px',
-                    borderRadius: '8px',
-                    marginBottom: '20px',
-                    textAlign: 'center'
-                }}>
-                    <p style={{ margin: 0 }}>{errorMessage}</p>
+                <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+                    <h1 style={{ color: '#ef402d', fontSize: '28px', marginBottom: '20px' }}>Identity Verification</h1>
+                    {interviewData && (
+                        <p style={{ color: '#666', fontSize: '18px' }}>
+                            For: <span style={{ color: '#ef402d', fontWeight: 'bold' }}>{interviewData.jobTitle}</span>
+                        </p>
+                    )}
                 </div>
-            )}
 
-            <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                marginBottom: '30px'
-            }}>
-                {/* Method selection screen */}
-                {method === 'choose' && !capturedImage && (
+                <div style={{
+                    backgroundColor: '#f9f9f9',
+                    padding: '20px',
+                    borderRadius: '8px',
+                    marginBottom: '30px'
+                }}>
+                    <h3 style={{ color: '#333', marginBottom: '15px' }}>Instructions:</h3>
+                    <ol style={{ paddingLeft: '25px', color: '#555', lineHeight: '1.6' }}>
+                        <li>Take a photo of yourself holding your ID card/passport</li>
+                        <li>Ensure both your face and ID are clearly visible</li>
+                        <li>Make sure the ID text is readable</li>
+                        <li>You can use your camera or upload a pre-taken photo</li>
+                    </ol>
+                </div>
+
+                {/* Error message */}
+                {errorMessage && (
                     <div style={{
-                        width: '100%',
-                        maxWidth: '500px',
-                        padding: '20px',
-                        backgroundColor: '#f5f5f5',
+                        backgroundColor: '#ffdddd',
+                        color: '#e53935',
+                        padding: '15px',
                         borderRadius: '8px',
-                        marginBottom: '20px'
+                        marginBottom: '20px',
+                        textAlign: 'center'
                     }}>
-                        <h3 style={{ textAlign: 'center', marginBottom: '20px' }}>Choose Verification Method</h3>
-                        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-                            <button
-                                onClick={() => selectMethod('camera')}
-                                style={{
-                                    flex: 1,
-                                    backgroundColor: '#ef402d',
-                                    color: 'white',
-                                    border: 'none',
-                                    padding: '30px 15px',
-                                    borderRadius: '8px',
-                                    fontSize: '16px',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    gap: '10px'
-                                }}
-                            >
-                                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                                    <circle cx="12" cy="13" r="4"></circle>
-                                </svg>
-                                Use Camera
-                            </button>
-                            <button
-                                onClick={() => selectMethod('upload')}
-                                style={{
-                                    flex: 1,
-                                    backgroundColor: '#2196f3',
-                                    color: 'white',
-                                    border: 'none',
-                                    padding: '30px 15px',
-                                    borderRadius: '8px',
-                                    fontSize: '16px',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    gap: '10px'
-                                }}
-                            >
-                                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <p style={{ margin: 0 }}>{errorMessage}</p>
+                    </div>
+                )}
+
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    marginBottom: '30px'
+                }}>
+                    {/* Method selection screen */}
+                    {method === 'choose' && !capturedImage && (
+                        <div style={{
+                            width: '100%',
+                            maxWidth: '500px',
+                            padding: '20px',
+                            backgroundColor: '#f5f5f5',
+                            borderRadius: '8px',
+                            marginBottom: '20px'
+                        }}>
+                            <h3 style={{ textAlign: 'center', marginBottom: '20px' }}>Choose Verification Method</h3>
+                            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                                <button
+                                    onClick={() => selectMethod('camera')}
+                                    style={{
+                                        flex: 1,
+                                        backgroundColor: '#ef402d',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '30px 15px',
+                                        borderRadius: '8px',
+                                        fontSize: '16px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '10px'
+                                    }}
+                                >
+                                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                                        <circle cx="12" cy="13" r="4"></circle>
+                                    </svg>
+                                    Use Camera
+                                </button>
+                                <button
+                                    onClick={() => selectMethod('upload')}
+                                    style={{
+                                        flex: 1,
+                                        backgroundColor: '#2196f3',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '30px 15px',
+                                        borderRadius: '8px',
+                                        fontSize: '16px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '10px'
+                                    }}
+                                >
+                                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="17 8 12 3 7 8"></polyline>
+                                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                                    </svg>
+                                    Upload Photo
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* File upload screen */}
+                    {method === 'upload' && !capturedImage && (
+                        <div style={{
+                            width: '100%',
+                            maxWidth: '500px',
+                            textAlign: 'center',
+                            marginBottom: '20px'
+                        }}>
+                            <div style={{
+                                border: '2px dashed #ccc',
+                                borderRadius: '8px',
+                                padding: '40px 20px',
+                                marginBottom: '20px',
+                                backgroundColor: '#f9f9f9'
+                            }}>
+                                <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                     <polyline points="17 8 12 3 7 8"></polyline>
                                     <line x1="12" y1="3" x2="12" y2="15"></line>
                                 </svg>
-                                Upload Photo
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* File upload screen */}
-                {method === 'upload' && !capturedImage && (
-                    <div style={{
-                        width: '100%',
-                        maxWidth: '500px',
-                        textAlign: 'center',
-                        marginBottom: '20px'
-                    }}>
-                        <div style={{
-                            border: '2px dashed #ccc',
-                            borderRadius: '8px',
-                            padding: '40px 20px',
-                            marginBottom: '20px',
-                            backgroundColor: '#f9f9f9'
-                        }}>
-                            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="17 8 12 3 7 8"></polyline>
-                                <line x1="12" y1="3" x2="12" y2="15"></line>
-                            </svg>
-                            <p style={{ color: '#666', marginTop: '15px', marginBottom: '15px' }}>
-                                Upload a photo of yourself holding your ID
-                            </p>
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                accept="image/*"
-                                onChange={handleFileChange}
-                                style={{ display: 'none' }}
-                            />
-                            <button
-                                onClick={() => fileInputRef.current.click()}
-                                style={{
-                                    backgroundColor: '#2196f3',
-                                    color: 'white',
-                                    border: 'none',
-                                    padding: '12px 30px',
-                                    borderRadius: '4px',
-                                    fontSize: '16px',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Select Photo
-                            </button>
-                        </div>
-                        <button
-                            onClick={() => selectMethod('choose')}
-                            style={{
-                                backgroundColor: '#f5f5f5',
-                                color: '#333',
-                                border: 'none',
-                                padding: '10px 20px',
-                                borderRadius: '4px',
-                                fontSize: '14px',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            Back to Methods
-                        </button>
-                    </div>
-                )}
-
-                {/* Camera view */}
-                {method === 'camera' && !capturedImage && (
-                    <div style={{
-                        width: '100%',
-                        maxWidth: '500px',
-                        marginBottom: '20px'
-                    }}>
-                        <div style={{
-                            width: '100%',
-                            borderRadius: '8px',
-                            overflow: 'hidden',
-                            position: 'relative',
-                            backgroundColor: '#000',
-                            marginBottom: '20px',
-                            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)'
-                        }}>
-                            <video
-                                ref={videoRef}
-                                autoPlay
-                                playsInline
-                                muted
-                                style={{
-                                    width: '100%',
-                                    height: 'auto',
-                                    display: 'block'
-                                }}
-                            />
-                        </div>
-                        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                                <p style={{ color: '#666', marginTop: '15px', marginBottom: '15px' }}>
+                                    Upload a photo of yourself holding your ID
+                                </p>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    accept="image/*"
+                                    onChange={handleFileChange}
+                                    style={{ display: 'none' }}
+                                />
+                                <button
+                                    onClick={() => fileInputRef.current.click()}
+                                    style={{
+                                        backgroundColor: '#2196f3',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '12px 30px',
+                                        borderRadius: '4px',
+                                        fontSize: '16px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Select Photo
+                                </button>
+                            </div>
                             <button
                                 onClick={() => selectMethod('choose')}
                                 style={{
@@ -592,133 +605,180 @@ function IDVerification() {
                                     cursor: 'pointer'
                                 }}
                             >
-                                Back
-                            </button>
-                            <button
-                                onClick={capturePhoto}
-                                style={{
-                                    backgroundColor: '#ef402d',
-                                    color: 'white',
-                                    border: 'none',
-                                    padding: '12px 30px',
-                                    borderRadius: '4px',
-                                    fontSize: '16px',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px'
-                                }}
-                            >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <circle cx="12" cy="12" r="3"></circle>
-                                </svg>
-                                Take Photo
+                                Back to Methods
                             </button>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Captured image review */}
-                {capturedImage && (
-                    <div style={{
-                        width: '100%',
-                        maxWidth: '500px',
-                        marginBottom: '20px'
-                    }}>
+                    {/* Camera view */}
+                    {method === 'camera' && !capturedImage && (
                         <div style={{
                             width: '100%',
-                            borderRadius: '8px',
-                            overflow: 'hidden',
-                            marginBottom: '20px',
-                            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)'
+                            maxWidth: '500px',
+                            marginBottom: '20px'
                         }}>
-                            <img
-                                src={capturedImage}
-                                alt="Verification"
-                                style={{
-                                    width: '100%',
-                                    height: 'auto',
-                                    display: 'block'
-                                }}
-                            />
+                            <div style={{
+                                width: '100%',
+                                borderRadius: '8px',
+                                overflow: 'hidden',
+                                position: 'relative',
+                                backgroundColor: '#000',
+                                marginBottom: '20px',
+                                boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)'
+                            }}>
+                                <video
+                                    ref={videoRef}
+                                    autoPlay
+                                    playsInline
+                                    muted
+                                    style={{
+                                        width: '100%',
+                                        height: 'auto',
+                                        display: 'block'
+                                    }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                                <button
+                                    onClick={() => selectMethod('choose')}
+                                    style={{
+                                        backgroundColor: '#f5f5f5',
+                                        color: '#333',
+                                        border: 'none',
+                                        padding: '10px 20px',
+                                        borderRadius: '4px',
+                                        fontSize: '14px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Back
+                                </button>
+                                <button
+                                    onClick={capturePhoto}
+                                    style={{
+                                        backgroundColor: '#ef402d',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '12px 30px',
+                                        borderRadius: '4px',
+                                        fontSize: '16px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px'
+                                    }}
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                    Take Photo
+                                </button>
+                            </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-                            <button
-                                onClick={resetCapture}
-                                style={{
-                                    backgroundColor: '#f5f5f5',
-                                    color: '#333',
-                                    border: 'none',
-                                    padding: '12px 24px',
-                                    borderRadius: '4px',
-                                    fontSize: '16px',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Try Again
-                            </button>
-                            <button
-                                onClick={submitVerification}
-                                disabled={verifying}
-                                style={{
-                                    backgroundColor: '#4caf50',
-                                    color: 'white',
-                                    border: 'none',
-                                    padding: '12px 30px',
-                                    borderRadius: '4px',
-                                    fontSize: '16px',
-                                    cursor: verifying ? 'not-allowed' : 'pointer',
-                                    opacity: verifying ? 0.7 : 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px'
-                                }}
-                            >
-                                {verifying ? (
-                                    <>
-                                        <span style={{
-                                            display: 'inline-block',
-                                            width: '16px',
-                                            height: '16px',
-                                            border: '2px solid rgba(255,255,255,0.3)',
-                                            borderTopColor: 'white',
-                                            borderRadius: '50%',
-                                            animation: 'spin 1s linear infinite'
-                                        }}></span>
-                                        <style>{`
+                    )}
+
+                    {/* Captured image review */}
+                    {capturedImage && (
+                        <div style={{
+                            width: '100%',
+                            maxWidth: '500px',
+                            marginBottom: '20px'
+                        }}>
+                            <div style={{
+                                width: '100%',
+                                borderRadius: '8px',
+                                overflow: 'hidden',
+                                marginBottom: '20px',
+                                boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)'
+                            }}>
+                                <img
+                                    src={capturedImage}
+                                    alt="Verification"
+                                    style={{
+                                        width: '100%',
+                                        height: 'auto',
+                                        display: 'block'
+                                    }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                                <button
+                                    onClick={resetCapture}
+                                    style={{
+                                        backgroundColor: '#f5f5f5',
+                                        color: '#333',
+                                        border: 'none',
+                                        padding: '12px 24px',
+                                        borderRadius: '4px',
+                                        fontSize: '16px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Try Again
+                                </button>
+                                <button
+                                    onClick={submitVerification}
+                                    disabled={verifying}
+                                    style={{
+                                        backgroundColor: '#4caf50',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '12px 30px',
+                                        borderRadius: '4px',
+                                        fontSize: '16px',
+                                        cursor: verifying ? 'not-allowed' : 'pointer',
+                                        opacity: verifying ? 0.7 : 1,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px'
+                                    }}
+                                >
+                                    {verifying ? (
+                                        <>
+                                            <span style={{
+                                                display: 'inline-block',
+                                                width: '16px',
+                                                height: '16px',
+                                                border: '2px solid rgba(255,255,255,0.3)',
+                                                borderTopColor: 'white',
+                                                borderRadius: '50%',
+                                                animation: 'spin 1s linear infinite'
+                                            }}></span>
+                                            <style>{`
                                             @keyframes spin {
                                                 to { transform: rotate(360deg); }
                                             }
                                         `}</style>
-                                        Verifying...
-                                    </>
-                                ) : (
-                                    <>
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                                        </svg>
-                                        Submit for Verification
-                                    </>
-                                )}
-                            </button>
+                                            Verifying...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                            </svg>
+                                            Submit for Verification
+                                        </>
+                                    )}
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                )}
-            </div>
+                    )}
+                </div>
 
-            <div style={{
-                backgroundColor: '#fffbf2',
-                padding: '20px',
-                borderRadius: '8px',
-                borderLeft: '4px solid #f9a825'
-            }}>
-                <h3 style={{ color: '#f9a825', marginBottom: '15px' }}>Privacy Notice:</h3>
-                <p style={{ color: '#555' }}>
-                    Your photo will only be used for identity verification purposes and will be stored securely.
-                    We will not use this image for any other purpose without your explicit consent.
-                </p>
+                <div style={{
+                    backgroundColor: '#fffbf2',
+                    padding: '20px',
+                    borderRadius: '8px',
+                    borderLeft: '4px solid #f9a825'
+                }}>
+                    <h3 style={{ color: '#f9a825', marginBottom: '15px' }}>Privacy Notice:</h3>
+                    <p style={{ color: '#555' }}>
+                        Your photo will only be used for identity verification purposes and will be stored securely.
+                        We will not use this image for any other purpose without your explicit consent.
+                    </p>
+                </div>
             </div>
         </div>
     );

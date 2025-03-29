@@ -14,6 +14,42 @@ const LoadingAnimation = () => {
     );
 };
 
+// Custom header for interview pages only
+const InterviewHeader = () => {
+    return (
+        <div style={{
+            background: 'linear-gradient(90deg, rgb(249, 100, 95) 0%, rgb(249, 100, 95) 100%)',
+            height: '80px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            position: 'sticky',
+            top: 0,
+            zIndex: 1000,
+            width: '100%'
+        }}>
+            <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '80px',
+                maxWidth: '1500px',
+                width: '100%'
+            }}>
+                <div style={{
+                    color: '#fff',
+                    fontSize: '2rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    fontWeight: 'bold'
+                }}>
+                    EqualLens Interview
+                </div>
+            </div>
+        </div>
+    );
+};
+
 function InterviewQuestions() {
     const { interviewId, linkCode } = useParams();
     const navigate = useNavigate();
@@ -46,12 +82,50 @@ function InterviewQuestions() {
     const [videoBlob, setVideoBlob] = useState(null);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [hasRecordedOnce, setHasRecordedOnce] = useState(false); // Track if user has recorded at all - new addition
+    const [shouldAutoStart, setShouldAutoStart] = useState(false);
 
     // Media recorder refs
     const mediaRecorderRef = useRef(null);
     const videoRef = useRef(null);
     const streamRef = useRef(null);
     const chunksRef = useRef([]);
+
+    // Hide the main navbar when this component is mounted
+    useEffect(() => {
+        // Apply CSS to hide the navbar
+        const style = document.createElement('style');
+        style.innerHTML = `
+            .navbar {
+                display: none !important;
+            }
+            body {
+                padding-top: 0 !important;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Clean up when component unmounts
+        return () => {
+            document.head.removeChild(style);
+        };
+    }, []);
+
+    // Block navigation attempts
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (recording || recorded) {
+                const message = "You have unsaved interview responses. Are you sure you want to leave?";
+                e.returnValue = message;
+                return message;
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [recording, recorded]);
 
     // Fetch interview questions on component mount
     useEffect(() => {
@@ -141,7 +215,6 @@ function InterviewQuestions() {
         }
     }, [currentQuestionIndex, questions]);
 
-    // Reading timer effect
     useEffect(() => {
         // Only start reading timer if we're in reading mode
         if (isReading && readingTimeRemaining > 0) {
@@ -150,6 +223,7 @@ function InterviewQuestions() {
                     if (prev <= 1) {
                         clearInterval(readingTimerIntervalRef.current);
                         setIsReading(false);
+                        setShouldAutoStart(true); // Set flag to auto-start recording
                         return 0;
                     }
                     return prev - 1;
@@ -163,6 +237,19 @@ function InterviewQuestions() {
             }
         };
     }, [isReading, readingTimeRemaining]);
+
+    useEffect(() => {
+        if (shouldAutoStart && !isReading && !recording && !recorded &&
+            !(hasRecordedOnce && totalElapsedTime >= maxTimeLimit)) {
+            // Small delay before starting for visual feedback
+            const timer = setTimeout(() => {
+                startRecording();
+                setShouldAutoStart(false);
+            }, 500);
+
+            return () => clearTimeout(timer);
+        }
+    }, [shouldAutoStart, isReading, recording, recorded, hasRecordedOnce, totalElapsedTime, maxTimeLimit]);
 
     // Setup media recorder when needed
     const setupMediaRecorder = async () => {
@@ -376,11 +463,21 @@ function InterviewQuestions() {
             streamRef.current.getTracks().forEach(track => track.stop());
         }
 
+        // Properly reset video element
+        if (videoRef.current) {
+            videoRef.current.srcObject = null;
+            videoRef.current.src = "";
+            videoRef.current.controls = false;
+        }
+
         // Reset state
         setCompleted(false);
         setRecorded(false);
         setUploading(false);
         setUploadProgress(0);
+        setVideoBlob(null); // Clear previous recording
+        setHasRecordedOnce(false); // Reset recording status for new question
+        setShouldAutoStart(false); // Reset auto-start flag
 
         if (currentQuestionIndex < questions.length - 1) {
             // Move to next question
@@ -435,636 +532,632 @@ function InterviewQuestions() {
         return `${Math.round(((currentQuestionIndex) / questions.length) * 100)}%`;
     };
 
-    if (loading) {
-        return (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
-                <LoadingAnimation />
-                <h2 style={{ marginTop: '30px', color: '#333' }}>Loading interview questions...</h2>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div style={{
-                maxWidth: '600px',
-                margin: '40px auto',
-                padding: '30px',
-                textAlign: 'center',
-                backgroundColor: '#fff',
-                borderRadius: '8px',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-            }}>
-                <div style={{
-                    width: '80px',
-                    height: '80px',
-                    backgroundColor: '#ffdddd',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    margin: '0 auto 20px'
-                }}>
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#e53935" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="15" y1="9" x2="9" y2="15"></line>
-                        <line x1="9" y1="9" x2="15" y2="15"></line>
-                    </svg>
-                </div>
-                <h2 style={{ color: '#e53935', marginBottom: '20px' }}>Error</h2>
-                <p style={{ color: '#555', fontSize: '18px', marginBottom: '30px' }}>
-                    {error}
-                </p>
-                <button
-                    onClick={() => window.location.reload()}
-                    style={{
-                        backgroundColor: '#ef402d',
-                        color: 'white',
-                        border: 'none',
-                        padding: '12px 30px',
-                        borderRadius: '4px',
-                        fontSize: '16px',
-                        cursor: 'pointer'
-                    }}
-                >
-                    Try Again
-                </button>
-            </div>
-        );
-    }
-
-    if (interviewComplete) {
-        return (
-            <div style={{
-                maxWidth: '800px',
-                margin: '40px auto',
-                padding: '30px',
-                backgroundColor: '#fff',
-                borderRadius: '8px',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                textAlign: 'center'
-            }}>
-                <div style={{
-                    width: '100px',
-                    height: '100px',
-                    backgroundColor: '#e8f5e9',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    margin: '0 auto 20px'
-                }}>
-                    <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#4caf50" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                    </svg>
-                </div>
-                <h1 style={{ color: '#333', fontSize: '32px', marginBottom: '20px' }}>Interview Complete!</h1>
-                <p style={{ color: '#555', fontSize: '18px', marginBottom: '30px' }}>
-                    Thank you for completing your interview. Your responses have been recorded.
-                </p>
-                <p style={{ color: '#555', fontSize: '16px', marginBottom: '20px' }}>
-                    Our team will review your responses and contact you regarding next steps.
-                </p>
-                <div style={{
-                    padding: '20px',
-                    backgroundColor: '#f5f5f5',
-                    borderRadius: '8px',
-                    marginBottom: '30px'
-                }}>
-                    <h3 style={{ color: '#333', marginBottom: '15px' }}>What happens next?</h3>
-                    <p style={{ color: '#555', marginBottom: '10px' }}>
-                        1. Our hiring team will review your interview responses.
-                    </p>
-                    <p style={{ color: '#555', marginBottom: '10px' }}>
-                        2. You'll receive feedback within 5-7 business days.
-                    </p>
-                    <p style={{ color: '#555' }}>
-                        3. If selected, you'll be invited for the next stage in the interview process.
-                    </p>
-                </div>
-                <p style={{ color: '#777', fontSize: '14px' }}>
-                    If you have any questions, please contact our hiring team at support@equallens.com
-                </p>
-            </div>
-        );
-    }
-
+    // Render the custom interview environment
     return (
-        <div style={{
-            maxWidth: '900px',
-            margin: '40px auto',
-            padding: '30px',
-            backgroundColor: '#fff',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-        }}>
-            {/* Progress bar */}
-            <div style={{ marginBottom: '30px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                    <span style={{ color: '#666', fontSize: '14px' }}>
-                        Question {currentQuestionIndex + 1} of {questions.length}
-                    </span>
-                    <span style={{ color: '#666', fontSize: '14px' }}>
-                        {getProgressPercentage()} Complete
-                    </span>
+        <>
+            {/* Custom header for the interview page that replaces the Navbar */}
+            <InterviewHeader />
+
+            {loading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
+                    <LoadingAnimation />
+                    <h2 style={{ marginTop: '30px', color: '#333' }}>Loading interview questions...</h2>
                 </div>
+            ) : error ? (
                 <div style={{
-                    height: '8px',
-                    backgroundColor: '#f1f1f1',
-                    borderRadius: '4px',
-                    overflow: 'hidden'
+                    maxWidth: '600px',
+                    margin: '40px auto',
+                    padding: '30px',
+                    textAlign: 'center',
+                    backgroundColor: '#fff',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                 }}>
                     <div style={{
-                        height: '100%',
-                        width: getProgressPercentage(),
-                        backgroundColor: '#ef402d',
-                        borderRadius: '4px',
-                        transition: 'width 0.3s ease'
-                    }} />
-                </div>
-            </div>
-
-            {/* Section Title */}
-            {sectionTitle && (
-                <div style={{
-                    backgroundColor: '#e3f2fd',
-                    padding: '15px',
-                    borderRadius: '8px',
-                    marginBottom: '20px',
-                    borderLeft: '4px solid #2196f3'
-                }}>
-                    <h2 style={{
-                        color: '#0d47a1',
-                        margin: 0,
-                        fontSize: '18px',
-                        fontWeight: '500'
+                        width: '80px',
+                        height: '80px',
+                        backgroundColor: '#ffdddd',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        margin: '0 auto 20px'
                     }}>
-                        {sectionTitle}
-                    </h2>
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#e53935" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="15" y1="9" x2="9" y2="15"></line>
+                            <line x1="9" y1="9" x2="15" y2="15"></line>
+                        </svg>
+                    </div>
+                    <h2 style={{ color: '#e53935', marginBottom: '20px' }}>Error</h2>
+                    <p style={{ color: '#555', fontSize: '18px', marginBottom: '30px' }}>
+                        {error}
+                    </p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        style={{
+                            backgroundColor: '#ef402d',
+                            color: 'white',
+                            border: 'none',
+                            padding: '12px 30px',
+                            borderRadius: '4px',
+                            fontSize: '16px',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        Try Again
+                    </button>
                 </div>
-            )}
-
-            {/* Reading Timer - New addition */}
-            {isReading && (
+            ) : interviewComplete ? (
                 <div style={{
-                    backgroundColor: '#fff8e1',
-                    padding: '15px',
+                    maxWidth: '800px',
+                    margin: '40px auto',
+                    padding: '30px',
+                    backgroundColor: '#fff',
                     borderRadius: '8px',
-                    marginBottom: '20px',
-                    borderLeft: '4px solid #ff9800',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                    textAlign: 'center'
                 }}>
-                    <div>
-                        <h3 style={{ color: '#e65100', marginBottom: '5px', fontSize: '16px' }}>
-                            Reading Time
-                        </h3>
-                        <p style={{ color: '#795548', margin: 0, fontSize: '14px' }}>
-                            Take a moment to understand the question before recording.
+                    <div style={{
+                        width: '100px',
+                        height: '100px',
+                        backgroundColor: '#e8f5e9',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        margin: '0 auto 20px'
+                    }}>
+                        <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#4caf50" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                    </div>
+                    <h1 style={{ color: '#333', fontSize: '32px', marginBottom: '20px' }}>Interview Complete!</h1>
+                    <p style={{ color: '#555', fontSize: '18px', marginBottom: '30px' }}>
+                        Thank you for completing your interview. Your responses have been recorded.
+                    </p>
+                    <p style={{ color: '#555', fontSize: '16px', marginBottom: '20px' }}>
+                        Our team will review your responses and contact you regarding next steps.
+                    </p>
+                    <div style={{
+                        padding: '20px',
+                        backgroundColor: '#f5f5f5',
+                        borderRadius: '8px',
+                        marginBottom: '30px'
+                    }}>
+                        <h3 style={{ color: '#333', marginBottom: '15px' }}>What happens next?</h3>
+                        <p style={{ color: '#555', marginBottom: '10px' }}>
+                            1. Our hiring team will review your interview responses.
+                        </p>
+                        <p style={{ color: '#555', marginBottom: '10px' }}>
+                            2. You'll receive feedback within 5-7 business days.
+                        </p>
+                        <p style={{ color: '#555' }}>
+                            3. If selected, you'll be invited for the next stage in the interview process.
                         </p>
                     </div>
-                    <div style={{
-                        backgroundColor: '#ff9800',
-                        color: 'white',
-                        borderRadius: '20px',
-                        padding: '5px 15px',
-                        fontSize: '18px',
-                        fontWeight: 'bold',
-                        display: 'flex',
-                        alignItems: 'center'
-                    }}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '5px' }}>
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <polyline points="12 6 12 12 16 14"></polyline>
-                        </svg>
-                        {readingTimeRemaining}s
-                    </div>
+                    <p style={{ color: '#777', fontSize: '14px' }}>
+                        If you have any questions, please contact our hiring team at support@equallens.com
+                    </p>
                 </div>
-            )}
-
-            {/* Question */}
-            <div style={{
-                backgroundColor: '#f9f9f9',
-                padding: '20px',
-                borderRadius: '8px',
-                marginBottom: '20px'
-            }}>
-                <h2 style={{ color: '#333', marginBottom: '10px', fontSize: '20px' }}>
-                    Question {currentQuestionIndex + 1}:
-                </h2>
-                <p style={{ color: '#333', fontSize: '18px', lineHeight: '1.6' }}>
-                    {getCurrentQuestion().question}
-                </p>
+            ) : (
                 <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    marginTop: '15px',
-                    padding: '8px 15px',
-                    backgroundColor: timerActive ? '#fff8e1' : '#f5f5f5',
-                    borderRadius: '20px',
-                    width: 'fit-content'
-                }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={timerActive ? '#f57c00' : '#666'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <polyline points="12 6 12 12 16 14"></polyline>
-                    </svg>
-                    <span style={{
-                        marginLeft: '5px',
-                        color: timerActive ? '#f57c00' : '#666',
-                        fontWeight: timerActive ? 'bold' : 'normal'
-                    }}>
-                        Time limit: {formatTime(timeRemaining)} {hasRecordedOnce && !isReading ? `(${formatTime(maxTimeLimit - totalElapsedTime)} total remaining)` : ''}
-                    </span>
-                </div>
-            </div>
-
-            {/* Video recording area */}
-            <div style={{
-                padding: '20px',
-                border: '1px solid #eee',
-                borderRadius: '8px',
-                marginBottom: '30px'
-            }}>
-                <div style={{
-                    position: 'relative',
-                    width: '100%',
-                    paddingBottom: '56.25%', /* 16:9 aspect ratio */
-                    backgroundColor: '#000',
+                    maxWidth: '900px',
+                    margin: '40px auto',
+                    padding: '30px',
+                    backgroundColor: '#fff',
                     borderRadius: '8px',
-                    overflow: 'hidden',
-                    marginBottom: '20px'
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                 }}>
-                    {/* Apply the mirror effect to a wrapper div rather than the video element */}
+                    {/* Progress bar */}
+                    <div style={{ marginBottom: '30px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                            <span style={{ color: '#666', fontSize: '14px' }}>
+                                Question {currentQuestionIndex + 1} of {questions.length}
+                            </span>
+                            <span style={{ color: '#666', fontSize: '14px' }}>
+                                {getProgressPercentage()} Complete
+                            </span>
+                        </div>
+                        <div style={{
+                            height: '8px',
+                            backgroundColor: '#f1f1f1',
+                            borderRadius: '4px',
+                            overflow: 'hidden'
+                        }}>
+                            <div style={{
+                                height: '100%',
+                                width: getProgressPercentage(),
+                                backgroundColor: '#ef402d',
+                                borderRadius: '4px',
+                                transition: 'width 0.3s ease'
+                            }} />
+                        </div>
+                    </div>
+
+                    {/* Section Title */}
+                    {sectionTitle && (
+                        <div style={{
+                            backgroundColor: '#e3f2fd',
+                            padding: '15px',
+                            borderRadius: '8px',
+                            marginBottom: '20px',
+                            borderLeft: '4px solid #2196f3'
+                        }}>
+                            <h2 style={{
+                                color: '#0d47a1',
+                                margin: 0,
+                                fontSize: '18px',
+                                fontWeight: '500'
+                            }}>
+                                {sectionTitle}
+                            </h2>
+                        </div>
+                    )}
+
+                    {/* Reading Timer*/}
+                    {isReading && (
+                        <div style={{
+                            backgroundColor: '#fff8e1',
+                            padding: '15px',
+                            borderRadius: '8px',
+                            marginBottom: '20px',
+                            borderLeft: '4px solid #ff9800',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between'
+                        }}>
+                            <div>
+                                <h3 style={{ color: '#e65100', marginBottom: '5px', fontSize: '16px' }}>
+                                    Reading Time
+                                </h3>
+                                <p style={{ color: '#795548', margin: 0, fontSize: '14px' }}>
+                                    Take a moment to understand the question before recording.
+                                </p>
+                            </div>
+                            <div style={{
+                                backgroundColor: '#ff9800',
+                                color: 'white',
+                                borderRadius: '20px',
+                                padding: '5px 15px',
+                                fontSize: '18px',
+                                fontWeight: 'bold',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '5px' }}>
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                                {readingTimeRemaining}s
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Question */}
                     <div style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        transform: recording && !recorded ? 'scaleX(-1)' : 'none'
+                        backgroundColor: '#f9f9f9',
+                        padding: '20px',
+                        borderRadius: '8px',
+                        marginBottom: '20px'
                     }}>
-                        <video
-                            ref={videoRef}
-                            autoPlay
-                            playsInline
-                            muted={!recorded} // Only mute during recording preview
-                            style={{
+                        <h2 style={{ color: '#333', marginBottom: '10px', fontSize: '20px' }}>
+                            Question {currentQuestionIndex + 1}:
+                        </h2>
+                        <p style={{ color: '#333', fontSize: '18px', lineHeight: '1.6' }}>
+                            {getCurrentQuestion().question}
+                        </p>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            marginTop: '15px',
+                            padding: '8px 15px',
+                            backgroundColor: timerActive ? '#fff8e1' : '#f5f5f5',
+                            borderRadius: '20px',
+                            width: 'fit-content'
+                        }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={timerActive ? '#f57c00' : '#666'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            <span style={{
+                                marginLeft: '5px',
+                                color: timerActive ? '#f57c00' : '#666',
+                                fontWeight: timerActive ? 'bold' : 'normal'
+                            }}>
+                                Time limit: {formatTime(timeRemaining)} {hasRecordedOnce && !isReading ? `(${formatTime(maxTimeLimit - totalElapsedTime)} total remaining)` : ''}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Video recording area */}
+                    <div style={{
+                        padding: '20px',
+                        border: '1px solid #eee',
+                        borderRadius: '8px',
+                        marginBottom: '30px'
+                    }}>
+                        <div style={{
+                            position: 'relative',
+                            width: '100%',
+                            paddingBottom: '56.25%', /* 16:9 aspect ratio */
+                            backgroundColor: '#000',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            marginBottom: '20px'
+                        }}>
+                            {/* Apply the mirror effect to a wrapper div rather than the video element */}
+                            <div style={{
                                 position: 'absolute',
                                 top: 0,
                                 left: 0,
                                 width: '100%',
                                 height: '100%',
-                                objectFit: 'cover'
-                                // No transform applied here anymore
-                            }}
-                        />
+                                transform: recording && !recorded ? 'scaleX(-1)' : 'none'
+                            }}>
+                                <video
+                                    ref={videoRef}
+                                    autoPlay
+                                    playsInline
+                                    muted={!recorded} // Only mute during recording preview
+                                    style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        width: '100%',
+                                        height: '100%',
+                                        objectFit: 'cover'
+                                        // No transform applied here anymore
+                                    }}
+                                />
+                            </div>
+
+                            {recording && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '15px',
+                                    left: '15px',
+                                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                                    color: 'white',
+                                    padding: '5px 10px',
+                                    borderRadius: '4px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    zIndex: 10 // Ensure this is above the video
+                                }}>
+                                    <span style={{
+                                        display: 'inline-block',
+                                        width: '12px',
+                                        height: '12px',
+                                        backgroundColor: '#f44336',
+                                        borderRadius: '50%',
+                                        marginRight: '8px',
+                                        animation: 'pulse 1.5s infinite'
+                                    }} />
+                                    <span>Recording... {formatTime(timeRemaining)}</span>
+                                    <style>{`
+                            @keyframes pulse {
+                                0% { opacity: 1; }
+                                50% { opacity: 0.5; }
+                                100% { opacity: 1; }
+                            }
+                        `}</style>
+                                </div>
+                            )}
+
+                            {uploading && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    width: '100%',
+                                    height: '100%',
+                                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    color: 'white'
+                                }}>
+                                    <p style={{ marginBottom: '15px', fontSize: '18px' }}>Uploading your response...</p>
+                                    <div style={{ width: '70%', maxWidth: '300px' }}>
+                                        <div style={{
+                                            width: '100%',
+                                            height: '8px',
+                                            backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                                            borderRadius: '4px',
+                                            overflow: 'hidden'
+                                        }}>
+                                            <div style={{
+                                                height: '100%',
+                                                width: `${uploadProgress}%`,
+                                                backgroundColor: '#4caf50',
+                                                borderRadius: '4px',
+                                                transition: 'width 0.3s ease'
+                                            }} />
+                                        </div>
+                                        <div style={{ textAlign: 'center', marginTop: '8px' }}>
+                                            {uploadProgress}%
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Display Reading Timer Overlay on video */}
+                            {isReading && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    width: '100%',
+                                    height: '100%',
+                                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    color: 'white'
+                                }}>
+                                    <div style={{
+                                        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                                        padding: '20px',
+                                        borderRadius: '8px',
+                                        textAlign: 'center',
+                                        maxWidth: '80%'
+                                    }}>
+                                        <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '22px' }}>
+                                            Reading Time: {readingTimeRemaining}s
+                                        </h3>
+                                        <p style={{ color: 'white', fontSize: '16px' }}>
+                                            Please take a moment to understand the question before recording.
+                                        </p>
+                                        <p style={{ color: 'white', fontSize: '14px', marginTop: '10px', opacity: 0.8 }}>
+                                            Recording will be available when the timer reaches zero.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            gap: '15px',
+                            marginTop: '20px'
+                        }}>
+                            {!isReading && !recording && !recorded && !completed && (
+                                <button
+                                    onClick={startRecording}
+                                    style={{
+                                        backgroundColor: '#ef402d',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '12px 30px',
+                                        borderRadius: '4px',
+                                        fontSize: '16px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        opacity: hasRecordedOnce && totalElapsedTime >= maxTimeLimit ? 0.5 : 1,
+                                        pointerEvents: hasRecordedOnce && totalElapsedTime >= maxTimeLimit ? 'none' : 'auto'
+                                    }}
+                                    disabled={hasRecordedOnce && totalElapsedTime >= maxTimeLimit}
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                    {hasRecordedOnce ? "Continue Recording" : "Start Recording"}
+                                    {hasRecordedOnce && (
+                                        <span style={{ marginLeft: '5px', fontSize: '14px' }}>
+                                            ({formatTime(maxTimeLimit - totalElapsedTime)} left)
+                                        </span>
+                                    )}
+                                </button>
+                            )}
+
+                            {isReading && (
+                                <button
+                                    style={{
+                                        backgroundColor: '#9e9e9e',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '12px 30px',
+                                        borderRadius: '4px',
+                                        fontSize: '16px',
+                                        cursor: 'not-allowed',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        opacity: 0.7
+                                    }}
+                                    disabled={true}
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                    Reading Question... ({readingTimeRemaining}s)
+                                </button>
+                            )}
+
+                            {recording && (
+                                <button
+                                    onClick={stopRecording}
+                                    style={{
+                                        backgroundColor: '#e53935',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '12px 30px',
+                                        borderRadius: '4px',
+                                        fontSize: '16px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px'
+                                    }}
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="6" y="6" width="12" height="12" rx="2" ry="2"></rect>
+                                    </svg>
+                                    Stop Recording
+                                </button>
+                            )}
+
+                            {recorded && !uploading && (
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            setRecorded(false);
+                                        }}
+                                        style={{
+                                            backgroundColor: '#f5f5f5',
+                                            color: '#333',
+                                            border: 'none',
+                                            padding: '12px 20px',
+                                            borderRadius: '4px',
+                                            fontSize: '16px',
+                                            cursor: 'pointer',
+                                            opacity: totalElapsedTime >= maxTimeLimit ? 0.5 : 1,
+                                            pointerEvents: totalElapsedTime >= maxTimeLimit ? 'none' : 'auto'
+                                        }}
+                                        disabled={totalElapsedTime >= maxTimeLimit}
+                                    >
+                                        {totalElapsedTime >= maxTimeLimit ? "No time remaining" : "Record Again"}
+                                    </button>
+
+                                    <button
+                                        onClick={uploadRecording}
+                                        style={{
+                                            backgroundColor: '#4caf50',
+                                            color: 'white',
+                                            border: 'none',
+                                            padding: '12px 30px',
+                                            borderRadius: '4px',
+                                            fontSize: '16px',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                        }}
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                        </svg>
+                                        Submit Response
+                                    </button>
+                                </>
+                            )}
+
+                            {completed && !recorded && !uploading && (
+                                <div style={{ textAlign: 'center', color: '#4caf50' }}>
+                                    <p style={{ marginBottom: '10px', fontSize: '16px' }}>
+                                        Time's up! Your response has been automatically recorded.
+                                    </p>
+                                    <button
+                                        onClick={uploadRecording}
+                                        style={{
+                                            backgroundColor: '#4caf50',
+                                            color: 'white',
+                                            border: 'none',
+                                            padding: '12px 30px',
+                                            borderRadius: '4px',
+                                            fontSize: '16px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Submit Response
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
-                    {recording && (
+                    {/* Time Used Indicator - New Addition */}
+                    {hasRecordedOnce && !isReading && (
                         <div style={{
-                            position: 'absolute',
-                            top: '15px',
-                            left: '15px',
-                            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                            color: 'white',
-                            padding: '5px 10px',
-                            borderRadius: '4px',
+                            backgroundColor: '#e0f7fa',
+                            padding: '15px',
+                            borderRadius: '8px',
+                            marginBottom: '20px',
                             display: 'flex',
-                            alignItems: 'center',
-                            zIndex: 10 // Ensure this is above the video
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
                         }}>
-                            <span style={{
-                                display: 'inline-block',
-                                width: '12px',
-                                height: '12px',
-                                backgroundColor: '#f44336',
-                                borderRadius: '50%',
-                                marginRight: '8px',
-                                animation: 'pulse 1.5s infinite'
-                            }} />
-                            <span>Recording... {formatTime(timeRemaining)}</span>
-                            <style>{`
-                    @keyframes pulse {
-                        0% { opacity: 1; }
-                        50% { opacity: 0.5; }
-                        100% { opacity: 1; }
-                    }
-                `}</style>
-                        </div>
-                    )}
-
-                    {uploading && (
-                        <div style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            color: 'white'
-                        }}>
-                            <p style={{ marginBottom: '15px', fontSize: '18px' }}>Uploading your response...</p>
-                            <div style={{ width: '70%', maxWidth: '300px' }}>
+                            <div style={{ flex: 1 }}>
+                                <h3 style={{ margin: 0, fontSize: '16px', color: '#00838f' }}>
+                                    Recording Time
+                                </h3>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    marginTop: '10px',
+                                    justifyContent: 'space-between',
+                                    width: '100%'
+                                }}>
+                                    <span style={{ color: '#00838f', fontSize: '14px' }}>
+                                        0s
+                                    </span>
+                                    <span style={{ color: '#00838f', fontSize: '14px' }}>
+                                        {formatTime(maxTimeLimit)}
+                                    </span>
+                                </div>
                                 <div style={{
                                     width: '100%',
                                     height: '8px',
-                                    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                                    backgroundColor: '#b2ebf2',
                                     borderRadius: '4px',
+                                    marginBottom: '5px',
                                     overflow: 'hidden'
                                 }}>
                                     <div style={{
                                         height: '100%',
-                                        width: `${uploadProgress}%`,
-                                        backgroundColor: '#4caf50',
-                                        borderRadius: '4px',
-                                        transition: 'width 0.3s ease'
+                                        width: `${(totalElapsedTime / maxTimeLimit) * 100}%`,
+                                        backgroundColor: totalElapsedTime >= maxTimeLimit ? '#f44336' : '#00acc1',
+                                        borderRadius: '4px'
                                     }} />
                                 </div>
-                                <div style={{ textAlign: 'center', marginTop: '8px' }}>
-                                    {uploadProgress}%
-                                </div>
                             </div>
-                        </div>
-                    )}
-
-                    {/* Display Reading Timer Overlay on video */}
-                    {isReading && (
-                        <div style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            backgroundColor: 'rgba(255, 193, 7, 0.4)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            color: 'white'
-                        }}>
                             <div style={{
-                                backgroundColor: 'rgba(0, 0, 0, 0.6)',
-                                padding: '20px',
-                                borderRadius: '8px',
-                                textAlign: 'center',
-                                maxWidth: '80%'
+                                marginLeft: '20px',
+                                backgroundColor: totalElapsedTime >= maxTimeLimit ? '#ffebee' : '#e0f7fa',
+                                padding: '8px 15px',
+                                borderRadius: '20px',
+                                color: totalElapsedTime >= maxTimeLimit ? '#d32f2f' : '#00838f',
+                                fontWeight: 'bold',
+                                fontSize: '16px'
                             }}>
-                                <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '22px' }}>
-                                    Reading Time: {readingTimeRemaining}s
-                                </h3>
-                                <p style={{ color: 'white', fontSize: '16px' }}>
-                                    Please take a moment to understand the question before recording.
-                                </p>
-                                <p style={{ color: 'white', fontSize: '14px', marginTop: '10px', opacity: 0.8 }}>
-                                    Recording will be available when the timer reaches zero.
-                                </p>
+                                {totalElapsedTime >= maxTimeLimit ?
+                                    "Time's up!" :
+                                    `${formatTime(totalElapsedTime)} used of ${formatTime(maxTimeLimit)}`
+                                }
                             </div>
                         </div>
                     )}
-                </div>
 
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    gap: '15px',
-                    marginTop: '20px'
-                }}>
-                    {!isReading && !recording && !recorded && !completed && (
-                        <button
-                            onClick={startRecording}
-                            style={{
-                                backgroundColor: '#ef402d',
-                                color: 'white',
-                                border: 'none',
-                                padding: '12px 30px',
-                                borderRadius: '4px',
-                                fontSize: '16px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                opacity: hasRecordedOnce && totalElapsedTime >= maxTimeLimit ? 0.5 : 1,
-                                pointerEvents: hasRecordedOnce && totalElapsedTime >= maxTimeLimit ? 'none' : 'auto'
-                            }}
-                            disabled={hasRecordedOnce && totalElapsedTime >= maxTimeLimit}
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <circle cx="12" cy="12" r="3"></circle>
-                            </svg>
-                            {hasRecordedOnce ? "Continue Recording" : "Start Recording"}
-                            {hasRecordedOnce && (
-                                <span style={{ marginLeft: '5px', fontSize: '14px' }}>
-                                    ({formatTime(maxTimeLimit - totalElapsedTime)} left)
-                                </span>
-                            )}
-                        </button>
-                    )}
-
-                    {isReading && (
-                        <button
-                            style={{
-                                backgroundColor: '#9e9e9e',
-                                color: 'white',
-                                border: 'none',
-                                padding: '12px 30px',
-                                borderRadius: '4px',
-                                fontSize: '16px',
-                                cursor: 'not-allowed',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                opacity: 0.7
-                            }}
-                            disabled={true}
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <circle cx="12" cy="12" r="3"></circle>
-                            </svg>
-                            Reading Question... ({readingTimeRemaining}s)
-                        </button>
-                    )}
-
-                    {recording && (
-                        <button
-                            onClick={stopRecording}
-                            style={{
-                                backgroundColor: '#e53935',
-                                color: 'white',
-                                border: 'none',
-                                padding: '12px 30px',
-                                borderRadius: '4px',
-                                fontSize: '16px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                            }}
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <rect x="6" y="6" width="12" height="12" rx="2" ry="2"></rect>
-                            </svg>
-                            Stop Recording
-                        </button>
-                    )}
-
-                    {recorded && !uploading && (
-                        <>
-                            <button
-                                onClick={() => {
-                                    setRecorded(false);
-                                }}
-                                style={{
-                                    backgroundColor: '#f5f5f5',
-                                    color: '#333',
-                                    border: 'none',
-                                    padding: '12px 20px',
-                                    borderRadius: '4px',
-                                    fontSize: '16px',
-                                    cursor: 'pointer',
-                                    opacity: totalElapsedTime >= maxTimeLimit ? 0.5 : 1,
-                                    pointerEvents: totalElapsedTime >= maxTimeLimit ? 'none' : 'auto'
-                                }}
-                                disabled={totalElapsedTime >= maxTimeLimit}
-                            >
-                                {totalElapsedTime >= maxTimeLimit ? "No time remaining" : "Record Again"}
-                            </button>
-
-                            <button
-                                onClick={uploadRecording}
-                                style={{
-                                    backgroundColor: '#4caf50',
-                                    color: 'white',
-                                    border: 'none',
-                                    padding: '12px 30px',
-                                    borderRadius: '4px',
-                                    fontSize: '16px',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px'
-                                }}
-                            >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                                </svg>
-                                Submit Response
-                            </button>
-                        </>
-                    )}
-
-                    {completed && !recorded && !uploading && (
-                        <div style={{ textAlign: 'center', color: '#4caf50' }}>
-                            <p style={{ marginBottom: '10px', fontSize: '16px' }}>
-                                Time's up! Your response has been automatically recorded.
-                            </p>
-                            <button
-                                onClick={uploadRecording}
-                                style={{
-                                    backgroundColor: '#4caf50',
-                                    color: 'white',
-                                    border: 'none',
-                                    padding: '12px 30px',
-                                    borderRadius: '4px',
-                                    fontSize: '16px',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Submit Response
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Time Used Indicator - New Addition */}
-            {hasRecordedOnce && !isReading && (
-                <div style={{
-                    backgroundColor: '#e0f7fa',
-                    padding: '15px',
-                    borderRadius: '8px',
-                    marginBottom: '20px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                }}>
-                    <div style={{ flex: 1 }}>
-                        <h3 style={{ margin: 0, fontSize: '16px', color: '#00838f' }}>
-                            Recording Time
-                        </h3>
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            marginTop: '10px',
-                            justifyContent: 'space-between',
-                            width: '100%'
-                        }}>
-                            <span style={{ color: '#00838f', fontSize: '14px' }}>
-                                0s
-                            </span>
-                            <span style={{ color: '#00838f', fontSize: '14px' }}>
-                                {formatTime(maxTimeLimit)}
-                            </span>
-                        </div>
-                        <div style={{
-                            width: '100%',
-                            height: '8px',
-                            backgroundColor: '#b2ebf2',
-                            borderRadius: '4px',
-                            marginBottom: '5px',
-                            overflow: 'hidden'
-                        }}>
-                            <div style={{
-                                height: '100%',
-                                width: `${(totalElapsedTime / maxTimeLimit) * 100}%`,
-                                backgroundColor: totalElapsedTime >= maxTimeLimit ? '#f44336' : '#00acc1',
-                                borderRadius: '4px'
-                            }} />
-                        </div>
-                    </div>
+                    {/* Instructions */}
                     <div style={{
-                        marginLeft: '20px',
-                        backgroundColor: totalElapsedTime >= maxTimeLimit ? '#ffebee' : '#e0f7fa',
-                        padding: '8px 15px',
-                        borderRadius: '20px',
-                        color: totalElapsedTime >= maxTimeLimit ? '#d32f2f' : '#00838f',
-                        fontWeight: 'bold',
-                        fontSize: '16px'
+                        backgroundColor: '#f9f9f9',
+                        padding: '20px',
+                        borderRadius: '8px'
                     }}>
-                        {totalElapsedTime >= maxTimeLimit ?
-                            "Time's up!" :
-                            `${formatTime(totalElapsedTime)} used of ${formatTime(maxTimeLimit)}`
-                        }
+                        <h3 style={{ color: '#333', marginBottom: '15px', fontSize: '18px' }}>Instructions:</h3>
+                        <ul style={{ color: '#555', paddingLeft: '20px', lineHeight: '1.5' }}>
+                            <li>You have 20 seconds to read and understand the question</li>
+                            <li>Click "Start Recording" when you're ready to answer</li>
+                            <li>You have {formatTime(getCurrentQuestion().timeLimit)} to respond</li>
+                            <li>Recording will automatically stop when time is up</li>
+                            <li>Your total recording time is limited to {formatTime(maxTimeLimit)}</li>
+                            <li>Review your recording before submitting</li>
+                            <li>When you're satisfied with your answer, click "Submit Response"</li>
+                        </ul>
                     </div>
                 </div>
             )}
-
-            {/* Instructions */}
-            <div style={{
-                backgroundColor: '#f9f9f9',
-                padding: '20px',
-                borderRadius: '8px'
-            }}>
-                <h3 style={{ color: '#333', marginBottom: '15px', fontSize: '18px' }}>Instructions:</h3>
-                <ul style={{ color: '#555', paddingLeft: '20px', lineHeight: '1.5' }}>
-                    <li>You have 20 seconds to read and understand the question</li>
-                    <li>Click "Start Recording" when you're ready to answer</li>
-                    <li>You have {formatTime(getCurrentQuestion().timeLimit)} to respond</li>
-                    <li>Recording will automatically stop when time is up</li>
-                    <li>Your total recording time is limited to {formatTime(maxTimeLimit)}</li>
-                    <li>Review your recording before submitting</li>
-                    <li>When you're satisfied with your answer, click "Submit Response"</li>
-                </ul>
-            </div>
-        </div>
+        </>
     );
 }
 

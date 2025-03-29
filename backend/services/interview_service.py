@@ -10,6 +10,11 @@ from email.mime.text import MIMEText
 import smtplib
 import time
 import logging
+import tempfile
+from google.cloud import speech
+import subprocess
+from concurrent.futures import ThreadPoolExecutor
+import io
 
 logger = logging.getLogger(__name__)
 LINK_EXPIRY_DAYS = 7
@@ -207,3 +212,216 @@ def validate_interview_link(interview_id: str, link_code: str):
         raise HTTPException(status_code=403, detail="This interview has already been completed")
     
     return interview_data
+
+def transcribe_audio_with_google_cloud(audio_file_path):
+    """
+    Transcribe audio file using Google Cloud Speech-to-Text API
+    
+    Args:
+        audio_file_path (str): Path to the audio file to transcribe
+    
+    Returns:
+        dict: Transcription results with transcript and confidence
+    """
+    try:
+        # Instantiate a client
+        client = speech.SpeechClient()
+        
+        # Read the audio file
+        with io.open(audio_file_path, 'rb') as audio_file:
+            content = audio_file.read()
+        
+        # Configure audio input
+        audio = speech.RecognitionAudio(content=content)
+        
+        # Configure recognition settings
+        config = speech.RecognitionConfig(
+            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,  # WAV format
+            sample_rate_hertz=8000,  # Match FFmpeg output
+            language_code='en-US',
+            enable_automatic_punctuation=True,
+            model='default',  # You can use 'video' model for better video audio
+            profanity_filter=False,
+            speech_contexts=[
+                speech.SpeechContext(
+                    phrases=['interview', 'job', 'experience', 'skills', 'role'],
+                    boost=20.0  # Increase likelihood of these context words
+                )
+            ]
+        )
+        
+        # Perform the transcription request
+        response = client.recognize(config=config, audio=audio)
+        
+        # Process results
+        transcripts = []
+        confidence_scores = []
+        
+        for result in response.results:
+            alternative = result.alternatives[0]
+            transcripts.append(alternative.transcript)
+            confidence_scores.append(alternative.confidence)
+        
+        # Combine multiple transcripts if multiple results
+        full_transcript = ' '.join(transcripts)
+        
+        return {
+            'transcript': full_transcript,
+            'confidence': sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.0,
+            'raw_results': response.results
+        }
+    
+    except Exception as e:
+        logging.error(f"Google Cloud Speech-to-Text error: {str(e)}")
+        return {
+            'transcript': f"Transcription error: {str(e)}",
+            'confidence': 0.0,
+            'raw_results': None
+        }
+        
+def extract_audio_with_ffmpeg(input_video_path, output_audio_path=None):
+    """
+    Extract audio from video using FFmpeg with robust error handling
+    
+    Args:
+        input_video_path (str): Path to input video file
+        output_audio_path (str, optional): Path for output audio file
+    
+    Returns:
+        str: Path to extracted audio file
+    """
+
+    ffmpeg_path = r'C:\Users\hongy\Downloads\ffmpeg-n6.1-latest-win64-gpl-6.1\bin\ffmpeg.exe'
+    
+    if not input_video_path or not os.path.exists(ffmpeg_path):
+        raise ValueError(f"Invalid input video path: {input_video_path}")
+    
+    # If no output path specified, generate one
+    if output_audio_path is None:
+        temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix="_audio.wav")
+        output_audio_path = temp_audio_file.name
+        temp_audio_file.close()
+    
+    try:
+        # FFmpeg command to extract high-quality audio
+        command = [
+            ffmpeg_path, 
+            '-i', input_video_path,   # Input video file
+            '-vn',                    # Ignore video stream
+            '-acodec', 'pcm_s16le',   
+            '-ar', '8000',            # Lower sample rate might help
+            '-ac', '1',               # Mono channel
+            '-y',                     # Force WAV format
+            output_audio_path         # Output audio file
+        ]
+        
+        # Run FFmpeg command
+        result = subprocess.run(
+            command, 
+            stdout=subprocess.DEVNULL,  
+            stderr=subprocess.DEVNULL,  
+            check=True
+        )
+        
+        # Check for errors in subprocess
+        if result.returncode != 0:
+            logging.error(f"FFmpeg error: {result.stderr}")
+            raise RuntimeError(f"Audio extraction failed: {result.stderr}")
+        
+        # Verify output file was created
+        if not os.path.exists(output_audio_path):
+            raise RuntimeError("Audio extraction failed: No output file created")
+        
+        logging.info(f"Audio extracted successfully: {output_audio_path}")
+        return output_audio_path
+    
+    except subprocess.CalledProcessError as e:
+        logging.error(f"FFmpeg audio extraction error: {e}")
+        raise
+    except Exception as e:
+        logging.error(f"Unexpected error in audio extraction: {str(e)}")
+        raise
+
+def parallel_audio_extraction(video_paths):
+    """
+    Extract audio from multiple videos in parallel
+    
+    Args:
+        video_paths (list): List of video file paths
+    
+    Returns:
+        list: Paths to extracted audio files
+    """
+    with ThreadPoolExecutor() as executor:
+        # Use max_workers to control CPU usage
+        return list(executor.map(extract_audio_with_ffmpeg, video_paths))
+def apply_voice_effect(input_audio_path, effect_type="helium", output_audio_path=None):
+    """
+    Apply voice changing effect to audio file using FFmpeg
+    
+    Args:
+        input_audio_path (str): Path to input audio file
+        effect_type (str): Type of effect to apply ('helium' for pitch shift)
+        output_audio_path (str, optional): Path for output modified audio file
+    
+    Returns:
+        str: Path to modified audio file
+    """
+    ffmpeg_path = r'C:\Users\hongy\Downloads\ffmpeg-n6.1-latest-win64-gpl-6.1\bin\ffmpeg.exe'  # Path to ffmpeg executable
+    
+    if not input_audio_path or not os.path.exists(ffmpeg_path):
+        raise ValueError(f"Invalid input audio path: {input_audio_path}")
+    
+    # If no output path specified, generate one
+    if output_audio_path is None:
+        temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix="_modified.wav")
+        output_audio_path = temp_audio_file.name
+        temp_audio_file.close()
+    
+    try:
+        if effect_type.lower() == "helium":
+            # Helium effect: increase pitch by 3 semitones without changing tempo
+            command = [
+                ffmpeg_path, 
+                '-i', input_audio_path,
+                '-af', 'rubberband=pitch=1.2,loudnorm=I=-16:LRA=11:TP=-1.5,highpass=f=200,lowpass=f=8000',
+                '-ar', '16000',  # Consistent sample rate
+                '-ac', '1',      # Mono channel for clarity
+                '-y',
+                output_audio_path
+            ]
+        else:
+            command = [
+                ffmpeg_path, 
+                '-i', input_audio_path,
+                '-c', 'copy',
+                '-y',
+                output_audio_path
+            ]
+        
+        # Run FFmpeg command
+        result = subprocess.run(
+            command, 
+            stdout=subprocess.PIPE,  
+            stderr=subprocess.PIPE,
+            check=True
+        )
+        
+        # Check for errors in subprocess
+        if result.returncode != 0:
+            logging.error(f"FFmpeg error: {result.stderr.decode()}")
+            raise RuntimeError(f"Voice effect application failed: {result.stderr.decode()}")
+        
+        # Verify output file was created
+        if not os.path.exists(output_audio_path):
+            raise RuntimeError("Voice effect application failed: No output file created")
+        
+        logging.info(f"Voice effect applied successfully: {output_audio_path}")
+        return output_audio_path
+    
+    except subprocess.CalledProcessError as e:
+        logging.error(f"FFmpeg voice effect error: {e.stderr.decode() if e.stderr else str(e)}")
+        raise
+    except Exception as e:
+        logging.error(f"Unexpected error in voice effect application: {str(e)}")
+        raise
