@@ -98,6 +98,34 @@ async def get_actual_questions(application_id: str):
 async def save_question_set(data: Dict[str, Any]):
     """Save or update an InterviewQuestionSet."""
     try:
+        # Process the incoming data to ensure correct modification flags
+        if "sections" in data:
+            for section in data["sections"]:
+                if "questions" in section:
+                    for question in section["questions"]:
+                        # For AI-generated questions
+                        if question.get("isAIGenerated") == True:
+                            # Ensure we have originalText to compare against
+                            if not question.get("originalText"):
+                                question["originalText"] = question.get("text", "")
+                            
+                            # Determine if the AI question has been modified
+                            text_modified = question.get("text") != question.get("originalText")
+                            time_modified = question.get("timeLimit") != question.get("originalTimeLimit", question.get("timeLimit"))
+                            compulsory_modified = question.get("isCompulsory") != question.get("originalCompulsory", question.get("isCompulsory"))
+                            
+                            question["isAIModified"] = text_modified or time_modified or compulsory_modified
+                        else:
+                            # For regular questions, after saving they should no longer be considered modified
+                            # The current state becomes the new baseline
+                            question["isAIModified"] = False
+                            
+                            # Update original values to current values
+                            question["originalText"] = question.get("text", "")
+                            question["originalTimeLimit"] = question.get("timeLimit")
+                            question["originalCompulsory"] = question.get("isCompulsory", True)
+        
+        # Call the service to save the question set
         question_set_id = InterviewQuestionSetService.save_question_set(data)
         if not question_set_id:
             raise HTTPException(status_code=500, detail="Failed to save InterviewQuestionSet")

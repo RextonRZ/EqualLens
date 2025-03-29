@@ -23,6 +23,9 @@ class InterviewQuestionSetService:
                 section["sectionId"] = section.get("sectionId") or firebase_client.generate_counter_id("sect")
                 for question in section["questions"]:
                     question["questionId"] = question.get("questionId") or firebase_client.generate_counter_id("ques")
+                    # Save original text for custom questions
+                    if not question.get("isAIGenerated"):
+                        question["originalText"] = ""
 
             # Log the full data being saved
             logger.info(f"Saving InterviewQuestionSet with data: {data_dict}")
@@ -219,19 +222,48 @@ class InterviewQuestionSetService:
                 for section in data["sections"]:
                     if "questions" in section:
                         for question in section["questions"]:
-                            # Make sure AI modification status is explicit
-                            if question.get("isAIGenerated") == True and question.get("isAIModified") == True:
-                                # Ensure isAIModified flag is explicitly set to True
-                                question["isAIModified"] = True
-                                # Add originalText if missing
-                                if "originalText" not in question:
-                                    question["originalText"] = ""  # Empty placeholder to track it's been modified
+                            # Handle AI-generated questions specially
+                            if question.get("isAIGenerated") == True:
+                                # Always preserve the original AI-generated text for comparison
+                                # Make sure we always have an originalText for AI-generated questions
+                                if not question.get("originalText"):
+                                    logger.warning(f"AI-generated question missing originalText, using current text")
+                                    question["originalText"] = question.get("text", "")
+                                
+                                # Determine if the AI question has been modified by comparing with original
+                                text_modified = question.get("text") != question.get("originalText")
+                                time_modified = question.get("timeLimit") != question.get("originalTimeLimit", question.get("timeLimit"))
+                                compulsory_modified = question.get("isCompulsory") != question.get("originalCompulsory", question.get("isCompulsory"))
+                                
+                                # Only mark as modified if any of the properties are different from original AI values
+                                question["isAIModified"] = text_modified or time_modified or compulsory_modified
+                                logger.info(f"AI question modified status: {question['isAIModified']}")
+                            else:
+                                # For regular questions, after saving, they are no longer considered "modified"
+                                # because the current state becomes the new baseline
+                                question["isAIModified"] = False
+                                
+                                # Update originalText to current text for non-AI questions
+                                question["originalText"] = question.get("text", "")
+                                
+                                # Update other original values as well
+                                question["originalTimeLimit"] = question.get("timeLimit")
+                                question["originalCompulsory"] = question.get("isCompulsory", True)
 
             # Generate sectionId and questionId for each section and question
             for section in data["sections"]:
                 section["sectionId"] = section.get("sectionId") or firebase_client.generate_counter_id("sect")
                 for question in section["questions"]:
                     question["questionId"] = question.get("questionId") or firebase_client.generate_counter_id("ques")
+                    
+                    # Ensure all questions have originalText
+                    if "originalText" not in question:
+                        if question.get("isAIGenerated"):
+                            # For AI questions, we want to keep the original AI text
+                            question["originalText"] = question.get("text", "")
+                        else:
+                            # For custom questions, set originalText to current text
+                            question["originalText"] = question.get("text", "")
 
             # Track AI generation used
             if "aiGenerationUsed" in data:

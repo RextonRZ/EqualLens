@@ -16,6 +16,24 @@ class Question(BaseModel):
     originalText: Optional[str] = None     # Support for original text storage
     originalTimeLimit: Optional[int] = None  # Support for original time limit storage
     originalCompulsory: Optional[bool] = None  # Support for original compulsory flag storage
+    
+    class Config:
+        # Add model configuration to allow for extra attributes
+        extra = "allow"
+        
+        # Custom JSON schema to ensure originalText is preserved for AI-generated questions
+        schema_extra = {
+            "example": {
+                "text": "Example interview question?",
+                "timeLimit": 60,
+                "isCompulsory": True,
+                "isAIGenerated": False,
+                "isAIModified": False,
+                "originalText": None,
+                "originalTimeLimit": None,
+                "originalCompulsory": None
+            }
+        }
 
 class Section(BaseModel):
     sectionId: Optional[str]  # Make sectionId optional
