@@ -535,9 +535,10 @@ async def submit_interview_response(
                 video_bytes = base64.b64decode(video_data)
 
                 # Create a temporary file to process video
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_video_file:
-                    temp_video_file.write(video_bytes)
-                    temp_video_file_path = temp_video_file.name
+                temp_video_file = tempfile.NamedTemporaryFile(delete=False, suffix=".webm")
+                temp_video_file_path = temp_video_file.name
+                temp_video_file.write(video_bytes)
+                temp_video_file.close() # Close the file handle after writing
                 
                 # Upload video to Firebase Storage
                 video_storage_path = f"interview_responses/{application_id}/{request.interviewId}/{request.questionId}.webm"
