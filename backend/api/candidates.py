@@ -31,8 +31,8 @@ async def rank_candidates(request: Dict[Any, Any]):
         applicants = request.get("applicants")
         job_document = request.get("job_document")
         
-        if not prompt or not applicants:
-            raise HTTPException(status_code=400, detail="Prompt and applicants are required")
+        if not prompt or not applicants or not job_document:
+            raise HTTPException(status_code=400, detail="Prompt, applicants, and job_document are required")
         
         # Create an instance of RankGeminiService
         rank_service = GeminiService()

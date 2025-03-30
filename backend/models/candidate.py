@@ -54,11 +54,11 @@ class CandidateResponse(CandidateBase):
                 "uploadedAt": "2023-06-15T10:30:00",
                 "storagePath": "resumes/job-00000001/cand-00000001/resume.pdf",
                 "status": "new",
-                "rank_score": {"experience": 0.8, "skills": 0.9, "education": 0.7},
+                "rank_score": {"relevance": 0.8, "proficiency": 0.9, "additionalSkill": 0.7},
                 "reasoning": {
-                    "experience": "Strong experience in software development",
-                    "skills": "Proficient in Python, Java, and C++",
-                    "education": "Graduated with honors in Computer Science"
+                    "relevance": "Relevant experience in software development",
+                    "proficiency": "Strong programming skills in Python and Java",
+                    "additionalSkill": "Experience with cloud technologies"
                 },
                 "detailed_profile": {
                     "summary": "Software developer with 5 years of experience",

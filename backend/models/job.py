@@ -10,7 +10,6 @@ class JobBase(BaseModel):
     departments: List[str]
     minimumCGPA: float
     requiredSkills: List[str]  # Use a single field name consistently
-    rank_weight: dict = Field(default_factory=dict)
     prompt: str = ""
 
 
@@ -34,8 +33,7 @@ class JobResponse(JobBase):
                 "departments": ["Engineering", "Technology"],
                 "minimumCGPA": 3.0,
                 "requiredSkills": ["Python", "JavaScript", "React"],
-                "rank_weight": {"experience": 5, "skills": 3, "education": 2},
-                "prompt": "Evaluate candidates based on technical skills and problem-solving abilities",
+                "prompt": "Skills, Experience",
                 "createdAt": "2023-06-15T10:30:00",
                 "applicationCount": 5
             }
@@ -49,5 +47,4 @@ class JobUpdate(BaseModel):
     departments: Optional[List[str]] = None
     minimumCGPA: Optional[float] = None
     requiredSkills: Optional[List[str]] = None
-    rank_weight: Optional[dict] = None
     prompt: Optional[str] = None

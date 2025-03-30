@@ -291,7 +291,7 @@ def extract_audio_with_ffmpeg(input_video_path, output_audio_path=None):
         str: Path to extracted audio file
     """
 
-    ffmpeg_path = r'C:\Users\hongy\Downloads\ffmpeg-n6.1-latest-win64-gpl-6.1\bin\ffmpeg.exe'
+    ffmpeg_path = r'/Users/vannessliu/Downloads/ffmpeg-n6.1-latest-win64-gpl-6.1.zip'
     
     if not input_video_path or not os.path.exists(ffmpeg_path):
         raise ValueError(f"Invalid input video path: {input_video_path}")

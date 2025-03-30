@@ -292,13 +292,13 @@ export default function Dashboard() {
     const scoreApplicants = async (unscoredApplicants) => {
         try {
             // Rank new applicants based on the existing prompt
-            const response = await fetch(`http://localhost:8000/api/candidates/ranks`, {
+            const response = await fetch(`http://localhost:8000/api/candidates/rank`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    weights: selectedJob.rank_weight,
+                    prompt: selectedJob.prompt,
                     applicants: unscoredApplicants,
                     job_document: selectedJob
                 })
@@ -480,7 +480,7 @@ export default function Dashboard() {
 
     // Handle scoring applicants when they are not scored but others are
     const handleUnscoredApplicants = async () => {
-        if (selectedJob.rank_weight !== null && selectedJob.prompt !== "" && selectedJob.prompt !== null) {
+        if (selectedJob.prompt !== "" && selectedJob.prompt !== null) {
             // Filter out the new applicants from the existing list
             // New applicants are those without rank_score or with an empty rank_score
             const unscoredApplicants = await fetchUnscoredApplicants(selectedJob.jobId);
@@ -546,7 +546,33 @@ export default function Dashboard() {
             }
 
             // Check if this is a new prompt or a repeat
-            if (!(prompt === rankPrompt && selectedJob.jobId === processedJobId)) {
+            // Check if the current prompt's content is significantly different from the previous prompt
+            // by checking if the key terms are included, regardless of order
+            const hasSignificantPromptChange = () => {
+                if (!rankPrompt || !prompt) return true; // If either is empty, consider it a change
+                
+                // Convert both prompts to lowercase for case-insensitive comparison
+                const currentPromptLower = prompt.toLowerCase();
+                const previousPromptLower = rankPrompt.toLowerCase();
+                
+                // Create arrays of significant terms from each prompt
+                const currentTerms = currentPromptLower.split(/[,\s]+/).filter(term => term.length > 2);
+                const previousTerms = previousPromptLower.split(/[,\s]+/).filter(term => term.length > 2);
+                
+                // Check if all significant terms from current prompt exist in previous prompt and vice versa
+                const allCurrentTermsInPrevious = currentTerms.every(term => 
+                    previousTerms.some(prevTerm => prevTerm.includes(term) || term.includes(prevTerm))
+                );
+                const allPreviousTermsInCurrent = previousTerms.every(term => 
+                    currentTerms.some(currTerm => currTerm.includes(term) || term.includes(currTerm))
+                );
+                
+                // Consider it the same prompt if terms match in both directions
+                return !(allCurrentTermsInPrevious && allPreviousTermsInCurrent);
+            };
+            
+            // Only process if the prompt has significantly changed or we're processing a different job
+            if (hasSignificantPromptChange() || selectedJob.jobId !== processedJobId) {
                 // Send ranking request to backend
                 const response = await fetch(`http://localhost:8000/api/candidates/rank`, {
                     method: 'POST',
@@ -570,11 +596,11 @@ export default function Dashboard() {
                 const rankingResults = await response.json();
 
                 // Validate ranking results
-                if (!rankingResults || !rankingResults.weights) {
+                if (!rankingResults) {
                     throw new Error("Invalid ranking results received");
                 }
 
-                // Update job with new weights
+                // Update job with new prompt
                 await fetch(`http://localhost:8000/api/jobs/${selectedJob.jobId}`, {
                     method: 'PUT',
                     headers: {
@@ -582,7 +608,6 @@ export default function Dashboard() {
                     },
                     body: JSON.stringify({
                         ...selectedJob,
-                        rank_weight: rankingResults.weights,
                         prompt: prompt
                     })
                 });
@@ -1334,12 +1359,6 @@ export default function Dashboard() {
                                             </div>
                                         </div>
 
-                                        <div className="info-column">
-                                            <div className="info-group">
-                                                <p className="info-label">Prompt:</p>
-                                                <p className="info-value">{selectedJob.prompt ? selectedJob.prompt : "N/A"}</p>
-                                            </div>
-                                        </div>
                                     </div>
 
                                     <div className="info-group description-group">

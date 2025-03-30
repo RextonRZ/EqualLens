@@ -82,6 +82,7 @@ export default function ApplicantDetails() {
     const [totalScore, setTotalScore] = useState(0);
     const [outcomeScore, setOutcomeScore] = useState(0);
     const [prompt, setPrompt] = useState("");
+    const [showDetailedBreakdownModal, setShowDetailedBreakdownModal] = useState(false);
     const [showQuestionReminderModal, setShowQuestionReminderModal] = useState(false);
     let id = null;
 
@@ -161,7 +162,7 @@ export default function ApplicantDetails() {
                     console.log("Generated detail text:", detailData);
                 } else {
                     // candidateData already has the detailed information
-                    try {    
+                    try {
                         // Check if the candidate data has the expected structure
                         if (candidateData && candidateData.detailed_profile && candidateData.detailed_profile.summary) {
                             detailData = { detailed_profile: candidateData.detailed_profile };
@@ -176,24 +177,6 @@ export default function ApplicantDetails() {
                         console.warn("Failed to parse existing detail text, regenerating...", error);
                         detailData = await handleCreateDetail();
                     }
-                }
-                
-                if (
-                    candidateData?.rank_score?.skill_score &&
-                    jobData?.rank_weight?.skill_weight
-                ) {
-                    setOutcomeScore(
-                        (candidateData.rank_score.skill_score * jobData.rank_weight.skill_weight / 10.0) +
-                        (candidateData.rank_score.experience_score * jobData.rank_weight.experience_weight / 10.0) +
-                        (candidateData.rank_score.education_score * jobData.rank_weight.education_weight / 10.0)
-                    );
-                    setTotalScore(
-                        jobData.rank_weight.skill_weight +
-                        jobData.rank_weight.experience_weight +
-                        jobData.rank_weight.education_weight
-                    );
-                } else {
-                    console.warn("Missing rank_score or rank_weight data for candidate or job.");
                 }
 
                 setIsLoading(false);
@@ -257,6 +240,11 @@ export default function ApplicantDetails() {
                 navigate("/dashboard");
             }
         }, 800);
+    };
+
+    // Handle View Details button click
+    const handleShowDetailedBreakdown = () => {
+        setShowDetailedBreakdownModal(true);
     };
 
     const checkApplicationStatus = (action) => {
@@ -525,6 +513,230 @@ export default function ApplicantDetails() {
         </div>
     );
 
+    const DetailedBreakdownModal = () => (
+        <div
+            className="detail-modal-overlay"
+            role="dialog"
+            aria-labelledby="detail-modal-title"
+            aria-modal="true"
+        >
+            <div
+                className="detail-modal-content"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="detail-modal-header">
+                    <h2 id="detail-modal-title" className="detail-modal-title">
+                        Detailed Score Breakdown
+                    </h2>
+                    <button
+                        className="detail-modal-close"
+                        onClick={() => setShowDetailedBreakdownModal(false)}
+                        aria-label="Close"
+                    >
+                        ×
+                    </button>
+                </div>
+
+                <div className="detail-modal-body">
+                    {/* Check if Skills is included in the prompt */}
+                    {job.prompt.includes("Skills") && (
+                        <>
+                            {/* Relevance to Requesting Job */}
+                            <div className="score-card">
+                                <h4>Relevance to Requesting Job</h4>
+                                <div className="progress-bar-container">
+                                    <div
+                                        className="progress-bar"
+                                        style={{
+                                            width: `${applicant.rank_score?.relevance ? (applicant.rank_score.relevance * 10) : 0}%`,
+                                            backgroundColor: '#8250c8'
+                                        }}
+                                    ></div>
+                                </div>
+                                <p>{applicant.rank_score?.relevance ? `${applicant.rank_score.relevance}/10` : "0/10"}</p>
+
+                                <h4 style={{ fontWeight: 'bold', marginTop: '1rem' }}>Reasoning: </h4>
+                                <div className="experience-card" style={{ marginTop: "0.5rem", backgroundColor: "#f8f0ff", color: "#8250c8" }}>
+                                    {applicant.reasoning?.relevance || "No reasoning provided"}
+                                </div>
+                            </div>
+
+                            {/* Proficiency Level */}
+                            <div className="score-card">
+                                <h4>Proficiency Level</h4>
+                                <div className="progress-bar-container">
+                                    <div
+                                        className="progress-bar"
+                                        style={{
+                                            width: `${applicant.rank_score?.proficiency ? (applicant.rank_score.proficiency * 10) : 0}%`,
+                                            backgroundColor: '#8250c8'
+                                        }}
+                                    ></div>
+                                </div>
+                                <p>{applicant.rank_score?.proficiency ? `${applicant.rank_score.proficiency}/10` : "0/10"}</p>
+
+                                <h4 style={{ fontWeight: 'bold', marginTop: '1rem' }}>Reasoning: </h4>
+                                <div className="experience-card" style={{ marginTop: "0.5rem", backgroundColor: "#f8f0ff", color: "#8250c8" }}>
+                                    {applicant.reasoning?.proficiency || "No reasoning provided"}
+                                </div>
+                            </div>
+
+                            {/* Additional Skills */}
+                            <div className="score-card">
+                                <h4>Additional Skills</h4>
+                                <div className="progress-bar-container">
+                                    <div
+                                        className="progress-bar"
+                                        style={{
+                                            width: `${applicant.rank_score?.additionalSkill ? (applicant.rank_score.additionalSkill * 10) : 0}%`,
+                                            backgroundColor: '#8250c8'
+                                        }}
+                                    ></div>
+                                </div>
+                                <p>{applicant.rank_score?.additionalSkill ? `${applicant.rank_score.additionalSkill}/10` : "0/10"}</p>
+
+                                <h4 style={{ fontWeight: 'bold', marginTop: '1rem' }}>Reasoning: </h4>
+                                <div className="experience-card" style={{ marginTop: "0.5rem", backgroundColor: "#f8f0ff", color: "#8250c8" }}>
+                                    {applicant.reasoning?.additionalSkill || "No reasoning provided"}
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/* Check if Experience is included in the prompt */}
+                    {job.prompt.includes("Experience") && (
+                        <>
+                            {/* Job Experience */}
+                            <div className="score-card">
+                                <h4>Job Experience</h4>
+                                <div className="progress-bar-container">
+                                    <div
+                                        className="progress-bar"
+                                        style={{
+                                            width: `${applicant.rank_score?.jobExp ? (applicant.rank_score.jobExp * 10) : 0}%`,
+                                            backgroundColor: '#dd20c1'
+                                        }}
+                                    ></div>
+                                </div>
+                                <p>{applicant.rank_score?.jobExp ? `${applicant.rank_score.jobExp}/10` : "N/A"}</p>
+
+                                <h4 style={{ fontWeight: 'bold', marginTop: '1rem' }}>Reasoning: </h4>
+                                <div className="experience-card" style={{ marginTop: "0.5rem", backgroundColor: "#fff0fa", color: "#dd20c1" }}>
+                                    {applicant.reasoning?.jobExp || "No reasoning provided"}
+                                </div>
+                            </div>
+
+                            {/* Project and Co-curricular Experience */}
+                            <div className="score-card">
+                                <h4>Project and Co-curricular Experience</h4>
+                                <div className="progress-bar-container">
+                                    <div
+                                        className="progress-bar"
+                                        style={{
+                                            width: `${applicant.rank_score?.projectCocurricularExp ? (applicant.rank_score.projectCocurricularExp * 10) : 0}%`,
+                                            backgroundColor: '#dd20c1'
+                                        }}
+                                    ></div>
+                                </div>
+                                <p>{applicant.rank_score?.projectCocurricularExp ? `${applicant.rank_score.projectCocurricularExp}/10` : "0/10"}</p>
+
+                                <h4 style={{ fontWeight: 'bold', marginTop: '1rem' }}>Reasoning: </h4>
+                                <div className="experience-card" style={{ marginTop: "0.5rem", backgroundColor: "#fff0fa", color: "#dd20c1"}}>
+                                    {applicant.reasoning?.projectCocurricularExp || "No reasoning provided"}
+                                </div>
+                            </div>
+
+                            {/* Certifications and Training */}
+                            <div className="score-card">
+                                <h4>Certifications and Training</h4>
+                                <div className="progress-bar-container">
+                                    <div
+                                        className="progress-bar"
+                                        style={{
+                                            width: `${applicant.rank_score?.certification ? (applicant.rank_score.certification * 10) : 0}%`,
+                                            backgroundColor: '#dd20c1'
+                                        }}
+                                    ></div>
+                                </div>
+                                <p>{applicant.rank_score?.certification ? `${applicant.rank_score.certification}/10` : "0/10"}</p>
+
+                                <h4 style={{ fontWeight: 'bold', marginTop: '1rem' }}>Reasoning: </h4>
+                                <div className="experience-card" style={{ marginTop: "0.5rem", backgroundColor: "#fff0fa", color: "#dd20c1" }}>
+                                    {applicant.reasoning?.certification || "No reasoning provided"}
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/* Check if Education is included in the prompt */}
+                    {job.prompt.includes("Education") && (
+                        <>
+                            {/* Level of Study */}
+                            <div className="score-card">
+                                <h4>Level of Study</h4>
+                                <div className="progress-bar-container">
+                                    <div
+                                        className="progress-bar"
+                                        style={{
+                                            width: `${applicant.rank_score?.studyLevel ? (applicant.rank_score.studyLevel * 10) : 0}%`,
+                                            backgroundColor: '#0066cc'
+                                        }}
+                                    ></div>
+                                </div>
+                                <p>{applicant.rank_score?.studyLevel ? `${applicant.rank_score.studyLevel}/10` : "0/10"}</p>
+
+                                <h4 style={{ fontWeight: 'bold', marginTop: '1rem' }}>Reasoning: </h4>
+                                <div className="experience-card" style={{ marginTop: "0.5rem", backgroundColor: "#f0f7ff", color: "#0066cc" }}>
+                                    {applicant.reasoning?.studyLevel || "No reasoning provided"}
+                                </div>
+                            </div>
+
+                            {/* Awards and Achievements */}
+                            <div className="score-card">
+                                <h4>Awards and Achievements</h4>
+                                <div className="progress-bar-container">
+                                    <div
+                                        className="progress-bar"
+                                        style={{
+                                            width: `${applicant.rank_score?.awards ? (applicant.rank_score.awards * 10) : 0}%`,
+                                            backgroundColor: '#0066cc'
+                                        }}
+                                    ></div>
+                                </div>
+                                <p>{applicant.rank_score?.awards ? `${applicant.rank_score.awards}/10` : "0/10"}</p>
+
+                                <h4 style={{ fontWeight: 'bold', marginTop: '1rem' }}>Reasoning: </h4>
+                                <div className="experience-card" style={{ marginTop: "0.5rem", backgroundColor: "#f0f7ff", color: "#0066cc" }}>
+                                    {applicant.reasoning?.awards || "No reasoning provided"}
+                                </div>
+                            </div>
+
+                            {/* Relevant Coursework and Research */}
+                            <div className="score-card">
+                                <h4>Relevant Coursework and Research</h4>
+                                <div className="progress-bar-container">
+                                    <div
+                                        className="progress-bar"
+                                        style={{
+                                            width: `${applicant.rank_score?.courseworkResearch ? (applicant.rank_score.courseworkResearch * 10) : 0}%`,
+                                            backgroundColor: '#0066cc'
+                                        }}
+                                    ></div>
+                                </div>
+                                <p>{applicant.rank_score?.courseworkResearch ? `${applicant.rank_score.courseworkResearch}/10` : "0/10"}</p>
+
+                                <h4 style={{ fontWeight: 'bold', marginTop: '1rem' }}>Reasoning: </h4>
+                                <div className="experience-card" style={{ marginTop: "0.5rem", backgroundColor: "#f0f7ff", color: "#0066cc" }}>
+                                    {applicant.reasoning?.courseworkResearch || "No reasoning provided"}
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+
     const getStatusBadge = () => {
         if (!applicant || !applicant.status) return null;
 
@@ -583,6 +795,7 @@ export default function ApplicantDetails() {
             {showSuccessModal && <SuccessModal />}
             {showConfirmModal && <ConfirmModal />}
             {showInfoModal && <InfoModal />}
+            {showDetailedBreakdownModal && <DetailedBreakdownModal />}
             {showQuestionReminderModal && <QuestionReminderModal />}
 
             {!isLoading && applicant && detail && (
@@ -628,12 +841,21 @@ export default function ApplicantDetails() {
                                         <div className="experience-container">
                                             <div className="experience-card">{detail.detailed_profile.summary}</div>
                                         </div>
+                                        {job?.prompt && job.prompt !== "" ? (
+                                            <>
+                                                <p className="info-label" style={{ marginTop: "1.5rem" }}>Criteria:</p>
+                                                <div style={{ flex: 1, fontSize: "1rem", color: "#555" }}>
+                                                    {job?.prompt ? job.prompt : "No criteria reference"}
+                                                </div>
+                                            </>
+                                        ) : <div></div>}
                                     </div>
+
                                 ) : <div></div>}
                             </div>
                             <div className="additional-info-2" style={{ marginBottom: "10px" }}>
                                 <div className="info-group">
-                                    <p className="info-label">Rank Score:</p>
+                                    <p className="info-label" style={{ textAlign: "center" }}>Rank Score:</p>
                                     <div className="experience-container" style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                                         {/* Skill Circle */}
                                         <div className="skill" style={{ marginLeft: "10px", marginTop: "10px" }}>
@@ -670,88 +892,188 @@ export default function ApplicantDetails() {
                                             <div style={{ textAlign: "center", marginTop: "5px", fontWeight: "bold", fontSize: "1rem" }}>
                                                 {outcomeScore && totalScore
                                                     ? `${outcomeScore} / ${totalScore}`
-                                                    : "Not scored yet"}
+                                                    : ""}
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                            <div className="additional-info-3" style={{ marginBottom: "5px" }}>
-                                <div className="info-group">
-                                    <p className="info-label">Score Breakdown:</p>
-                                    <div className="scores-container">
-                                        {/* Skill Score */}
-                                        <div className="score-card">
-                                            <h4>Skill Score</h4>
-                                            <div className="progress-bar-container">
-                                                <div
-                                                    className="progress-bar"
-                                                    style={{
-                                                        width: `${applicant.rank_score?.skill_score && job?.rank_weight?.skill_weight ?
-                                                            (applicant.rank_score?.skill_score * job.rank_weight.skill_weight / 10.0 / job.rank_weight.skill_weight * 100) : 0}%`,
-                                                        backgroundColor: '#8250c8'
-                                                    }}
-                                                ></div>
+                                    {applicant.rank_score && applicant.rank_score !== "" &&
+                                        applicant.rank_score !== undefined && applicant.rank_score !== null && (
+                                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '2rem' }}>
+                                                <button
+                                                    className="view-breakdown-button"
+                                                    onClick={handleShowDetailedBreakdown}
+                                                >
+                                                    View Details
+                                                </button>
                                             </div>
-                                            <p>{applicant.rank_score?.skill_score && job?.rank_weight?.skill_weight ?
-                                                (applicant.rank_score?.skill_score * job.rank_weight.skill_weight / 10.0 + "/" + job?.rank_weight?.skill_weight) : "N/A"}</p>
-                                        </div>
-
-                                        {/* Education Score */}
-                                        <div className="score-card">
-                                            <h4>Education Score</h4>
-                                            <div className="progress-bar-container">
-                                                <div
-                                                    className="progress-bar"
-                                                    style={{
-                                                        width: `${applicant.rank_score?.education_score && job?.rank_weight?.education_weight ?
-                                                            (applicant.rank_score.education_score * job.rank_weight.education_weight / 10.0 / job.rank_weight.education_weight * 100) : 0}%`,
-                                                        backgroundColor: '#0066cc'
-                                                    }}
-                                                ></div>
-                                            </div>
-                                            <p>{applicant.rank_score?.education_score && job?.rank_weight?.education_weight ?
-                                                (applicant.rank_score?.education_score * job.rank_weight.education_weight / 10.0 + "/" + job?.rank_weight?.education_weight) : "N/A"}</p>
-                                        </div>
-
-                                        {/* Experience Score */}
-                                        <div className="score-card">
-                                            <h4>Experience Score</h4>
-                                            <div className="progress-bar-container">
-                                                <div
-                                                    className="progress-bar"
-                                                    style={{
-                                                        width: `${applicant.rank_score?.experience_score && job?.rank_weight?.experience_weight ?
-                                                            (applicant.rank_score.experience_score * job.rank_weight.experience_weight / 10.0 / job.rank_weight.experience_weight * 100) : 0}%`,
-                                                        backgroundColor: '#dd20c1'
-                                                    }}
-                                                ></div>
-                                            </div>
-                                            <p>{applicant.rank_score?.experience_score && job?.rank_weight?.experience_weight ?
-                                                (applicant.rank_score?.experience_score * job.rank_weight.experience_weight / 10.0 + "/" + job?.rank_weight?.experience_weight) : "N/A"}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="info-group-2" style={{ marginTop: "10px" }}>
-                                    <p className="info-label">Prompt:</p>
-                                    <div style={{ flex: 1, fontSize: "1rem", color: "#555" }}>
-                                        {job?.prompt ? job.prompt : "No prompt reference"}
-                                    </div>
-                                    <div className="experience-container">
-                                        {applicant.rank_score ? (
-                                            <div className="experience-card">
-                                                <p>Final Score: {applicant.rank_score.final_score || 'N/A'}</p>
-                                                <p>Skills: {applicant.rank_score.skill_score || 'N/A'}</p>
-                                                <p>Education: {applicant.rank_score.education_score || 'N/A'}</p>
-                                                <p>Experience: {applicant.rank_score.experience_score || 'N/A'}</p>
-                                            </div>
-                                        ) : (
-                                            <p>No rank score available</p>
                                         )}
-                                    </div>
                                 </div>
                             </div>
+                            {applicant.rank_score && applicant.rank_score.final_score !== undefined && applicant.rank_score.final_score != null ? (
+                                <div className="additional-info-3" style={{ marginBottom: "5px" }}>
+                                    <div className="info-group">
+                                        <p className="info-label">Score Breakdown:</p>
+                                        <div className="scores-container">
+                                            {/* Dynamically Render Score Cards */}
+                                            {job?.prompt && job.prompt !== "" && (
+                                                <div className="scores-container">
+                                                    {/* Check if Skills is included in the prompt */}
+                                                    {job.prompt.includes("Skills") && (
+                                                        <>
+                                                            {/* Relevance to Requesting Job */}
+                                                            <div className="score-card">
+                                                                <h4>Relevance to Requesting Job</h4>
+                                                                <div className="progress-bar-container">
+                                                                    <div
+                                                                        className="progress-bar"
+                                                                        style={{
+                                                                            width: `${applicant.rank_score?.relevance ? (applicant.rank_score.relevance * 10) : 0}%`,
+                                                                            backgroundColor: '#8250c8'
+                                                                        }}
+                                                                    ></div>
+                                                                </div>
+                                                                <p>{applicant.rank_score?.relevance ? `${applicant.rank_score.relevance}/10` : "0/10"}</p>
+                                                            </div>
+
+                                                            {/* Proficiency Level */}
+                                                            <div className="score-card">
+                                                                <h4>Proficiency Level</h4>
+                                                                <div className="progress-bar-container">
+                                                                    <div
+                                                                        className="progress-bar"
+                                                                        style={{
+                                                                            width: `${applicant.rank_score?.proficiency ? (applicant.rank_score.proficiency * 10) : 0}%`,
+                                                                            backgroundColor: '#8250c8'
+                                                                        }}
+                                                                    ></div>
+                                                                </div>
+                                                                <p>{applicant.rank_score?.proficiency ? `${applicant.rank_score.proficiency}/10` : "0/10"}</p>
+                                                            </div>
+
+                                                            {/* Additional Skills */}
+                                                            <div className="score-card">
+                                                                <h4>Additional Skills</h4>
+                                                                <div className="progress-bar-container">
+                                                                    <div
+                                                                        className="progress-bar"
+                                                                        style={{
+                                                                            width: `${applicant.rank_score?.additionalSkill ? (applicant.rank_score.additionalSkill * 10) : 0}%`,
+                                                                            backgroundColor: '#8250c8'
+                                                                        }}
+                                                                    ></div>
+                                                                </div>
+                                                                <p>{applicant.rank_score?.additionalSkill ? `${applicant.rank_score.additionalSkill}/10` : "0/10"}</p>
+                                                            </div>
+                                                        </>
+                                                    )}
+
+                                                    {/* Check if Experience is included in the prompt */}
+                                                    {job.prompt.includes("Experience") && (
+                                                        <>
+                                                            {/* Job Experience */}
+                                                            <div className="score-card">
+                                                                <h4>Job Experience</h4>
+                                                                <div className="progress-bar-container">
+                                                                    <div
+                                                                        className="progress-bar"
+                                                                        style={{
+                                                                            width: `${applicant.rank_score?.jobExp ? (applicant.rank_score.jobExp * 10) : 0}%`,
+                                                                            backgroundColor: '#dd20c1'
+                                                                        }}
+                                                                    ></div>
+                                                                </div>
+                                                                <p>{applicant.rank_score?.jobExp ? `${applicant.rank_score.jobExp}/10` : "N/A"}</p>
+                                                            </div>
+
+                                                            {/* Project and Co-curricular Experience */}
+                                                            <div className="score-card">
+                                                                <h4>Project and Co-curricular Experience</h4>
+                                                                <div className="progress-bar-container">
+                                                                    <div
+                                                                        className="progress-bar"
+                                                                        style={{
+                                                                            width: `${applicant.rank_score?.projectCocurricularExp ? (applicant.rank_score.projectCocurricularExp * 10) : 0}%`,
+                                                                            backgroundColor: '#dd20c1'
+                                                                        }}
+                                                                    ></div>
+                                                                </div>
+                                                                <p>{applicant.rank_score?.projectCocurricularExp ? `${applicant.rank_score.projectCocurricularExp}/10` : "0/10"}</p>
+                                                            </div>
+
+                                                            {/* Certifications and Training */}
+                                                            <div className="score-card">
+                                                                <h4>Certifications and Training</h4>
+                                                                <div className="progress-bar-container">
+                                                                    <div
+                                                                        className="progress-bar"
+                                                                        style={{
+                                                                            width: `${applicant.rank_score?.certification ? (applicant.rank_score.certification * 10) : 0}%`,
+                                                                            backgroundColor: '#dd20c1'
+                                                                        }}
+                                                                    ></div>
+                                                                </div>
+                                                                <p>{applicant.rank_score?.certification ? `${applicant.rank_score.certification}/10` : "0/10"}</p>
+                                                            </div>
+                                                        </>
+                                                    )}
+
+                                                    {/* Check if Education is included in the prompt */}
+                                                    {job.prompt.includes("Education") && (
+                                                        <>
+                                                            {/* Level of Study */}
+                                                            <div className="score-card">
+                                                                <h4>Level of Study</h4>
+                                                                <div className="progress-bar-container">
+                                                                    <div
+                                                                        className="progress-bar"
+                                                                        style={{
+                                                                            width: `${applicant.rank_score?.studyLevel ? (applicant.rank_score.studyLevel * 10) : 0}%`,
+                                                                            backgroundColor: '#0066cc'
+                                                                        }}
+                                                                    ></div>
+                                                                </div>
+                                                                <p>{applicant.rank_score?.studyLevel ? `${applicant.rank_score.studyLevel}/10` : "0/10"}</p>
+                                                            </div>
+
+                                                            {/* Awards and Achievements */}
+                                                            <div className="score-card">
+                                                                <h4>Awards and Achievements</h4>
+                                                                <div className="progress-bar-container">
+                                                                    <div
+                                                                        className="progress-bar"
+                                                                        style={{
+                                                                            width: `${applicant.rank_score?.awards ? (applicant.rank_score.awards * 10) : 0}%`,
+                                                                            backgroundColor: '#0066cc'
+                                                                        }}
+                                                                    ></div>
+                                                                </div>
+                                                                <p>{applicant.rank_score?.awards ? `${applicant.rank_score.awards}/10` : "0/10"}</p>
+                                                            </div>
+
+                                                            {/* Relevant Coursework and Research */}
+                                                            <div className="score-card">
+                                                                <h4>Relevant Coursework and Research</h4>
+                                                                <div className="progress-bar-container">
+                                                                    <div
+                                                                        className="progress-bar"
+                                                                        style={{
+                                                                            width: `${applicant.rank_score?.courseworkResearch ? (applicant.rank_score.courseworkResearch * 10) : 0}%`,
+                                                                            backgroundColor: '#0066cc'
+                                                                        }}
+                                                                    ></div>
+                                                                </div>
+                                                                <p>{applicant.rank_score?.courseworkResearch ? `${applicant.rank_score.courseworkResearch}/10` : "0/10"}</p>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>)
+                                : ""}
                         </div>
+
                         {/* Skill Large Container */}
                         <div className="applicant-info-container" style={{ marginTop: "5px" }}>
                             <div className="section-header">

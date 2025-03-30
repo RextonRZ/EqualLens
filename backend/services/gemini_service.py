@@ -23,208 +23,179 @@ class GeminiService:
         self.model = genai.GenerativeModel('gemini-2.0-flash')
         self.db = firestore.Client()
     
-    async def analyze_prompt_for_weights(self, prompt: str) -> Dict[str, int]:
-        """Extract weights for skills, education, and experience from the user prompt."""
-        system_prompt = """
-            You are an AI assistant that analyzes job requirements. From the given prompt, 
-            extract the importance weights for three factors on a scale from 1 to 10:
+    async def score_applicant(self, applicant: Dict[str, Any], job_description: str, criteria: str) -> Dict[str, Any]:
+        """
+        Score an individual applicant based on their data, job description, and selected criteria.
 
-            1. Skills: Includes technical_skills, soft_skills, and languages.
-            2. Education: Includes education_paragraph, certifications_paragraph, and awards_paragraph.
-            3. Experience: Includes work_experience_paragraph, projects_paragraph, and co-curricular_activities_paragraph.
+        Args:
+            applicant: Dictionary containing applicant data with extractedText.
+            job_description: String describing the job's requirements and responsibilities.
+            criteria: String specifying the criteria to evaluate (e.g., "skills, experience").
 
-            VERY IMPORTANT:
-            - Ignore any personal identifiable information such as applicant_contactNum, applicant_mail, applicant_name, and bio.
-            - Respond ONLY with a valid JSON object in the following format and nothing else (no explanation, no markdown formatting, no text before or after):
-
-            {
-                "skill_weight": <integer 1-10>,
-                "education_weight": <integer 1-10>,
-                "experience_weight": <integer 1-10>
-            }
-            """
-        
-        try:
-            response = await self.model.generate_content_async(
-                [system_prompt, prompt]
-            )
-            
-            # Extract the JSON from the response text
-            response_text = response.text
-            logger.info(f"Gemini response text in analyze_prompt_for_weights: {response_text}")
-            
-            # Try to parse the response directly first
-            try:
-                weights = json.loads(response_text.strip())
-            except json.JSONDecodeError:
-                # If direct parsing fails, try to extract JSON from the text
-                start_idx = response_text.find('{')
-                end_idx = response_text.rfind('}') + 1
-                
-                if start_idx != -1 and end_idx != -1:
-                    json_str = response_text[start_idx:end_idx]
-                    weights = json.loads(json_str)
-                else:
-                    # If JSON can't be found, create default weights
-                    logger.warning("Could not extract JSON from response, using default weights")
-                    weights = {
-                        "skill_weight": 5,
-                        "education_weight": 5,
-                        "experience_weight": 5
-                    }
-                
-                # Ensure all weights are present and within valid range
-                for key in ['skill_weight', 'education_weight', 'experience_weight']:
-                    if key not in weights:
-                        weights[key] = 5  # Default to medium importance
-                    else:
-                        weights[key] = max(1, min(10, int(weights[key])))  # Ensure between 1-10
-                
-                return weights
-            else:
-                raise ValueError("Failed to extract JSON from Gemini response")
-                
-        except Exception as e:
-            logger.error(f"Error analyzing prompt: {str(e)}")
-            raise HTTPException(status_code=500, detail="An error occurred while analyzing the prompt. Please try again later.")
-    
-    async def score_applicant(self, applicant: Dict[str, Any], weights: Dict[str, int]) -> Dict[str, Any]:
-        """Score an individual applicant based on their data and the weights."""
+        Returns:
+            Dictionary with rank_score and reasoning for each evaluated criterion.
+        """
         extracted_text = applicant.get("extractedText", {})
-        
-        system_prompt = """
-        You are an expert resume analyzer. Evaluate the candidate's resume information and score them 
-        in three categories on a scale from 1 to 10:
 
-        1. Skills: Includes technical_skills, soft_skills, and languages.
-        2. Education: Includes education_paragraph, certifications_paragraph, and awards_paragraph.
-        3. Experience: Includes work_experience_paragraph, projects_paragraph, and co-curricular_activities_paragraph.
+        # Define the system prompt for Gemini
+        system_prompt = f"""
+        You are an expert resume analyzer. Evaluate the candidate's resume information based on the job description 
+        and the selected criteria: {criteria}. For each criterion, score the candidate from 0 to 10 and provide reasoning.
+
+        Criteria details:
+        - Skills:
+            1. Relevance: Evaluate how well the candidate's skills match the job description.
+            2. Proficiency: Assess the candidate's level of skill proficiency which would benefit the job description.
+            3. AdditionalSkill: Identify additional skills the candidate has that are not listed in the job description.
+        - Experience:
+            1. JobExp: Evaluate the alignment of the candidate's previous job experience with the job description.
+            2. ProjectCocurricularExp: Assess the relevance of the candidate's projects and co-curricular activities that relates to the job.
+            3. Certification: Evaluate the certifications and training the candidate has complete which would benefit the job description.
+        - Education:
+            1. StudyLevel: Assess the candidate's level of study and education.
+            2. Awards: Evaluate the candidate's awards and achievements which would benefit the job description.
+            3. CourseworkResearch: Assess the relevance of the candidate's coursework and research that relates to the job.
 
         VERY IMPORTANT:
-        - Ignore any personal identifiable information such as applicant_contactNum, applicant_mail, applicant_name, and bio.
+        - Base all evaluations on the job description and the candidate's profile details at all times.
+        - Provide a score from 0 to 10 for each criterion, where 0 means "not at all relevant" and 10 means "extremely relevant".
         - Respond ONLY with a valid JSON object in the following format and nothing else (no explanation, no markdown formatting, no text before or after):
 
-        {
-            "skill_score": <integer 1-10>,
-            "education_score": <integer 1-10>,
-            "experience_score": <integer 1-10>,
-            "reasoning": {
-                "skill_reasoning": "<brief explanation>",
-                "education_reasoning": "<brief explanation>",
-                "experience_reasoning": "<brief explanation>"
-            }
-        }
+        {{
+            "rank_score": {{
+                "relevance": <integer 0-10>,
+                "proficiency": <integer 0-10>,
+                "additionalSkill": <integer 0-10>,
+                "jobExp": <integer 0-10>,
+                "projectCocurricularExp": <integer 0-10>,
+                "certification": <integer 0-10>,
+                "studyLevel": <integer 0-10>,
+                "awards": <integer 0-10>,
+                "courseworkResearch": <integer 0-10>
+            }},
+            "reasoning": {{
+                "relevance": "<brief explanation>",
+                "proficiency": "<brief explanation>",
+                "additionalSkill": "<brief explanation>",
+                "jobExp": "<brief explanation>",
+                "projectCocurricularExp": "<brief explanation>",
+                "certification": "<brief explanation>",
+                "studyLevel": "<brief explanation>",
+                "awards": "<brief explanation>",
+                "courseworkResearch": "<brief explanation>"
+            }}
+        }}
         """
-        
+
         try:
-            # Format extracted text for Gemini
-            formatted_text = "Resume Information:\n"
+            # Format the input for Gemini
+            formatted_text = f"Job Description:\n{job_description}\n\nResume Information:\n"
             for key, value in extracted_text.items():
                 formatted_text += f"{key}: {value}\n\n"
-            
+
+            # Send the prompt to Gemini
             response = await self.model.generate_content_async(
                 [system_prompt, formatted_text]
             )
-            
+
             # Extract the JSON from the response text
             response_text = response.text
             logger.info(f"Gemini response text in score_applicant: {response_text}")
             start_idx = response_text.find('{')
             end_idx = response_text.rfind('}') + 1
-            
+
             if start_idx != -1 and end_idx != -1:
                 json_str = response_text[start_idx:end_idx]
                 scores = json.loads(json_str)
-                
-                # Ensure all scores are present and within valid range
-                for key in ['skill_score', 'education_score', 'experience_score']:
-                    if key not in scores:
-                        scores[key] = 5  # Default to medium score
-                    else:
-                        scores[key] = max(1, min(10, int(scores[key])))  # Ensure between 1-10
-                
-                # Calculate final score using the formula
-                skill_term = (scores['skill_score'] * weights['skill_weight']) / 10.0
-                education_term = scores['education_score'] * weights['education_weight'] / 10.0
-                experience_term = (scores['experience_score'] * weights['experience_weight']) / 10.0
-                
-                outcome = skill_term + education_term + experience_term
-                total_weight = weights['skill_weight'] + weights['education_weight'] + weights['experience_weight']
-                final_score = (outcome / total_weight) * 100
-                
-                # Round to 2 decimal places
-                final_score = round(final_score, 2)
-                
-                # Prepare result
+
+                # Validate and clean up scores
+                rank_score = scores.get("rank_score", {})
+                reasoning = scores.get("reasoning", {})
+
+                # Ensure all criteria in the selected categories are present
+                required_criteria = []
+                if "skills" in criteria.lower():
+                    required_criteria.extend(["relevance", "proficiency", "additionalSkill"])
+                if "experience" in criteria.lower():
+                    required_criteria.extend(["jobExp", "projectCocurricularExp", "certification"])
+                if "education" in criteria.lower():
+                    required_criteria.extend(["studyLevel", "awards", "courseworkResearch"])
+
+                # Filter rank_score and reasoning to include only relevant criteria
+                rank_score = {key: rank_score[key] for key in required_criteria if key in rank_score}
+                reasoning = {key: reasoning[key] for key in required_criteria if key in reasoning}
+
+                # Prepare the result
                 result = {
-                    "rank_score": {
-                        "skill_score": scores['skill_score'],
-                        "education_score": scores['education_score'],
-                        "experience_score": scores['experience_score'],
-                        "final_score": final_score
-                    },
-                    "reasoning": scores.get('reasoning', {})
+                    "rank_score": rank_score,
+                    "reasoning": reasoning
                 }
 
                 logger.info(f"Applicant scored: {result}")
-                
                 return result
             else:
                 raise ValueError("Failed to extract JSON from Gemini response")
-                
+
         except Exception as e:
             logger.error(f"Error scoring applicant: {str(e)}")
             raise HTTPException(status_code=500, detail="An error occurred while scoring the applicant. Please try again later.")
-    
-    async def rank_applicants(self, prompt: str, applicants: List[Dict[str, Any]], job_document: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def rank_applicants(self, prompt: str, applicants: List[Dict[str, Any]], job_document: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Rank applicants based on job requirements, user prompt and calculate scores.
+        Rank applicants based on job requirements and user prompt.
         
         Args:
-            prompt: User input describing ranking preferences
+            prompt: User input describing ranking criteria
             applicants: List of applicant data
-            job_document: Job document containing existing weights if available
+            job_document: Job document containing job description
             
         Returns:
-            Dictionary with weights, applicant scores, and ranked applicants
+            Dictionary with ranked applicants
         """
         try:
             # Validate inputs
             if not prompt:
                 raise ValueError("Prompt cannot be empty")
             if not applicants:
-                return {"weights": {}, "applicants": [], "message": "No applicants to rank"}
+                return {"applicants": [], "message": "No applicants to rank"}
+            if not job_document or "jobDescription" not in job_document:
+                raise ValueError("Job document must contain jobDescription")
                 
-            # Analyze the prompt to get weights
-            weights = await self.analyze_prompt_for_weights(prompt)
+            job_description = job_document.get("jobDescription", "")
             
-            # Check if weights match existing job document (if provided)
-            if job_document and "rank_weight" in job_document:
-                existing_weights = job_document["rank_weight"]
-                if (existing_weights.get("skill_weight") == weights["skill_weight"] and
-                    existing_weights.get("education_weight") == weights["education_weight"] and
-                    existing_weights.get("experience_weight") == weights["experience_weight"]):
-                    # Weights haven't changed, return existing rankings
-                    return {
-                        "weights": weights,
-                        "message": "Weights unchanged, using existing rankings",
-                        "applicants": applicants
-                    }
+            # Extract criteria from prompt
+            criteria = prompt
             
             # Score each applicant
             scored_applicants = []
             for applicant in applicants:
                 try:
-                    scores = await self.score_applicant(applicant, weights)
+                    # Use the score_applicant function with job description and criteria
+                    scores = await self.score_applicant(applicant, job_description, criteria)
+                    
+                    # Calculate final score as average of all score components
+                    rank_scores = scores.get("rank_score", {})
+                    if rank_scores:
+                        # Calculate final score as percentage (sum of all scores divided by max possible score)
+                        total_score = sum(rank_scores.values())
+                        max_possible_score = len(rank_scores) * 10.0  # Each score is on a scale of 0-10
+                        final_score = (total_score / max_possible_score) * 100.0  # Convert to percentage
+                    else:
+                        final_score = 0
+                        
+                    # Add final score to rank_score
+                    scores["rank_score"]["final_score"] = round(final_score, 2)
+                    
+                    # Combine applicant data with scores
                     applicant_with_score = {**applicant, **scores}
                     scored_applicants.append(applicant_with_score)
                     
                 except Exception as e:
                     # Log error but continue with other applicants
+                    logger.error(f"Error scoring applicant {applicant.get('id', 'unknown')}: {str(e)}")
                     applicant_with_error = {
                         **applicant, 
                         "rank_score": {"final_score": 0},
-                        "error": f"Failed to score: {str(e)}"
+                        "reasoning": {"error": f"Failed to score: {str(e)}"}
                     }
                     scored_applicants.append(applicant_with_error)
             
@@ -236,74 +207,12 @@ class GeminiService:
             )
             
             return {
-                "weights": weights,
                 "applicants": ranked_applicants
             }
         except Exception as e:
             logger.error(f"Error ranking applicants: {str(e)}")
             raise HTTPException(status_code=500, detail="An error occurred while ranking the applicants. Please try again later.")
-        
-    async def rank_applicants_with_weights(self, weights: Dict[str, int], applicants: List[Dict[str, Any]], job_document: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        Rank applicants based on job requirements and provided weights.
-
-        Args:
-            weights: Dictionary containing weights for skills, education, and experience.
-            applicants: List of applicant data.
-            job_document: Job document containing existing weights if available.
-
-        Returns:
-            Dictionary with weights, applicant scores, and ranked applicants.
-        """
-        try:
-            # Validate inputs
-            if not weights:
-                raise ValueError("Weights cannot be empty")
-            if not applicants:
-                return {"weights": weights, "applicants": [], "message": "No applicants to rank"}
-            
-            # Ensure weights have the required keys with valid values
-            for key in ['skill_weight', 'education_weight', 'experience_weight']:
-                if key not in weights:
-                    weights[key] = 5  # Default to medium importance
-                else:
-                    # Ensure weights are integers between 1-10
-                    weights[key] = max(1, min(10, int(weights[key])))
-
-            # Score each applicant
-            scored_applicants = []
-            for applicant in applicants:
-                try:
-                    scores = await self.score_applicant(applicant, weights)
-                    applicant_with_score = {**applicant, **scores}
-                    scored_applicants.append(applicant_with_score)
-                except Exception as e:
-                    logger.error(f"Error scoring applicant {applicant.get('candidateId', 'unknown')}: {str(e)}")
-                    applicant_with_error = {
-                        **applicant, 
-                        "rank_score": {"final_score": 0},
-                        "error": f"Failed to score: {str(e)}"
-                    }
-                    scored_applicants.append(applicant_with_error)
-            
-            # Sort applicants by final score (descending)
-            ranked_applicants = sorted(
-                scored_applicants, 
-                key=lambda x: x.get("rank_score", {}).get("final_score", 0), 
-                reverse=True
-            )
-            
-            # Verify ranking worked
-            logger.info(f"Ranking complete. Top score: {ranked_applicants[0].get('rank_score', {}).get('final_score', 0) if ranked_applicants else 'No applicants'}")
-            
-            return {
-                "weights": weights,
-                "applicants": ranked_applicants
-            }
-        except Exception as e:
-            logger.error(f"Error ranking applicants with weights: {str(e)}")
-            raise HTTPException(status_code=500, detail="An error occurred while ranking the applicants. Please try again later.") 
-        
+    
     async def generate_candidate_profile(self, applicant: Dict[str, Any]) -> Dict[str, Any]:
         """
         Generate a summary profile for a candidate based on their resume data.
