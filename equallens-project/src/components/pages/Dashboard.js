@@ -1553,6 +1553,7 @@ export default function Dashboard() {
                                 </div>
                             ) : (
                                 <div className="applicants-list">
+<<<<<<< HEAD
                                     {/* Ranking status title - new element */}
                                     <div className="ranking-status-container">
                                         {selectedJob.prompt ? (
@@ -1562,6 +1563,351 @@ export default function Dashboard() {
                                         ) : (
                                             <h3 className="ranking-status unranked">Unranked Applicants</h3>
                                         )}
+=======
+                                    {filteredApplicants.length === 1 && (
+                                        /* Single applicant layout - only middle position */
+                                        <div key={filteredApplicants[0].candidateId} className="applicant-card">
+                                            <div className="applicant-rank-info">
+                                                <div className="rank-number">
+                                                    <span className="rank-circle">1</span>
+                                                </div>
+                                                <div className="applicant-info">
+                                                    <h4>{renderApplicantID(filteredApplicants[0])}</h4>
+                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(filteredApplicants[0]))}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="applicant-status-actions">
+                                                <span className={`status-badge ${filteredApplicants[0].status || 'new'}`}>
+                                                    {filteredApplicants[0].status || 'new'}
+                                                </span>
+                                                <div className="rank-score-container">
+                                                    <span className="rank-score-label">Score: </span>
+                                                    <span className="rank-score-value">
+                                                        {filteredApplicants[0].rank_score && filteredApplicants[0].rank_score.final_score
+                                                            ? filteredApplicants[0].rank_score.final_score.toFixed(2)
+                                                            : "N/A"}
+                                                    </span>
+                                                </div>
+                                                <div className="button-container">
+                                                    {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'approved' && (
+                                                        <button
+                                                            className="view-responses-button"
+                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                        >
+                                                            Interview Responses
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        className="view-profile-button"
+                                                        onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}`)}
+                                                    >
+                                                        Full Profile
+                                                    </button>
+                                                    {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'interview completed' && (
+                                                        <button
+                                                            className="view-responses-button"
+                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                        >
+                                                            Interview Responses
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="top-applicants-container">
+                                        <div className="top-three-applicants">
+                                            <div className="top-applicants-row">
+                                                {/* Display different layouts based on number of applicants */}
+                                                {filteredApplicants.length === 2 && (
+                                                    /* Two applicants layout - position 1 and 2 */
+                                                    <>
+                                                        {/* First applicant */}
+                                                        <div className="applicant-card top-applicant-card" style={{ flex: '1' }}>
+                                                            <div className="rank-number-container">
+                                                                <div className="rank-number">
+                                                                    <span className="rank-circle">1</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-info">
+                                                                    <h4>{renderApplicantID(filteredApplicants[0])}</h4>
+                                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(filteredApplicants[0]))}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-status-actions-2">
+                                                                    <span className={`status-badge ${filteredApplicants[0].status || 'new'}`}>
+                                                                        {filteredApplicants[0].status || 'new'}
+                                                                    </span>
+                                                                    <div className="rank-score-container">
+                                                                        <span className="rank-score-label">Score: </span>
+                                                                        <span className="rank-score-value">
+                                                                            {filteredApplicants[0].rank_score && filteredApplicants[0].rank_score.final_score
+                                                                                ? filteredApplicants[0].rank_score.final_score.toFixed(2)
+                                                                            {filteredApplicants[0].rank_score && filteredApplicants[0].rank_score.final_score
+                                                                                ? filteredApplicants[0].rank_score.final_score.toFixed(2)
+                                                                                : "N/A"}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="button-container">
+                                                                        {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'approved' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            className="view-profile-button"
+                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}`)}
+                                                                        >
+                                                                            Full Profile
+                                                                        </button>
+                                                                        {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'interview completed' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Second applicant */}
+                                                        <div className="applicant-card top-applicant-card" style={{ flex: '1' }}>
+                                                            <div className="rank-number-container">
+                                                                <div className="rank-number">
+                                                                    <span className="rank-circle">2</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-info">
+                                                                    <h4>{renderApplicantID(filteredApplicants[1])}</h4>
+                                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(filteredApplicants[1]))}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-status-actions-2">
+                                                                    <span className={`status-badge ${filteredApplicants[1].status || 'new'}`}>
+                                                                        {filteredApplicants[1].status || 'new'}
+                                                                    </span>
+                                                                    <div className="rank-score-container">
+                                                                        <span className="rank-score-label">Score: </span>
+                                                                        <span className="rank-score-value">
+                                                                            {filteredApplicants[1].rank_score && filteredApplicants[1].rank_score.final_score
+                                                                                ? filteredApplicants[1].rank_score.final_score.toFixed(2)
+                                                                                : "N/A"}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="button-container">
+                                                                        {filteredApplicants[1].status && filteredApplicants[1].status.toLowerCase() === 'approved' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            className="view-profile-button"
+                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}`)}
+                                                                        >
+                                                                            Full Profile
+                                                                        </button>
+                                                                        {filteredApplicants[1].status && filteredApplicants[1].status.toLowerCase() === 'interview completed' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                )}
+
+                                                {filteredApplicants.length >= 3 && (
+                                                    /* Three or more applicants - show top 3 */
+                                                    <>
+                                                        {/* First applicant - displayed first */}
+                                                        <div className="applicant-card top-applicant-card">
+                                                            <div className="rank-number-container">
+                                                                <div className="rank-number">
+                                                                    <span className="rank-circle">1</span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-info">
+                                                                    <h4>{renderApplicantID(filteredApplicants[0])}</h4>
+                                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(filteredApplicants[0]))}</p>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-status-actions-2">
+                                                                    <span className={`status-badge ${filteredApplicants[0].status || 'new'}`}>
+                                                                        {filteredApplicants[0].status || 'new'}
+                                                                    </span>
+                                                                    <div className="rank-score-container">
+                                                                        <span className="rank-score-label">Score: </span>
+                                                                        <span className="rank-score-value">
+                                                                            {filteredApplicants[0].rank_score && filteredApplicants[0].rank_score.final_score
+                                                                                ? filteredApplicants[0].rank_score.final_score.toFixed(2)
+                                                                                : "N/A"}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="button-container">
+                                                                        {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'approved' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            className="view-profile-button"
+                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}`)}
+                                                                        >
+                                                                            Full Profile
+                                                                        </button>
+                                                                        {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'interview completed' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Second applicant - displayed second */}
+                                                        <div className="applicant-card top-applicant-card">
+                                                            <div className="rank-number-container">
+                                                                <div className="rank-number">
+                                                                    <span className="rank-circle">2</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-info">
+                                                                    <h4>{renderApplicantID(filteredApplicants[1])}</h4>
+                                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(filteredApplicants[1]))}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-status-actions-2">
+                                                                    <span className={`status-badge ${filteredApplicants[1].status || 'new'}`}>
+                                                                        {filteredApplicants[1].status || 'new'}
+                                                                    </span>
+                                                                    <div className="rank-score-container">
+                                                                        <span className="rank-score-label">Score: </span>
+                                                                        <span className="rank-score-value">
+                                                                            {filteredApplicants[1].rank_score && filteredApplicants[1].rank_score.final_score
+                                                                                ? filteredApplicants[1].rank_score.final_score.toFixed(2)
+                                                                                : "N/A"}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="button-container">
+                                                                        {filteredApplicants[1].status && filteredApplicants[1].status.toLowerCase() === 'approved' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            className="view-profile-button"
+                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}`)}
+                                                                        >
+                                                                            Full Profile
+                                                                        </button>
+                                                                        {filteredApplicants[1].status && filteredApplicants[1].status.toLowerCase() === 'interview completed' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Third applicant - displayed last */}
+                                                        <div className="applicant-card top-applicant-card">
+                                                            <div className="rank-number-container">
+                                                                <div className="rank-number">
+                                                                    <span className="rank-circle">3</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-info">
+                                                                    <h4>{renderApplicantID(filteredApplicants[2])}</h4>
+                                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(filteredApplicants[2]))}</p>
+                                                                    <h4>{renderApplicantID(filteredApplicants[2])}</h4>
+                                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(filteredApplicants[2]))}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-status-actions-2">
+                                                                    <span className={`status-badge ${filteredApplicants[2].status || 'new'}`}>
+                                                                        {filteredApplicants[2].status || 'new'}
+                                                                    </span>
+                                                                    <div className="rank-score-container">
+                                                                        <span className="rank-score-label">Score: </span>
+                                                                        <span className="rank-score-value">
+                                                                            {filteredApplicants[2].rank_score && filteredApplicants[2].rank_score.final_score
+                                                                                ? filteredApplicants[2].rank_score.final_score.toFixed(2)
+                                                                                : "N/A"}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="button-container">
+                                                                        {filteredApplicants[2].status && filteredApplicants[2].status.toLowerCase() === 'approved' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[2].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            className="view-profile-button"
+                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[2].candidateId}`)}
+                                                                        >
+                                                                            Full Profile
+                                                                        </button>
+                                                                        {filteredApplicants[2].status && filteredApplicants[2].status.toLowerCase() === 'interview completed' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[2].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+>>>>>>> 9e13ed84 (Resolved merge conflict in InterviewResponses.js)
                                     </div>
                                     
                                     {selectedJob.prompt ? (
