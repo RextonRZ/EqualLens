@@ -31,7 +31,6 @@ class JobService:
                 'requiredSkills': job_data.requiredSkills,
                 'createdAt': current_time,
                 'applicationCount': 0,
-                'rank_weight': {},
                 'prompt': ""
             }
             
