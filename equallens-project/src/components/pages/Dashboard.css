@@ -762,8 +762,8 @@
 
 /* Add this new status badge for approved status */
 .status-badge.approved {
-  background-color: #e8f5e9; /* Light green background */
-  color: #2e7d32; /* Green text color */
+  background-color: #e3f2fd; /* Light blue background for approved */
+  color: #1976d2; /* Blue text for approved */
 }
 
 /* Also add style for "interview completed" status */
@@ -870,6 +870,14 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 0.5rem;
+}
+
+/* Add this new class for the horizontal button container */
+.button-container {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  width: 100%;
 }
 
 /* Align content inside applicant-status-actions to the right */
@@ -1221,6 +1229,7 @@
 
 /* Ensure all action buttons have exactly the same padding */
 .filter-completed-button,
+.filter-approved-button,
 .rank-button,
 .upload-more-cv-button {
   padding: 0.6rem 1.2rem;
@@ -1254,19 +1263,38 @@
 .view-responses-button {
   font-size: 0.9rem;
   padding: 0.4rem 0.8rem;
-  margin-top: 0.5rem;
   border-radius: 4px;
-  background-color: #4caf50;
-  /* Green color for completed interviews */
-  color: white;
+  background-color: #e1f5fe; /* Light blue background */
+  color: #0288d1; /* Blue text color */
   border: none;
   cursor: pointer;
   transition: background-color 0.2s;
   min-width: 150px;
+  font-weight: normal;
 }
 
 .view-responses-button:hover {
-  background-color: #388e3c;
+  background-color: #b3e5fc; /* Lighter blue on hover */
+}
+
+/* Add a style for the new filter approved button */
+.filter-approved-button {
+  background-color: #2196f3; /* Blue color to distinguish from the green completed button */
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
+}
+
+.filter-approved-button:hover {
+  background-color: #1976d2;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
 }
 
 .filter-completed-button {

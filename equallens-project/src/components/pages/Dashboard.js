@@ -55,6 +55,7 @@ export default function Dashboard() {
     const [rankPrompt, setRankPrompt] = useState("");
     const [processedJobId, setProcessedJobId] = useState("");  // <-- New state for processed job ID
     const [filterCompletedInterviews, setFilterCompletedInterviews] = useState(false);
+    const [filterApprovedApplicants, setFilterApprovedApplicants] = useState(false); // Add state for approved filter
 
     // Add state for department and skill editing
     const [departmentInput, setDepartmentInput] = useState("");
@@ -197,8 +198,13 @@ export default function Dashboard() {
                 applicant.status && applicant.status.toLowerCase() === 'interview completed'
             );
         }
+        if (filterApprovedApplicants) {
+            return applicants.filter(applicant =>
+                applicant.status && applicant.status.toLowerCase() === 'approved'
+            );
+        }
         return applicants;
-    }, [applicants, filterCompletedInterviews]);
+    }, [applicants, filterCompletedInterviews, filterApprovedApplicants]);
 
     // Sort filtered jobs based on sortBy value
     const sortedJobs = [...filteredJobs].sort((a, b) => {
@@ -1421,12 +1427,38 @@ export default function Dashboard() {
                                 <h3>Applicants ({filteredApplicants.length})</h3>
                                 {!isEditing && (
                                     <div className="applicants-actions">
-                                        <button className="filter-completed-button" onClick={() => setFilterCompletedInterviews(!filterCompletedInterviews)}>
-                                            {filterCompletedInterviews ? "Show All Applicants" : "Show Completed Interviews"}
-                                        </button>
+                                        {/* Show All Applicants button when any filter is active */}
+                                        {(filterApprovedApplicants || filterCompletedInterviews) && (
+                                            <button className="filter-completed-button" 
+                                                    style={{backgroundColor: "#6c757d"}} /* Gray color for "Show All" */
+                                                    onClick={() => {
+                                                        setFilterApprovedApplicants(false);
+                                                        setFilterCompletedInterviews(false);
+                                                    }}>
+                                                Show All Applicants
+                                            </button>
+                                        )
+                                        }
+                                        
+                                        {/* Only show filter buttons when not already active */}
+                                        {!filterApprovedApplicants && !filterCompletedInterviews && (
+                                            <button className="filter-approved-button" onClick={() => setFilterApprovedApplicants(true)}>
+                                                Show Approved Applicants
+                                            </button>
+                                        )
+                                        }
+                                        
+                                        {!filterCompletedInterviews && !filterApprovedApplicants && (
+                                            <button className="filter-completed-button" onClick={() => setFilterCompletedInterviews(true)}>
+                                                Show Completed Interviews
+                                            </button>
+                                        )
+                                        }
+                                        
                                         <button className="rank-button" onClick={handleRankApplicants}>
                                             {selectedJob.prompt ? "Rerank Applicants" : "Rank Applicants"}
                                         </button>
+                                        
                                         <button className="upload-more-cv-button" onClick={handleUploadMoreCV}>
                                             Upload More CV
                                         </button>
@@ -1465,20 +1497,30 @@ export default function Dashboard() {
                                                             : "N/A"}
                                                     </span>
                                                 </div>
-                                                <button
-                                                    className="view-profile-button"
-                                                    onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}`)}
-                                                >
-                                                    Full Profile
-                                                </button>
-                                                {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'interview completed' && (
+                                                <div className="button-container">
+                                                    {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'approved' && (
+                                                        <button
+                                                            className="view-responses-button"
+                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                        >
+                                                            Interview Responses
+                                                        </button>
+                                                    )}
                                                     <button
-                                                        className="view-responses-button"
-                                                        onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                        className="view-profile-button"
+                                                        onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}`)}
                                                     >
-                                                        Interview Responses
+                                                        Full Profile
                                                     </button>
-                                                )}
+                                                    {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'interview completed' && (
+                                                        <button
+                                                            className="view-responses-button"
+                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                        >
+                                                            Interview Responses
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     )}
@@ -1515,20 +1557,30 @@ export default function Dashboard() {
                                                                                 : "N/A"}
                                                                         </span>
                                                                     </div>
-                                                                    <button
-                                                                        className="view-profile-button"
-                                                                        onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}`)}
-                                                                    >
-                                                                        Full Profile
-                                                                    </button>
-                                                                    {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'interview completed' && (
+                                                                    <div className="button-container">
+                                                                        {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'approved' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
                                                                         <button
-                                                                            className="view-responses-button"
-                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                                            className="view-profile-button"
+                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}`)}
                                                                         >
-                                                                            Interview Responses
+                                                                            Full Profile
                                                                         </button>
-                                                                    )}
+                                                                        {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'interview completed' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1559,20 +1611,30 @@ export default function Dashboard() {
                                                                                 : "N/A"}
                                                                         </span>
                                                                     </div>
-                                                                    <button
-                                                                        className="view-profile-button"
-                                                                        onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}`)}
-                                                                    >
-                                                                        Full Profile
-                                                                    </button>
-                                                                    {filteredApplicants[1].status && filteredApplicants[1].status.toLowerCase() === 'interview completed' && (
+                                                                    <div className="button-container">
+                                                                        {filteredApplicants[1].status && filteredApplicants[1].status.toLowerCase() === 'approved' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
                                                                         <button
-                                                                            className="view-responses-button"
-                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}/interview-responses`)}
+                                                                            className="view-profile-button"
+                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}`)}
                                                                         >
-                                                                            Interview Responses
+                                                                            Full Profile
                                                                         </button>
-                                                                    )}
+                                                                        {filteredApplicants[1].status && filteredApplicants[1].status.toLowerCase() === 'interview completed' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1610,20 +1672,30 @@ export default function Dashboard() {
                                                                                 : "N/A"}
                                                                         </span>
                                                                     </div>
-                                                                    <button
-                                                                        className="view-profile-button"
-                                                                        onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}`)}
-                                                                    >
-                                                                        Full Profile
-                                                                    </button>
-                                                                    {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'interview completed' && (
+                                                                    <div className="button-container">
+                                                                        {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'approved' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
                                                                         <button
-                                                                            className="view-responses-button"
-                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                                            className="view-profile-button"
+                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}`)}
                                                                         >
-                                                                            Interview Responses
+                                                                            Full Profile
                                                                         </button>
-                                                                    )}
+                                                                        {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'interview completed' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1654,20 +1726,30 @@ export default function Dashboard() {
                                                                                 : "N/A"}
                                                                         </span>
                                                                     </div>
-                                                                    <button
-                                                                        className="view-profile-button"
-                                                                        onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}`)}
-                                                                    >
-                                                                        Full Profile
-                                                                    </button>
-                                                                    {filteredApplicants[1].status && filteredApplicants[1].status.toLowerCase() === 'interview completed' && (
+                                                                    <div className="button-container">
+                                                                        {filteredApplicants[1].status && filteredApplicants[1].status.toLowerCase() === 'approved' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
                                                                         <button
-                                                                            className="view-responses-button"
-                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}/interview-responses`)}
+                                                                            className="view-profile-button"
+                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}`)}
                                                                         >
-                                                                            Interview Responses
+                                                                            Full Profile
                                                                         </button>
-                                                                    )}
+                                                                        {filteredApplicants[1].status && filteredApplicants[1].status.toLowerCase() === 'interview completed' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1698,20 +1780,30 @@ export default function Dashboard() {
                                                                                 : "N/A"}
                                                                         </span>
                                                                     </div>
-                                                                    <button
-                                                                        className="view-profile-button"
-                                                                        onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[2].candidateId}`)}
-                                                                    >
-                                                                        Full Profile
-                                                                    </button>
-                                                                    {filteredApplicants[2].status && filteredApplicants[2].status.toLowerCase() === 'interview completed' && (
+                                                                    <div className="button-container">
+                                                                        {filteredApplicants[2].status && filteredApplicants[2].status.toLowerCase() === 'approved' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[2].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
                                                                         <button
-                                                                            className="view-responses-button"
-                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[2].candidateId}/interview-responses`)}
+                                                                            className="view-profile-button"
+                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[2].candidateId}`)}
                                                                         >
-                                                                            Interview Responses
+                                                                            Full Profile
                                                                         </button>
-                                                                    )}
+                                                                        {filteredApplicants[2].status && filteredApplicants[2].status.toLowerCase() === 'interview completed' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[2].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1745,20 +1837,30 @@ export default function Dashboard() {
                                                             : "N/A"}
                                                     </span>
                                                 </div>
-                                                <button
-                                                    className="view-profile-button"
-                                                    onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${applicant.candidateId}`)}
-                                                >
-                                                    Full Profile
-                                                </button>
-                                                {applicant.status && applicant.status.toLowerCase() === 'interview completed' && (
+                                                <div className="button-container">
+                                                    {applicant.status && applicant.status.toLowerCase() === 'approved' && (
+                                                        <button
+                                                            className="view-responses-button"
+                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${applicant.candidateId}/interview-responses`)}
+                                                        >
+                                                            Interview Responses
+                                                        </button>
+                                                    )}
                                                     <button
-                                                        className="view-responses-button"
-                                                        onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${applicant.candidateId}/interview-responses`)}
+                                                        className="view-profile-button"
+                                                        onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${applicant.candidateId}`)}
                                                     >
-                                                        Interview Responses
+                                                        Full Profile
                                                     </button>
-                                                )}
+                                                    {applicant.status && applicant.status.toLowerCase() === 'interview completed' && (
+                                                        <button
+                                                            className="view-responses-button"
+                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${applicant.candidateId}/interview-responses`)}
+                                                        >
+                                                            Interview Responses
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
