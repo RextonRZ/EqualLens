@@ -62,6 +62,9 @@ function IDVerification() {
     const [verificationResult, setVerificationResult] = useState(null);
     const [errorMessage, setErrorMessage] = useState(null);
 
+    // Add new state for camera loading
+    const [cameraLoading, setCameraLoading] = useState(false);
+
     // Image capture states
     const [capturedImage, setCapturedImage] = useState(null);
     const [method, setMethod] = useState('choose'); // 'choose', 'camera', or 'upload'
@@ -128,6 +131,70 @@ function IDVerification() {
         };
     }, [interviewId, linkCode, navigate]);
 
+    // Add a dedicated effect to handle camera initialization
+    useEffect(() => {
+        // Only initialize camera when method is 'camera' and not already captured
+        if (method === 'camera' && !capturedImage) {
+            const initCamera = async () => {
+                try {
+                    setCameraLoading(true);
+
+                    // Stop any existing stream
+                    if (streamRef.current) {
+                        streamRef.current.getTracks().forEach(track => track.stop());
+                        streamRef.current = null;
+                    }
+
+                    // Request camera access
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: true,
+                        audio: false
+                    });
+
+                    // Store the stream reference
+                    streamRef.current = stream;
+
+                    // Ensure videoRef is available before setting srcObject
+                    if (videoRef.current) {
+                        // Set the stream to the video element
+                        videoRef.current.srcObject = stream;
+
+                        // Wait for the video to be ready
+                        await new Promise((resolve) => {
+                            videoRef.current.onloadedmetadata = () => {
+                                resolve();
+                            };
+
+                            // Fallback if loadedmetadata doesn't fire
+                            setTimeout(resolve, 1000);
+                        });
+
+                        // Play the video
+                        await videoRef.current.play();
+                        console.log("Camera started successfully");
+                    } else {
+                        throw new Error("Video element not available");
+                    }
+                } catch (err) {
+                    console.error("Error accessing camera:", err);
+                    setErrorMessage("Could not access camera. Please use the file upload option instead.");
+                    setMethod('upload');
+                } finally {
+                    setCameraLoading(false);
+                }
+            };
+
+            initCamera();
+        }
+
+        // Clean up function to stop camera when component unmounts or method changes
+        return () => {
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, [method, capturedImage]);
+
     // Handle file upload
     const handleFileChange = (event) => {
         const file = event.target.files[0];
@@ -157,36 +224,10 @@ function IDVerification() {
         reader.readAsDataURL(file);
     };
 
-    // Start camera
-    const startCamera = async () => {
-        try {
-            setErrorMessage(null);
-
-            // Stop any existing stream
-            if (streamRef.current) {
-                streamRef.current.getTracks().forEach(track => track.stop());
-            }
-
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: false
-            });
-
-            streamRef.current = stream;
-
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-                videoRef.current.play().catch(e => {
-                    console.error("Error playing video:", e);
-                    setErrorMessage("Error starting camera. Please try the file upload option instead.");
-                    setMethod('upload');
-                });
-            }
-        } catch (err) {
-            console.error("Error accessing camera:", err);
-            setErrorMessage("Could not access camera. Please use the file upload option instead.");
-            setMethod('upload');
-        }
+    // Select verification method
+    const selectMethod = (selectedMethod) => {
+        setMethod(selectedMethod);
+        setErrorMessage(null);
     };
 
     // Stop camera stream
@@ -209,6 +250,11 @@ function IDVerification() {
             // Create a canvas element
             const canvas = document.createElement('canvas');
             const video = videoRef.current;
+
+            if (!video || !streamRef.current) {
+                setErrorMessage("Camera not ready. Please try again.");
+                return;
+            }
 
             // Use fixed dimensions if video dimensions aren't available
             const width = video.videoWidth || 640;
@@ -292,18 +338,6 @@ function IDVerification() {
             setErrorMessage(error.message || "Verification failed. Please try again.");
         } finally {
             setVerifying(false);
-        }
-    };
-
-    // Select verification method
-    const selectMethod = (selectedMethod) => {
-        setMethod(selectedMethod);
-        setErrorMessage(null);
-
-        if (selectedMethod === 'camera') {
-            startCamera();
-        } else if (selectedMethod === 'upload') {
-            stopCamera();
         }
     };
 
@@ -612,33 +646,60 @@ function IDVerification() {
 
                     {/* Camera view */}
                     {method === 'camera' && !capturedImage && (
+                        // Outer wrapper div to control max-width and centering
                         <div style={{
                             width: '100%',
-                            maxWidth: '500px',
-                            marginBottom: '20px'
+                            maxWidth: '500px',     // Limits the maximum size
+                            margin: '0 auto 20px auto', // Centers the block horizontally, adds bottom margin
+                            // No border needed here usually
                         }}>
+                            {/* Aspect Ratio Container: This div defines the shape and relative positioning context */}
                             <div style={{
-                                width: '100%',
-                                borderRadius: '8px',
-                                overflow: 'hidden',
-                                position: 'relative',
-                                backgroundColor: '#000',
-                                marginBottom: '20px',
-                                boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)'
+                                position: 'relative',      // Needed for the absolutely positioned video inside
+                                width: '100%',             // Takes full width of the outer wrapper
+                                paddingTop: '75%',         // Creates height relative to width (e.g., 75% = 4:3 aspect ratio). Use '56.25%' for 16:9.
+                                backgroundColor: '#000',   // Shows if video doesn't cover (e.g., with objectFit: 'contain')
+                                borderRadius: '8px',       // Optional: For rounded corners
+                                overflow: 'hidden',        // Keeps the video contained within the rounded corners/bounds
+                                boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)' // Optional: visual styling
                             }}>
+                                {cameraLoading && (
+                                    // Simple overlay example for loading state
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: 0, left: 0, right: 0, bottom: 0, // Cover the container
+                                        display: 'flex',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        backgroundColor: 'rgba(0, 0, 0, 0.7)', // Semi-transparent background
+                                        color: 'white',
+                                        zIndex: 2 // Ensure it's above the video
+                                    }}>
+                                        {/* Add your LoadingAnimation or text here */}
+                                        Loading Camera...
+                                    </div>
+                                )}
+                                {/* Video Element: Positioned absolutely to fill the container */}
                                 <video
                                     ref={videoRef}
                                     autoPlay
                                     playsInline
                                     muted
                                     style={{
-                                        width: '100%',
-                                        height: 'auto',
-                                        display: 'block'
+                                        position: 'absolute',  // Position relative to the container above
+                                        top: 0,
+                                        left: 0,
+                                        width: '100%',         // Fill the container width
+                                        height: '100%',        // Fill the container height (created by paddingTop)
+                                        display: 'block',      // Removes potential extra space below video
+                                        objectFit: 'cover',    // 'cover' fills space (may crop), 'contain' fits all (may letterbox)
+                                        zIndex: 1,          // Ensure it's below the loading overlay
+                                        transform: 'scaleX(-1)'
                                     }}
                                 />
                             </div>
-                            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+
+                            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '20px' }}>
                                 <button
                                     onClick={() => selectMethod('choose')}
                                     style={{
@@ -655,6 +716,7 @@ function IDVerification() {
                                 </button>
                                 <button
                                     onClick={capturePhoto}
+                                    disabled={cameraLoading}
                                     style={{
                                         backgroundColor: '#ef402d',
                                         color: 'white',
@@ -662,7 +724,8 @@ function IDVerification() {
                                         padding: '12px 30px',
                                         borderRadius: '4px',
                                         fontSize: '16px',
-                                        cursor: 'pointer',
+                                        cursor: cameraLoading ? 'not-allowed' : 'pointer',
+                                        opacity: cameraLoading ? 0.7 : 1,
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '8px'

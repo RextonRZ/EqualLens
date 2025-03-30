@@ -352,7 +352,11 @@ export default function Dashboard() {
         setJobDetailLoading(true);
         // Reset modal message to ensure we don't show stale messages
         setModalMessage("Loading job details...");
+<<<<<<< Updated upstream
         
+=======
+
+>>>>>>> Stashed changes
         // Introduce a short delay to display the loading effect
         setTimeout(() => {
             setSelectedJob(job);
@@ -368,7 +372,11 @@ export default function Dashboard() {
         setJobDetailLoading(true);
         // Reset modal message to ensure we don't show stale messages
         setModalMessage("Returning to job list...");
+<<<<<<< Updated upstream
         
+=======
+
+>>>>>>> Stashed changes
         setTimeout(() => {
             setSelectedJob(null);
             setIsEditing(false);
@@ -390,6 +398,9 @@ export default function Dashboard() {
             setDepartmentInput("");
             setSkillInput("");
             
+            // Ensure job details section is expanded when editing starts
+            setJobDetailsExpanded(true);
+
             // Ensure job details section is expanded when editing starts
             setJobDetailsExpanded(true);
 
@@ -491,21 +502,21 @@ export default function Dashboard() {
                 await fetchApplicants(selectedJob.jobId);
 
                 // Check if the job has ranking criteria set up
-                const hasRankingSetup = selectedJob.rank_weight !== null && 
-                                       selectedJob.prompt && 
-                                       selectedJob.prompt.trim() !== "";
+                const hasRankingSetup = selectedJob.rank_weight !== null &&
+                    selectedJob.prompt &&
+                    selectedJob.prompt.trim() !== "";
 
                 // Only do the ranking if there's a ranking setup
                 if (hasRankingSetup) {
                     const unscoredApplicants = await fetchUnscoredApplicants(selectedJob.jobId);
-                    
+
                     // Only process ranking if there are unscored applicants
                     if (unscoredApplicants && unscoredApplicants.length > 0) {
                         setModalMessage(`Ranking ${unscoredApplicants.length} new candidate${unscoredApplicants.length !== 1 ? 's' : ''}...`);
-                        
+
                         // Score the new applicants
                         const scoredApplicants = await scoreApplicants(unscoredApplicants);
-                        
+
                         // Update candidate rankings if available
                         if (scoredApplicants && scoredApplicants.applicants && scoredApplicants.applicants.length > 0) {
                             const updatePromises = scoredApplicants.applicants.map(applicant => {
@@ -525,11 +536,11 @@ export default function Dashboard() {
                                 }
                                 return Promise.resolve();
                             });
-                            
+
                             // Wait for all updates to complete
                             await Promise.all(updatePromises);
                         }
-                        
+
                         // Fetch the updated applicants list with new rankings
                         await fetchApplicants(selectedJob.jobId);
                     }
@@ -551,7 +562,7 @@ export default function Dashboard() {
                 const successMessage = hasRankingSetup
                     ? `${count} new CV${count !== 1 ? 's' : ''} uploaded and ranked successfully.`
                     : `${count} new CV${count !== 1 ? 's' : ''} uploaded successfully.`;
-                
+
                 setModalMessage(successMessage);
                 setShowSuccessModal(true);
             }
@@ -605,27 +616,31 @@ export default function Dashboard() {
             // by checking if the key terms are included, regardless of order
             const hasSignificantPromptChange = () => {
                 if (!rankPrompt || !prompt) return true; // If either is empty, consider it a change
-                
+
                 // Convert both prompts to lowercase for case-insensitive comparison
                 const currentPromptLower = prompt.toLowerCase();
                 const previousPromptLower = rankPrompt.toLowerCase();
-                
+
                 // Create arrays of significant terms from each prompt
                 const currentTerms = currentPromptLower.split(/[,\s]+/).filter(term => term.length > 2);
                 const previousTerms = previousPromptLower.split(/[,\s]+/).filter(term => term.length > 2);
-                
+
                 // Check if all significant terms from current prompt exist in previous prompt and vice versa
-                const allCurrentTermsInPrevious = currentTerms.every(term => 
+                const allCurrentTermsInPrevious = currentTerms.every(term =>
                     previousTerms.some(prevTerm => prevTerm.includes(term) || term.includes(prevTerm))
                 );
+<<<<<<< Updated upstream
                 const allPreviousTermsInCurrent = previousTerms.every(prevTerm => 
+=======
+                const allPreviousTermsInCurrent = previousTerms.every(prevTerm =>
+>>>>>>> Stashed changes
                     currentTerms.some(currTerm => currTerm.includes(prevTerm) || prevTerm.includes(currTerm))
                 );
-                
+
                 // Consider it the same prompt if terms match in both directions
                 return !(allCurrentTermsInPrevious && allPreviousTermsInCurrent);
             };
-            
+
             // Only process if the prompt has significantly changed or we're processing a different job
             if (hasSignificantPromptChange() || selectedJob.jobId !== processedJobId) {
                 // Send ranking request to backend
@@ -704,11 +719,19 @@ export default function Dashboard() {
                 setModalMessage("Using existing ranking based on the same criteria.");
                 setShowRankSuccessModal(true);
             }
+<<<<<<< Updated upstream
             
             // Reload job data to update the UI with new ranking criteria
             await fetchJob(selectedJob.jobId);
             await fetchApplicants(selectedJob.jobId);
             
+=======
+
+            // Reload job data to update the UI with new ranking criteria
+            await fetchJob(selectedJob.jobId);
+            await fetchApplicants(selectedJob.jobId);
+
+>>>>>>> Stashed changes
         } catch (error) {
             // Centralized error handling
             console.error("Error in ranking applicants:", error);
@@ -731,10 +754,17 @@ export default function Dashboard() {
     const handleInterviewQuestionsClick = () => {
         // Set loading state
         setJobDetailLoading(true);
+<<<<<<< Updated upstream
         
         // Set a fresh message specific to this action
         setModalMessage("Loading interview questions...");
         
+=======
+
+        // Set a fresh message specific to this action
+        setModalMessage("Loading interview questions...");
+
+>>>>>>> Stashed changes
         // Use a longer timeout to ensure the loading state and message are fully visible
         setTimeout(() => {
             navigate(`/add-interview-questions?jobId=${selectedJob.jobId}`);
@@ -1271,8 +1301,13 @@ export default function Dashboard() {
 
                     <div className="job-detail-content">
                         <div className="job-info-container">
+<<<<<<< Updated upstream
                             <div className={`collapsible-header ${!jobDetailsExpanded ? 'collapsed' : ''}`} 
                                  onClick={toggleJobDetails}>
+=======
+                            <div className={`collapsible-header ${!jobDetailsExpanded ? 'collapsed' : ''}`}
+                                onClick={toggleJobDetails}>
+>>>>>>> Stashed changes
                                 <h3>
                                     Job Details
                                     <div className="collapse-icon">
@@ -1287,7 +1322,11 @@ export default function Dashboard() {
                                         )}
                                     </div>
                                 </h3>
+<<<<<<< Updated upstream
                                 
+=======
+
+>>>>>>> Stashed changes
                                 {!isEditing && (
                                     <div className="header-actions">
                                         <button
@@ -1529,6 +1568,7 @@ export default function Dashboard() {
                                                 <option value="rejected">Rejected Applicants</option>
                                             </select>
                                         </div>
+<<<<<<< Updated upstream
                                         
                                         <button className="rank-button" onClick={handleRankApplicants}>
                                             <svg className="ai-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1536,10 +1576,19 @@ export default function Dashboard() {
                                                 <path d="M7 5H17L21 9L12 20L3 9L7 5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                                 <path d="M12 20V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                                 <path d="M12 8V8.01" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+=======
+
+                                        <button className="rank-button" onClick={handleRankApplicants}>
+                                            <svg className="ai-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M12 15L8.5 10L15.5 10L12 15Z" fill="currentColor" />
+                                                <path d="M7 5H17L21 9L12 20L3 9L7 5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                <path d="M12 20V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                <path d="M12 8V8.01" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+>>>>>>> Stashed changes
                                             </svg>
                                             {selectedJob.prompt ? "Rerank Applicants with AI" : "Rank Applicants with AI"}
                                         </button>
-                                        
+
                                         <button className="upload-more-cv-button" onClick={handleUploadMoreCV}>
                                             Upload More CV
                                         </button>
@@ -1553,6 +1602,10 @@ export default function Dashboard() {
                                 </div>
                             ) : (
                                 <div className="applicants-list">
+<<<<<<< Updated upstream
+<<<<<<< HEAD
+=======
+>>>>>>> Stashed changes
                                     {/* Ranking status title - new element */}
                                     <div className="ranking-status-container">
                                         {selectedJob.prompt ? (
@@ -1562,6 +1615,352 @@ export default function Dashboard() {
                                         ) : (
                                             <h3 className="ranking-status unranked">Unranked Applicants</h3>
                                         )}
+<<<<<<< Updated upstream
+=======
+                                    {filteredApplicants.length === 1 && (
+                                        /* Single applicant layout - only middle position */
+                                        <div key={filteredApplicants[0].candidateId} className="applicant-card">
+                                            <div className="applicant-rank-info">
+                                                <div className="rank-number">
+                                                    <span className="rank-circle">1</span>
+                                                </div>
+                                                <div className="applicant-info">
+                                                    <h4>{renderApplicantID(filteredApplicants[0])}</h4>
+                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(filteredApplicants[0]))}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="applicant-status-actions">
+                                                <span className={`status-badge ${filteredApplicants[0].status || 'new'}`}>
+                                                    {filteredApplicants[0].status || 'new'}
+                                                </span>
+                                                <div className="rank-score-container">
+                                                    <span className="rank-score-label">Score: </span>
+                                                    <span className="rank-score-value">
+                                                        {filteredApplicants[0].rank_score && filteredApplicants[0].rank_score.final_score
+                                                            ? filteredApplicants[0].rank_score.final_score.toFixed(2)
+                                                            : "N/A"}
+                                                    </span>
+                                                </div>
+                                                <div className="button-container">
+                                                    {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'approved' && (
+                                                        <button
+                                                            className="view-responses-button"
+                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                        >
+                                                            Interview Responses
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        className="view-profile-button"
+                                                        onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}`)}
+                                                    >
+                                                        Full Profile
+                                                    </button>
+                                                    {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'interview completed' && (
+                                                        <button
+                                                            className="view-responses-button"
+                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                        >
+                                                            Interview Responses
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="top-applicants-container">
+                                        <div className="top-three-applicants">
+                                            <div className="top-applicants-row">
+                                                {/* Display different layouts based on number of applicants */}
+                                                {filteredApplicants.length === 2 && (
+                                                    /* Two applicants layout - position 1 and 2 */
+                                                    <>
+                                                        {/* First applicant */}
+                                                        <div className="applicant-card top-applicant-card" style={{ flex: '1' }}>
+                                                            <div className="rank-number-container">
+                                                                <div className="rank-number">
+                                                                    <span className="rank-circle">1</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-info">
+                                                                    <h4>{renderApplicantID(filteredApplicants[0])}</h4>
+                                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(filteredApplicants[0]))}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-status-actions-2">
+                                                                    <span className={`status-badge ${filteredApplicants[0].status || 'new'}`}>
+                                                                        {filteredApplicants[0].status || 'new'}
+                                                                    </span>
+                                                                    <div className="rank-score-container">
+                                                                        <span className="rank-score-label">Score: </span>
+                                                                        <span className="rank-score-value">
+                                                                            {filteredApplicants[0].rank_score && filteredApplicants[0].rank_score.final_score
+                                                                                ? filteredApplicants[0].rank_score.final_score.toFixed(2)
+                                                                            {filteredApplicants[0].rank_score && filteredApplicants[0].rank_score.final_score
+                                                                                ? filteredApplicants[0].rank_score.final_score.toFixed(2)
+                                                                                : "N/A"}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="button-container">
+                                                                        {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'approved' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            className="view-profile-button"
+                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}`)}
+                                                                        >
+                                                                            Full Profile
+                                                                        </button>
+                                                                        {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'interview completed' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Second applicant */}
+                                                        <div className="applicant-card top-applicant-card" style={{ flex: '1' }}>
+                                                            <div className="rank-number-container">
+                                                                <div className="rank-number">
+                                                                    <span className="rank-circle">2</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-info">
+                                                                    <h4>{renderApplicantID(filteredApplicants[1])}</h4>
+                                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(filteredApplicants[1]))}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-status-actions-2">
+                                                                    <span className={`status-badge ${filteredApplicants[1].status || 'new'}`}>
+                                                                        {filteredApplicants[1].status || 'new'}
+                                                                    </span>
+                                                                    <div className="rank-score-container">
+                                                                        <span className="rank-score-label">Score: </span>
+                                                                        <span className="rank-score-value">
+                                                                            {filteredApplicants[1].rank_score && filteredApplicants[1].rank_score.final_score
+                                                                                ? filteredApplicants[1].rank_score.final_score.toFixed(2)
+                                                                                : "N/A"}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="button-container">
+                                                                        {filteredApplicants[1].status && filteredApplicants[1].status.toLowerCase() === 'approved' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            className="view-profile-button"
+                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}`)}
+                                                                        >
+                                                                            Full Profile
+                                                                        </button>
+                                                                        {filteredApplicants[1].status && filteredApplicants[1].status.toLowerCase() === 'interview completed' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                )}
+
+                                                {filteredApplicants.length >= 3 && (
+                                                    /* Three or more applicants - show top 3 */
+                                                    <>
+                                                        {/* First applicant - displayed first */}
+                                                        <div className="applicant-card top-applicant-card">
+                                                            <div className="rank-number-container">
+                                                                <div className="rank-number">
+                                                                    <span className="rank-circle">1</span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-info">
+                                                                    <h4>{renderApplicantID(filteredApplicants[0])}</h4>
+                                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(filteredApplicants[0]))}</p>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-status-actions-2">
+                                                                    <span className={`status-badge ${filteredApplicants[0].status || 'new'}`}>
+                                                                        {filteredApplicants[0].status || 'new'}
+                                                                    </span>
+                                                                    <div className="rank-score-container">
+                                                                        <span className="rank-score-label">Score: </span>
+                                                                        <span className="rank-score-value">
+                                                                            {filteredApplicants[0].rank_score && filteredApplicants[0].rank_score.final_score
+                                                                                ? filteredApplicants[0].rank_score.final_score.toFixed(2)
+                                                                                : "N/A"}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="button-container">
+                                                                        {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'approved' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            className="view-profile-button"
+                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}`)}
+                                                                        >
+                                                                            Full Profile
+                                                                        </button>
+                                                                        {filteredApplicants[0].status && filteredApplicants[0].status.toLowerCase() === 'interview completed' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[0].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Second applicant - displayed second */}
+                                                        <div className="applicant-card top-applicant-card">
+                                                            <div className="rank-number-container">
+                                                                <div className="rank-number">
+                                                                    <span className="rank-circle">2</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-info">
+                                                                    <h4>{renderApplicantID(filteredApplicants[1])}</h4>
+                                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(filteredApplicants[1]))}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-status-actions-2">
+                                                                    <span className={`status-badge ${filteredApplicants[1].status || 'new'}`}>
+                                                                        {filteredApplicants[1].status || 'new'}
+                                                                    </span>
+                                                                    <div className="rank-score-container">
+                                                                        <span className="rank-score-label">Score: </span>
+                                                                        <span className="rank-score-value">
+                                                                            {filteredApplicants[1].rank_score && filteredApplicants[1].rank_score.final_score
+                                                                                ? filteredApplicants[1].rank_score.final_score.toFixed(2)
+                                                                                : "N/A"}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="button-container">
+                                                                        {filteredApplicants[1].status && filteredApplicants[1].status.toLowerCase() === 'approved' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            className="view-profile-button"
+                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}`)}
+                                                                        >
+                                                                            Full Profile
+                                                                        </button>
+                                                                        {filteredApplicants[1].status && filteredApplicants[1].status.toLowerCase() === 'interview completed' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[1].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Third applicant - displayed last */}
+                                                        <div className="applicant-card top-applicant-card">
+                                                            <div className="rank-number-container">
+                                                                <div className="rank-number">
+                                                                    <span className="rank-circle">3</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-info">
+                                                                    <h4>{renderApplicantID(filteredApplicants[2])}</h4>
+                                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(filteredApplicants[2]))}</p>
+                                                                    <h4>{renderApplicantID(filteredApplicants[2])}</h4>
+                                                                    <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(filteredApplicants[2]))}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="applicant-content-container">
+                                                                <div className="applicant-status-actions-2">
+                                                                    <span className={`status-badge ${filteredApplicants[2].status || 'new'}`}>
+                                                                        {filteredApplicants[2].status || 'new'}
+                                                                    </span>
+                                                                    <div className="rank-score-container">
+                                                                        <span className="rank-score-label">Score: </span>
+                                                                        <span className="rank-score-value">
+                                                                            {filteredApplicants[2].rank_score && filteredApplicants[2].rank_score.final_score
+                                                                                ? filteredApplicants[2].rank_score.final_score.toFixed(2)
+                                                                                : "N/A"}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="button-container">
+                                                                        {filteredApplicants[2].status && filteredApplicants[2].status.toLowerCase() === 'approved' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[2].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            className="view-profile-button"
+                                                                            onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[2].candidateId}`)}
+                                                                        >
+                                                                            Full Profile
+                                                                        </button>
+                                                                        {filteredApplicants[2].status && filteredApplicants[2].status.toLowerCase() === 'interview completed' && (
+                                                                            <button
+                                                                                className="view-responses-button"
+                                                                                onClick={() => navigate(`/dashboard/${selectedJob.jobId}/${filteredApplicants[2].candidateId}/interview-responses`)}
+                                                                            >
+                                                                                Interview Responses
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+>>>>>>> 9e13ed84 (Resolved merge conflict in InterviewResponses.js)
                                     </div>
                                     
                                     {selectedJob.prompt ? (
@@ -1580,6 +1979,26 @@ export default function Dashboard() {
                                                         </div>
                                                     </div>
 
+=======
+                                    </div>
+
+                                    {selectedJob.prompt ? (
+                                        /* RANKED APPLICANTS: Display top 3 in podium arrangement */
+                                        <>
+                                            {filteredApplicants.length === 1 && (
+                                                /* Single applicant layout - only middle position */
+                                                <div key={filteredApplicants[0].candidateId} className="applicant-card">
+                                                    <div className="applicant-rank-info">
+                                                        <div className="rank-number">
+                                                            <span className="rank-circle">1</span>
+                                                        </div>
+                                                        <div className="applicant-info">
+                                                            <h4>{renderApplicantID(filteredApplicants[0])}</h4>
+                                                            <p className="applicant-email">{'CV Uploaded on ' + (renderApplicantSubmitDate(filteredApplicants[0]))}</p>
+                                                        </div>
+                                                    </div>
+
+>>>>>>> Stashed changes
                                                     <div className="applicant-status-actions">
                                                         <span className={`status-badge ${filteredApplicants[0].status || 'new'}`}>
                                                             {filteredApplicants[0].status || 'new'}
@@ -1619,7 +2038,11 @@ export default function Dashboard() {
                                                     </div>
                                                 </div>
                                             )}
+<<<<<<< Updated upstream
                                             
+=======
+
+>>>>>>> Stashed changes
                                             {filteredApplicants.length >= 2 && (
                                                 <div className="top-applicants-container">
                                                     <div className="top-three-applicants">
@@ -1795,9 +2218,15 @@ export default function Dashboard() {
                                                                         <div className="applicant-card top-applicant-card" data-rank="1">
                                                                             <div className="rank-badge" data-rank="1">
                                                                                 <svg className="crown-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<<<<<<< Updated upstream
                                                                                     <path d="M3 17L6 9L12 12L18 9L21 17H3Z" fill="#FFD700"/>
                                                                                     <path d="M3 17L6 9L12 12L18 9L21 17M3.5 21H20.5M12 7C13.1046 7 14 6.10457 14 5C14 3.89543 13.1046 3 12 3C10.8954 3 10 3.89543 10 5C10 6.10457 10.8954 7 12 7Z" 
                                                                                         stroke="#FFD700" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+=======
+                                                                                    <path d="M3 17L6 9L12 12L18 9L21 17H3Z" fill="#FFD700" />
+                                                                                    <path d="M3 17L6 9L12 12L18 9L21 17M3.5 21H20.5M12 7C13.1046 7 14 6.10457 14 5C14 3.89543 13.1046 3 12 3C10.8954 3 10 3.89543 10 5C10 6.10457 10.8954 7 12 7Z"
+                                                                                        stroke="#FFD700" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+>>>>>>> Stashed changes
                                                                                 </svg>
                                                                                 1
                                                                             </div>
@@ -1906,7 +2335,11 @@ export default function Dashboard() {
                                                     </div>
                                                 </div>
                                             )}
+<<<<<<< Updated upstream
                                             
+=======
+
+>>>>>>> Stashed changes
                                             {/* Remaining applicants (4th and beyond) for ranked jobs */}
                                             {filteredApplicants.length > 3 && filteredApplicants.slice(3).map((applicant, index) => (
                                                 <div key={applicant.candidateId || index} className="applicant-card">
