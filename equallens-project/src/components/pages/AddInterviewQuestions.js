@@ -62,7 +62,7 @@ const AddInterviewQuestions = () => {
     const [applyToAllStatus, setApplyToAllStatus] = useState(null);
     const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
     const [showResetSuccessModal, setShowResetSuccessModal] = useState(false);
-    const [loadingOperation, setLoadingOperation] = useState("Saving");
+    const [loadingOperation, setLoadingOperation] = useState("Loading"); // Changed from "Saving" to "Loading"
     const [showCandidateSwitchModal, setShowCandidateSwitchModal] = useState(false);
     const [pendingCandidateId, setPendingCandidateId] = useState(null);
     const [showUnsavedResetModal, setShowUnsavedResetModal] = useState(false);

@@ -959,13 +959,17 @@ export default function Dashboard() {
 
     // Add a new function to handle interview questions navigation
     const handleInterviewQuestionsClick = () => {
+        // Set loading state
         setJobDetailLoading(true);
+        
+        // Set the correct message and make sure it persists
         setModalMessage("Loading interview questions...");
         
-        // Small timeout to ensure loading state is visible
+        // Use a longer timeout to ensure the loading state and message are fully visible
+        // and prevent other operations from changing the message
         setTimeout(() => {
-            window.location.href = `/add-interview-questions?jobId=${selectedJob.jobId}`;
-        }, 100);
+            navigate(`/add-interview-questions?jobId=${selectedJob.jobId}`);
+        }, 300);
     };
 
     if (isLoading) {
