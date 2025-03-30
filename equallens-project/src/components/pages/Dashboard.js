@@ -201,6 +201,8 @@ export default function Dashboard() {
             switch (filterStatus) {
                 case 'approved':
                     return status === 'approved';
+                case 'interview-scheduled':  // Add new case for interview scheduled
+                    return status === 'interview scheduled';
                 case 'interview-completed':
                     return status === 'interview completed';
                 case 'accepted':
@@ -345,9 +347,12 @@ export default function Dashboard() {
         }
     };
 
-    // Modify handleJobSelect to add loading effect
+    // Modify handleJobSelect to reset modal message when selecting a job
     const handleJobSelect = (job) => {
         setJobDetailLoading(true);
+        // Reset modal message to ensure we don't show stale messages
+        setModalMessage("Loading job details...");
+        
         // Introduce a short delay to display the loading effect
         setTimeout(() => {
             setSelectedJob(job);
@@ -358,14 +363,19 @@ export default function Dashboard() {
         }, 300);
     };
 
-    // Modify handleBackToJobs to add a loading effect when clicking "Back to Jobs"
+    // Modify handleBackToJobs to reset modal message when going back to jobs list
     const handleBackToJobs = () => {
         setJobDetailLoading(true);
+        // Reset modal message to ensure we don't show stale messages
+        setModalMessage("Returning to job list...");
+        
         setTimeout(() => {
             setSelectedJob(null);
             setIsEditing(false);
             setApplicants([]);
             setJobDetailLoading(false);
+            // Clear modal message completely once we're back to the job list
+            setModalMessage("");
         }, 300);
     };
 
@@ -561,8 +571,10 @@ export default function Dashboard() {
         // We'll keep it for backward compatibility and other use cases
     };
 
-    // Handle Rank Applicants button click
+    // Add modal message reset to handleRankApplicants
     const handleRankApplicants = () => {
+        // Reset any stale messages
+        setModalMessage("");
         setShowRankApplicantsModal(true);
     };
 
@@ -715,6 +727,49 @@ export default function Dashboard() {
         }
     };
 
+    // Add reset to handleInterviewQuestionsClick
+    const handleInterviewQuestionsClick = () => {
+        // Set loading state
+        setJobDetailLoading(true);
+        
+        // Set a fresh message specific to this action
+        setModalMessage("Loading interview questions...");
+        
+        // Use a longer timeout to ensure the loading state and message are fully visible
+        setTimeout(() => {
+            navigate(`/add-interview-questions?jobId=${selectedJob.jobId}`);
+        }, 300);
+    };
+
+    // Add a cleanup function to reset the modal message when the component unmounts
+    useEffect(() => {
+        return () => {
+            // Clean up modal messages when component unmounts
+            setModalMessage("");
+        };
+    }, []);
+
+    // Also reset modal messages when specific modals are closed
+    const handleCloseSuccessModal = () => {
+        setShowSuccessModal(false);
+        setModalMessage("");
+    };
+
+    const handleCloseErrorModal = () => {
+        setShowErrorModal(false);
+        setModalMessage("");
+    };
+
+    const handleCloseRankSuccessModal = () => {
+        setShowRankSuccessModal(false);
+        setModalMessage("");
+    };
+
+    const handleCloseRankErrorModal = () => {
+        setShowRankErrorModal(false);
+        setModalMessage("");
+    };
+
     const SuccessModal = () => (
         <div className="status-modal-overlay" role="dialog" aria-modal="true">
             <div className="status-modal success-modal">
@@ -727,7 +782,7 @@ export default function Dashboard() {
                 <h3 className="status-title">{"Job Updated Successfully!"}</h3>
                 <p className="status-description">{modalMessage || "Your changes have been saved."}</p>
                 <div className="status-buttons">
-                    <button className="status-button primary-button" onClick={() => setShowSuccessModal(false)}>
+                    <button className="status-button primary-button" onClick={handleCloseSuccessModal}>
                         Close
                     </button>
                 </div>
@@ -748,7 +803,7 @@ export default function Dashboard() {
                 <h3 className="status-title">{"Update Failed!"}</h3>
                 <p className="status-description">{modalMessage || "Failed to update job details."}</p>
                 <div className="status-buttons">
-                    <button className="status-button primary-button" onClick={() => setShowErrorModal(false)}>
+                    <button className="status-button primary-button" onClick={handleCloseErrorModal}>
                         Close
                     </button>
                 </div>
@@ -768,7 +823,7 @@ export default function Dashboard() {
                 <h3 className="status-title">{"Rank Successful!"}</h3>
                 <p className="status-description">{modalMessage || "Applicants have been ranked according to the prompt."}</p>
                 <div className="status-buttons">
-                    <button className="status-button primary-button" onClick={() => setShowRankSuccessModal(false)}>
+                    <button className="status-button primary-button" onClick={handleCloseRankSuccessModal}>
                         Close
                     </button>
                 </div>
@@ -789,7 +844,7 @@ export default function Dashboard() {
                 <h3 className="status-title">{"Rank Failed!"}</h3>
                 <p className="status-description">{modalMessage || "Failed to rank applicants."}</p>
                 <div className="status-buttons">
-                    <button className="status-button primary-button" onClick={() => setShowRankErrorModal(false)}>
+                    <button className="status-button primary-button" onClick={handleCloseRankErrorModal}>
                         Close
                     </button>
                 </div>
@@ -988,21 +1043,6 @@ export default function Dashboard() {
             requiredSkills: updatedSkills
         });
         console.log("After removing skill:", editedJob.requiredSkills); // Debug logging
-    };
-
-    // Add a new function to handle interview questions navigation
-    const handleInterviewQuestionsClick = () => {
-        // Set loading state
-        setJobDetailLoading(true);
-        
-        // Set the correct message and make sure it persists
-        setModalMessage("Loading interview questions...");
-        
-        // Use a longer timeout to ensure the loading state and message are fully visible
-        // and prevent other operations from changing the message
-        setTimeout(() => {
-            navigate(`/add-interview-questions?jobId=${selectedJob.jobId}`);
-        }, 300);
     };
 
     // Add function to toggle job details visibility
@@ -1482,6 +1522,7 @@ export default function Dashboard() {
                                             >
                                                 <option value="all">All Applicants</option>
                                                 <option value="approved">Approved Applicants</option>
+                                                <option value="interview-scheduled">Interview Scheduled</option>
                                                 <option value="interview-completed">Completed Interviews</option>
                                                 <option value="accepted">Accepted Applicants</option>
                                                 <option value="new">New Applicants</option>
