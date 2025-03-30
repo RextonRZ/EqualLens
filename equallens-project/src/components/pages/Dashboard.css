@@ -561,7 +561,7 @@
 /* Row to display top applicants in a single row */
 .top-applicants-row {
   display: flex;
-  justify-content: space-between; /* Distribute cards evenly */
+  justify-content: center; /* Distribute cards evenly */
   align-items: stretch; /* Ensure all cards have the same height */
   gap: 1rem; /* Space between cards */
 }
@@ -594,6 +594,209 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* Stronger shadow on hover */
 }
 
+/* Top Applicants - Podium Layout */
+.top-three-applicants {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: -2rem;
+}
+
+.top-applicants-row {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end; /* Align items to the bottom to create podium effect */
+  gap: 1rem;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+/* Style for rank 1 (center, taller) */
+.top-applicant-card[data-rank="1"] {
+  order: 2; /* Center position in flexbox */
+  height: 420px;
+  min-width: 300px;
+  z-index: 3; /* Highest z-index to appear on top */
+  background: linear-gradient(180deg, #fffef0, #ffffff);
+  transform: translateY(-20px); /* Lift the first place higher */
+}
+
+/* Style for rank 2 (left) */
+.top-applicant-card[data-rank="2"] {
+  order: 1; /* Left position in flexbox */
+  height: 360px;
+  min-width: 250px;
+  z-index: 2;
+  background: linear-gradient(180deg, #f8f8f8, #ffffff);
+  transform: translateY(-10px); /* Lift slightly */
+}
+
+/* Style for rank 3 (right) */
+.top-applicant-card[data-rank="3"] {
+  order: 3; /* Right position in flexbox */
+  height: 340px;
+  min-width: 250px;
+  z-index: 1;
+  background: linear-gradient(180deg, #fdf8f3, #ffffff);
+  transform: translateY(-10px); /* Lift slightly */
+}
+
+/* Rank badges - circular rankings with medal colors */
+.rank-badge {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%; /* Perfect circle */
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: white;
+  margin: 0 auto 1rem;
+  position: relative;
+  /* Ensure perfect circle shape */
+  min-width: 60px;
+  min-height: 60px;
+  max-width: 60px;
+  max-height: 60px;
+  /* Remove box-shadow */
+  box-shadow: none;
+}
+
+/* Gold medal for rank 1 */
+.rank-badge[data-rank="1"] {
+  background: linear-gradient(135deg, #FFD700, #FFC400);
+  border: 3px solid #fff;
+  margin-top: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Silver medal for rank 2 */
+.rank-badge[data-rank="2"] {
+  background: linear-gradient(135deg, #C0C0C0, #A9A9A9);
+  border: 3px solid #fff;
+  margin-top: 0.5rem;
+  margin-bottom: 1.2rem;
+}
+
+/* Bronze medal for rank 3 */
+.rank-badge[data-rank="3"] {
+  background: linear-gradient(135deg, #CD7F32, #B87333);
+  border: 3px solid #fff;
+}
+
+/* Style for the crown icon for first place */
+.crown-icon {
+  position: absolute;
+  top: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 30px;
+  color: #FFD700;
+  /* Remove filter */
+  filter: none;
+}
+
+/* Simplify the score display to normal text styling */
+.rank-score-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+  /* Remove button-like styling */
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.rank-score-label {
+  font-weight: bold;
+  color: #555;
+}
+
+.rank-score-value {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #3d3939;
+}
+
+/* Make responsive adjustments for the podium layout */
+@media (max-width: 992px) {
+  .top-applicant-card[data-rank="1"] {
+    min-width: 280px;
+    height: 300px;
+  }
+  
+  .top-applicant-card[data-rank="2"],
+  .top-applicant-card[data-rank="3"] {
+    min-width: 220px;
+    height: 260px;
+  }
+}
+
+@media (max-width: 768px) {
+  .top-applicants-row {
+    flex-direction: column;
+    align-items: center;
+    gap: 4rem;
+  }
+  
+  .top-applicant-card[data-rank="1"],
+  .top-applicant-card[data-rank="2"],
+  .top-applicant-card[data-rank="3"] {
+    order: 0;
+    width: 100%;
+    max-width: 320px;
+    min-width: unset;
+    height: auto;
+    transform: none;
+  }
+}
+
+/* Enhance the styling for the applicant cards */
+.applicant-card.top-applicant-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.applicant-card.top-applicant-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+/* Add styling for rank score display */
+.rank-score-container {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.rank-score-label {
+  font-weight: bold;
+  color: #555;
+}
+
+.rank-score-value {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #545454;
+}
+
+/* Override the existing rank-number styling to work better with the podium */
+.rank-number-container {
+  margin-bottom: 0.5rem;
+}
+
 /* Rank number styling */
 .rank-number {
   display: flex;
@@ -605,9 +808,9 @@
   background-color: #6c757d; /* Default gray background */
   color: #ffffff; /* White text color */
   font-size: 1.2rem; /* Font size for the rank number */
-  font-weight: bold; /* Bold font for emphasis */
+  font-weight: bold; /* Bold font fZor emphasis */
   margin-bottom: 1.2rem;
-  margin-top:1rem;
+  margin-top: 1rem;
 }
 
 .rank-circle {
@@ -713,7 +916,6 @@
   font-size: 1rem;
 }
 
-
 .form-group input, 
 .form-group textarea,
 .form-group .form-input {
@@ -728,7 +930,6 @@
   margin-top: 0.15rem;
   font-family: inherit;
 }
-
 
 .form-group .auto-resize-textarea {
   min-height: 100px;
@@ -749,14 +950,12 @@
   background-color: white; 
 }
 
-
 .form-group textarea,
 .form-group input[type="text"],
 .form-group input[type="number"] {
   font-weight: normal;
   color: #374151;
 }
-
 
 .job-edit-form .departments-container .tag,
 .job-edit-form .skills-container .tag {
@@ -765,7 +964,6 @@
   padding: 0.4rem 0.8rem;
   border-radius: 20px;
 }
-
 
 /* Update the form input style to match the rest of the form */
 .helper-text {
@@ -882,7 +1080,7 @@
 }
 
 .view-profile-button {
-  font-size: 0.9rem; 
+  font-size: 0.9rem;  
   padding: 0.4rem 0.8rem;
   border-radius: 4px;
   background-color: #f1f1f1;
@@ -892,8 +1090,24 @@
   transition: background-color 0.2s;
   min-width: 100px; 
 }
+
 .view-profile-button:hover {
   background-color: #e1e1e1;
+}
+
+.view-responses-button {
+  background-color: #F9645F;
+  color: white;
+  font-size: 0.9rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.view-responses-button:hover {
+  background-color: #e84e48;
 }
 
 .no-applicants {
@@ -980,6 +1194,7 @@
   transition: background-color 0.2s;
   min-width: 100px; 
 }
+
 .view-profile-button:hover {
   background-color: #e1e1e1;
 }
@@ -1551,4 +1766,109 @@
 /* Ensure the interview questions button is properly positioned */
 .interview-questions-button {
   margin-right: 0.5rem;
+}
+
+/* Special styling for rank 1,2,3 applicant */
+.top-applicant-card[data-rank="1"] .status-badge {
+  font-weight: 700;
+  padding: 0.4rem 1rem;
+  box-shadow: 0 2px 4px rgba(255, 215, 0, 0.1);
+}
+
+.top-applicant-card[data-rank="2"] .status-badge {
+  font-weight: 700;
+  padding: 0.4rem 1rem;
+  box-shadow: 0 2px 4px rgba(255, 215, 0, 0.1);
+}
+
+.top-applicant-card[data-rank="1"] .rank-score-container {
+  margin-top: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+
+.top-applicant-card[data-rank="1"] .rank-score-label {
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.top-applicant-card[data-rank="1"] .rank-score-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+
+.top-applicant-card[data-rank="1"] .view-profile-button {
+  color: #333;
+  padding: 0.5rem 1.2rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.top-applicant-card[data-rank="2"] .view-profile-button {
+  color: #333;
+  padding: 0.5rem 1.2rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.top-applicant-card[data-rank="3"] .view-profile-button {
+  color: #333;
+  padding: 0.5rem 1.2rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.top-applicant-card[data-rank="1"] .view-profile-button:hover {
+  background-color: #ffcc00;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.top-applicant-card[data-rank="2"] .view-profile-button:hover {
+  background-color: #aeaeae;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.top-applicant-card[data-rank="3"] .view-profile-button:hover {
+  background-color: #cf9858;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.top-applicant-card[data-rank="1"] .view-responses-button {
+  background-color: #ffd700;
+  color: #333;
+  font-weight: 600;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.top-applicant-card[data-rank="1"] .view-responses-button:hover {
+  background-color: #ffcc00;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Improve spacing in the top applicant card content */
+.top-applicant-card[data-rank="1"] .applicant-content-container {
+  margin-top: 0.5rem;
+}
+
+
+.top-applicant-card[data-rank="1"] .applicant-status-actions-2 {
+  width: 100%;
+}
+
+.top-applicant-card[data-rank="1"] .button-container {
+  margin-top: 0.5rem;
 }
