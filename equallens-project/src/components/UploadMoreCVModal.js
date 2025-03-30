@@ -400,6 +400,55 @@ const UploadMoreCVModal = ({ isOpen, onClose, jobId, jobTitle, onUploadComplete 
     const API_URL = "http://localhost:8000";
     const API_ENDPOINT = "http://localhost:8000/api/jobs/upload-more-cv"; // Ensure the correct endpoint is used
 
+    // Updated function to force generate detailed profiles
+    const generateAndCheckDetailedProfiles = async (candidateIds) => {
+        console.log("Generating detailed profiles for candidates:", candidateIds);
+        const totalCandidates = candidateIds.length;
+        let processedCount = 0;
+        let failedCount = 0;
+        
+        // Process candidates in batches to avoid overloading the server
+        const batchSize = 2;
+        
+        for (let i = 0; i < candidateIds.length; i += batchSize) {
+            const batch = candidateIds.slice(i, i + batchSize);
+            console.log(`Processing batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(candidateIds.length/batchSize)}`);
+            
+            // Process this batch in parallel
+            await Promise.all(batch.map(async (candidateId) => {
+                try {
+                    console.log(`Explicitly generating detailed profile for candidate ${candidateId}`);
+                    
+                    // Step 1: Generate the detailed profile using the detail endpoint
+                    const detailResponse = await fetch(`http://localhost:8000/api/candidates/detail/${candidateId}`);
+                    
+                    if (!detailResponse.ok) {
+                        throw new Error(`Failed to generate profile for candidate ${candidateId}`);
+                    }
+                    
+                    // Successfully generated profile
+                    processedCount++;
+                    
+                    // Update progress
+                    const progressIncrement = 7 * (processedCount / totalCandidates);
+                    setSubmitProgress(92 + progressIncrement);
+                    
+                } catch (error) {
+                    failedCount++;
+                    console.error(`Error generating profile for candidate ${candidateId}:`, error);
+                }
+            }));
+            
+            // Add a delay between batches to avoid overwhelming the server
+            if (i + batchSize < candidateIds.length) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+        
+        console.log(`Profile generation complete. Success: ${processedCount}, Failed: ${failedCount}`);
+        return { processedCount, failedCount };
+    };
+
     const handleUploadCV = async () => {
         if (!fileState.selectedFiles || fileState.selectedFiles.length === 0) {
             setErrorMessage("Please upload at least one CV file");
@@ -469,13 +518,27 @@ const UploadMoreCVModal = ({ isOpen, onClose, jobId, jobTitle, onUploadComplete 
             }
             
             const responseData = await response.json();
-            console.log("Server response:", responseData);
+            console.log("Upload more CV server response:", responseData);
+            
+            // UPDATED: Explicitly generate detailed profiles for all candidates
+            if (responseData.candidateIds && responseData.candidateIds.length > 0) {
+                console.log(`Generating detailed profiles for ${responseData.candidateIds.length} newly uploaded candidates...`);
+                setSubmitProgress(92);
+                
+                try {
+                    const result = await generateAndCheckDetailedProfiles(responseData.candidateIds);
+                    console.log(`Profile generation results: ${result.processedCount} successful, ${result.failedCount} failed`);
+                } catch (error) {
+                    console.warn("Error during profile generation:", error);
+                }
+            } else {
+                console.warn("No candidateIds received in response");
+            }
+            
+            setSubmitProgress(100);
             
             // Set the number of uploaded CVs for success message
             setUploadedCount(responseData.applicationCount || fileState.selectedFiles.length);
-            
-            // Set the final progress based on response
-            setSubmitProgress(100);
             
             // Immediately close the modal with the uploaded count
             setTimeout(() => {

@@ -84,6 +84,12 @@ async def update_candidate(candidate_id: str, candidate_data: Dict[Any, Any]):
         if job_id:
             logger.info(f"Extracted job_id: {job_id} from candidate data")
 
+        # Check if we're adding a new candidate without a detailed profile
+        should_generate_profile = False
+        if "detailed_profile" not in candidate_data or not candidate_data.get("detailed_profile"):
+            logger.info(f"No detailed profile found for candidate {candidate_id}, will generate after update")
+            should_generate_profile = True
+
         # Convert candidate_data to CandidateUpdate model
         candidate_update = CandidateUpdate(**candidate_data)
         logger.info(f"Converted candidate data to CandidateUpdate model: {candidate_update}")
@@ -93,6 +99,31 @@ async def update_candidate(candidate_id: str, candidate_data: Dict[Any, Any]):
         if not success:
             raise HTTPException(status_code=500, detail="Failed to update candidate")
         
+        # If this is a new candidate without a detailed profile, generate one automatically
+        updated_candidate = None
+        if should_generate_profile:
+            try:
+                logger.info(f"Automatically generating detailed profile for candidate {candidate_id}")
+                # Get the candidate data first
+                candidate = CandidateService.get_candidate(candidate_id)
+                if not candidate:
+                    logger.error(f"Could not find candidate {candidate_id} for profile generation")
+                else:
+                    # Create an instance of GeminiService
+                    gemini_service = GeminiService()
+                    
+                    # Generate the detailed profile - this is asynchronous
+                    detailed_profile = await gemini_service.generate_candidate_profile(candidate)
+                    
+                    # Update the candidate with the detailed profile
+                    candidate["detailed_profile"] = detailed_profile
+                    profile_update = CandidateUpdate(**candidate)
+                    CandidateService.update_candidate(candidate_id, profile_update)
+                    logger.info(f"Successfully generated and saved detailed profile for candidate {candidate_id}")
+            except Exception as e:
+                logger.error(f"Error generating detailed profile during update: {e}")
+                # Continue with the update even if profile generation fails
+        
         # Function get_candidate has some issue earlier, so resort to second plan
         # Get the updated candidate
         if job_id:
@@ -101,12 +132,17 @@ async def update_candidate(candidate_id: str, candidate_data: Dict[Any, Any]):
             # Find the specific candidate in the applications
             updated_candidate = next((app for app in applications if app.get("candidateId") == candidate_id), None)
             if not updated_candidate:
-                raise HTTPException(status_code=404, detail=f"Updated candidate {candidate_id} not found in job {job_id}")
+                logger.warn(f"Updated candidate {candidate_id} not found in job {job_id}")
+                # Try to get the candidate directly instead
+                updated_candidate = CandidateService.get_candidate(candidate_id)
         else:
             # If no job_id is provided, get the candidate directly
             updated_candidate = CandidateService.get_candidate(candidate_id)
-            if not updated_candidate:
-                raise HTTPException(status_code=404, detail=f"Updated candidate {candidate_id} not found")
+            
+        if not updated_candidate:
+            logger.error(f"Updated candidate {candidate_id} not found")
+            raise HTTPException(status_code=404, detail=f"Updated candidate {candidate_id} not found")
+            
         return updated_candidate
     except Exception as e:
         logger.error(f"Error updating candidate: {e}")
@@ -123,11 +159,29 @@ async def get_candidate_detail(candidate_id: str):
         if not candidate:
             raise HTTPException(status_code=404, detail=f"Candidate {candidate_id} not found")
         
-        # Create an instance of RankGeminiService
+        # Check if candidate already has a detailed profile
+        if candidate.get("detailed_profile"):
+            logger.info(f"Candidate {candidate_id} already has a detailed profile, returning existing data")
+            return {"candidate_id": candidate_id, "detailed_profile": candidate["detailed_profile"]}
+        
+        # Create an instance of GeminiService
         gemini_service = GeminiService()
         
         # Generate the detailed profile
         detailed_profile = await gemini_service.generate_candidate_profile(candidate)
+        
+        # Update the candidate record with the generated profile
+        try:
+            candidate["detailed_profile"] = detailed_profile
+            profile_update = CandidateUpdate(**candidate)
+            success = CandidateService.update_candidate(candidate_id, profile_update)
+            if success:
+                logger.info(f"Successfully saved detailed profile for candidate {candidate_id}")
+            else:
+                logger.warning(f"Failed to save detailed profile for candidate {candidate_id}")
+        except Exception as e:
+            logger.error(f"Error saving detailed profile: {e}")
+            # Continue even if saving fails - we'll still return the generated profile
         
         logger.info(f"Successfully generated detailed profile for candidate {candidate_id}")
         return {"candidate_id": candidate_id, "detailed_profile": detailed_profile}

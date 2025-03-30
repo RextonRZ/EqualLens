@@ -82,6 +82,7 @@ async def upload_job(
         
         # Process files and create candidates
         candidates = []
+        candidate_ids = []  # Track candidate IDs separately
         for file in files:
             content = await file.read()
             candidate_data = CandidateService.create_candidate(
@@ -93,11 +94,48 @@ async def upload_job(
             
             if candidate_data:
                 candidates.append(candidate_data)
+                candidate_ids.append(candidate_data['candidateId'])
         
         # Create applications for candidates
         applications = CandidateService.process_applications(job_id, candidates)
         
-        # Return response
+        # NEW: Generate detailed profiles immediately, don't wait for frontend to request
+        if candidate_ids:
+            logger.info(f"Automatically generating detailed profiles for {len(candidate_ids)} candidates")
+            from services.gemini_service import GeminiService
+            gemini_service = GeminiService()
+            
+            # Process one candidate at a time to avoid overloading
+            for candidate_id in candidate_ids:
+                try:
+                    # Get candidate data
+                    candidate = CandidateService.get_candidate(candidate_id)
+                    if not candidate:
+                        logger.warning(f"Could not find candidate {candidate_id} for profile generation")
+                        continue
+                        
+                    # Generate detailed profile
+                    logger.info(f"Generating detailed profile for candidate {candidate_id}")
+                    detailed_profile = await gemini_service.generate_candidate_profile(candidate)
+                    
+                    # Update candidate with detailed profile
+                    candidate["detailed_profile"] = detailed_profile
+                    from models.candidate import CandidateUpdate
+                    profile_update = CandidateUpdate(**candidate)
+                    success = CandidateService.update_candidate(candidate_id, profile_update)
+                    
+                    if success:
+                        logger.info(f"Successfully generated and saved detailed profile for candidate {candidate_id}")
+                    else:
+                        logger.warning(f"Failed to save detailed profile for candidate {candidate_id}")
+                        
+                except Exception as e:
+                    logger.error(f"Error generating profile for candidate {candidate_id}: {e}")
+                    # Continue with next candidate if one fails
+        else:
+            logger.warning("No candidate IDs available for detailed profile generation")
+        
+        # Return response with candidate IDs included
         return JSONResponse(
             status_code=200,
             content={
@@ -106,6 +144,7 @@ async def upload_job(
                 "applicationCount": len(applications),
                 "applications": applications,
                 "candidates": candidates,
+                "candidateIds": candidate_ids,  # Include candidate IDs explicitly
                 "progress": 100.0
             }
         )
@@ -137,6 +176,7 @@ async def upload_more_cv(
         
         # Process files and create candidates
         candidates = []
+        candidate_ids = []  # Track candidate IDs separately
         for file in files:
             content = await file.read()
             candidate_data = CandidateService.create_candidate(
@@ -148,14 +188,51 @@ async def upload_more_cv(
             
             if candidate_data:
                 candidates.append(candidate_data)
+                candidate_ids.append(candidate_data['candidateId'])
         
         # Create applications for candidates
         applications = CandidateService.process_applications(job_id, candidates)
         
+        # NEW: Generate detailed profiles immediately, don't wait for frontend to request
+        if candidate_ids:
+            logger.info(f"Automatically generating detailed profiles for {len(candidate_ids)} candidates")
+            from services.gemini_service import GeminiService
+            gemini_service = GeminiService()
+            
+            # Process one candidate at a time to avoid overloading
+            for candidate_id in candidate_ids:
+                try:
+                    # Get candidate data
+                    candidate = CandidateService.get_candidate(candidate_id)
+                    if not candidate:
+                        logger.warning(f"Could not find candidate {candidate_id} for profile generation")
+                        continue
+                        
+                    # Generate detailed profile
+                    logger.info(f"Generating detailed profile for candidate {candidate_id}")
+                    detailed_profile = await gemini_service.generate_candidate_profile(candidate)
+                    
+                    # Update candidate with detailed profile
+                    candidate["detailed_profile"] = detailed_profile
+                    from models.candidate import CandidateUpdate
+                    profile_update = CandidateUpdate(**candidate)
+                    success = CandidateService.update_candidate(candidate_id, profile_update)
+                    
+                    if success:
+                        logger.info(f"Successfully generated and saved detailed profile for candidate {candidate_id}")
+                    else:
+                        logger.warning(f"Failed to save detailed profile for candidate {candidate_id}")
+                        
+                except Exception as e:
+                    logger.error(f"Error generating profile for candidate {candidate_id}: {e}")
+                    # Continue with next candidate if one fails
+        else:
+            logger.warning("No candidate IDs available for detailed profile generation")
+            
         # Update application count for the job
         job = JobService.get_job(job_id)
         
-        # Return response
+        # Return response with candidate IDs
         return JSONResponse(
             status_code=200,
             content={
@@ -164,6 +241,7 @@ async def upload_more_cv(
                 "applicationCount": len(applications),
                 "applications": applications,
                 "candidates": candidates,
+                "candidateIds": candidate_ids,  # Include candidate IDs explicitly
                 "progress": 100.0,
                 "totalApplications": job.get("applicationCount", 0)
             }

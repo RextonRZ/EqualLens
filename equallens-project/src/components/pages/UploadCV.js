@@ -670,22 +670,6 @@ const UploadCV = () => {
         </div>
     );
     
-    // Button action handlers with full reset
-    // const handleUploadMoreJobs = () => {
-    //     // Reset all form and file states
-    //     setCurrentStep("jobDetails");
-    //     setJobTitle("");
-    //     setJobDescription("");
-    //     setDepartments([]);
-    //     setMinimumCGPA(2.50);
-    //     setSkills([]);
-    //     setJobData(null);
-    //     fileDispatch({ type: 'RESET' });
-    //     setApiStatus("idle");
-    //     setSubmitProgress(0);
-    //     setShowSuccessModal(false);
-    // };
-    
     const handleGoToDashboard = () => {
         // Close the modal first
         setShowSuccessModal(false);
@@ -704,7 +688,55 @@ const UploadCV = () => {
         setSubmitProgress(0);
     };
 
-    // Update the handleFinalSubmit function to use modals instead of alerts
+    // Updated function to force generate detailed profiles
+    const generateAndCheckDetailedProfiles = async (candidateIds) => {
+        console.log("Generating detailed profiles for candidates:", candidateIds);
+        const totalCandidates = candidateIds.length;
+        let processedCount = 0;
+        let failedCount = 0;
+        
+        // Process candidates in batches to avoid overloading the server
+        const batchSize = 2;
+        
+        for (let i = 0; i < candidateIds.length; i += batchSize) {
+            const batch = candidateIds.slice(i, i + batchSize);
+            console.log(`Processing batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(candidateIds.length/batchSize)}`);
+            
+            // Process this batch in parallel
+            await Promise.all(batch.map(async (candidateId) => {
+                try {
+                    console.log(`Explicitly generating detailed profile for candidate ${candidateId}`);
+                    
+                    // Step 1: Generate the detailed profile using the detail endpoint
+                    const detailResponse = await fetch(`http://localhost:8000/api/candidates/detail/${candidateId}`);
+                    
+                    if (!detailResponse.ok) {
+                        throw new Error(`Failed to generate profile for candidate ${candidateId}`);
+                    }
+                    
+                    // Successfully generated profile
+                    processedCount++;
+                    
+                    // Update progress
+                    const progressIncrement = 7 * (processedCount / totalCandidates);
+                    setSubmitProgress(92 + progressIncrement);
+                    
+                } catch (error) {
+                    failedCount++;
+                    console.error(`Error generating profile for candidate ${candidateId}:`, error);
+                }
+            }));
+            
+            // Add a delay between batches to avoid overwhelming the server
+            if (i + batchSize < candidateIds.length) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+        
+        console.log(`Profile generation complete. Success: ${processedCount}, Failed: ${failedCount}`);
+        return { processedCount, failedCount };
+    };
+
     const handleFinalSubmit = async () => {
         if (!fileState.selectedFiles || fileState.selectedFiles.length === 0) {
             setErrorMessage("Please upload at least one CV file");
@@ -798,10 +830,27 @@ const UploadCV = () => {
             }
             
             const responseData = await response.json();
-            console.log("Server response:", responseData);
+            console.log("Upload job server response:", responseData);
             
             // Set the final progress based on response (or 100 if not provided)
-            setSubmitProgress(responseData.progress || 100);
+            setSubmitProgress(responseData.progress || 95);
+            
+            // UPDATED: Explicitly generate detailed profiles for all candidates
+            if (responseData.candidateIds && responseData.candidateIds.length > 0) {
+                console.log(`Generating detailed profiles for ${responseData.candidateIds.length} newly uploaded candidates...`);
+                setSubmitProgress(92);
+                
+                try {
+                    const result = await generateAndCheckDetailedProfiles(responseData.candidateIds);
+                    console.log(`Profile generation results: ${result.processedCount} successful, ${result.failedCount} failed`);
+                } catch (error) {
+                    console.warn("Error during profile generation:", error);
+                }
+            } else {
+                console.warn("No candidateIds received in response");
+            }
+            
+            setSubmitProgress(100);
             
             // Add a delay to ensure animation completes nicely
             setTimeout(() => {
