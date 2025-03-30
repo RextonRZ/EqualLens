@@ -367,6 +367,8 @@ def apply_voice_effect(input_audio_path, effect_type="helium", output_audio_path
     Returns:
         str: Path to modified audio file
     """
+    
+    ffmpeg_path = 'r'  + os.getenv("FFMPEG_PATH")
     ffmpeg_path = r'C:\Users\hongy\Downloads\ffmpeg-n6.1-latest-win64-gpl-6.1\bin\ffmpeg.exe'  # Path to ffmpeg executable
     
     if not input_audio_path or not os.path.exists(ffmpeg_path):

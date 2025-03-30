@@ -130,3 +130,12 @@ class CandidateService:
                 })
         
         return results
+
+@staticmethod
+def update_candidate_status(candidate_id: str, status: str) -> bool:
+    """Update a candidate's status."""
+    try:
+        return firebase_client.update_document('candidates', candidate_id, {'status': status})
+    except Exception as e:
+        logger.error(f"Error updating candidate {candidate_id} status: {e}")
+        return False

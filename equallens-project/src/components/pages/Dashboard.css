@@ -1222,3 +1222,40 @@
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(249, 100, 95, 0.3);
 }
+
+.view-responses-button {
+  font-size: 0.9rem;
+  padding: 0.4rem 0.8rem;
+  margin-top: 0.5rem;
+  border-radius: 4px;
+  background-color: #4caf50;
+  /* Green color for completed interviews */
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  min-width: 150px;
+}
+
+.view-responses-button:hover {
+  background-color: #388e3c;
+}
+
+.filter-completed-button {
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(76, 175, 80, 0.2);
+}
+
+.filter-completed-button:hover {
+  background-color: #388e3c;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+}

@@ -4,13 +4,13 @@ import Navbar from './components/Navbar';
 import Home from './components/pages/Home';
 import UploadCV from './components/pages/UploadCV';
 import SignUp from './components/pages/SignUp';
-import InterviewReview from './components/pages/InterviewReview';
 import Dashboard from './components/pages/Dashboard';
 import AddInterviewQuestions from "./components/pages/AddInterviewQuestions";
 import InterviewLinkValidator from './components/pages/InterviewLinkValidator';
 import IDVerification from './components/pages/IDVerification';
 import InterviewQuestions from './components/pages/InterviewQuestion';
 import ApplicantDetails from './components/pages/ApplicantDetails';
+import InterviewResponses from './components/pages/InterviewResponses';
 
 function App() {
   return (
@@ -23,9 +23,6 @@ function App() {
         <Route path="/upload-cv" element={<UploadCV />} />
         <Route path="/sign-up" element={<SignUp />} />
 
-        {/* HR routes */}
-        <Route path="/interview-review/:interviewId" element={<InterviewReview />} />
-
         {/* Candidate interview routes */}
         <Route path="/interview/:interviewId/:linkCode" element={<InterviewLinkValidator />} />
         <Route path="/interview/:interviewId/:linkCode/id-verification" element={<IDVerification />} />
@@ -34,6 +31,7 @@ function App() {
         {/* Dashboard route */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/:jobId/:candidateId" element={<ApplicantDetails />} />
+        <Route path="/dashboard/:jobId/:candidateId/interview-responses" element={<InterviewResponses />} />
 
         {/* Add Interview Questions route */}
         <Route path="/add-interview-questions" element={<AddInterviewQuestions />} />
