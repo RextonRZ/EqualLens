@@ -157,6 +157,41 @@
   box-shadow: 0 0 0 3px rgba(249, 100, 95, 0.15);
 }
 
+/* Filter dropdown styles */
+.filter-container {
+  position: relative;
+  min-width: 200px;
+}
+
+.filter-select {
+  width: 100%;
+  padding: 0.6rem 1.2rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  background-color: white;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.filter-select:hover {
+  border-color: #cbd5e0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #F9645F;
+  box-shadow: 0 0 0 3px rgba(249, 100, 95, 0.15);
+}
+
 /* Single column job list */
 .jobs-list-single-column {
   display: flex;
@@ -403,32 +438,35 @@
   gap: 1rem;
 }
 
-.edit-job-button, .save-button {
+.edit-job-button, .save-button, .cancel-button {
   background-color: #F9645F;
   color: white;
   border: none;
   padding: 0.6rem 1.2rem;
   border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(249, 100, 95, 0.2);
 }
 
 .edit-job-button:hover, .save-button:hover {
   background-color: #e84e48;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(249, 100, 95, 0.3);
 }
 
 .cancel-button {
   background-color: #f1f1f1;
   color: #333;
-  border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .cancel-button:hover {
   background-color: #e1e1e1;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* Change job detail content layout from grid to column */
@@ -443,7 +481,7 @@
 .job-info-container, .applicants-container {
   background-color: white;
   border-radius: 8px;
-  padding: 1.5rem;
+  padding: 1.75rem;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
   border: 1px solid #f1f1f1;
   width: 100%; /* Ensure full width */
@@ -457,7 +495,7 @@
 .job-info-container, .applicants-container {
   background-color: white;
   border-radius: 8px;
-  padding: 1.5rem;
+  padding: 1.75rem;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
   border: 1px solid #f1f1f1;
 }
@@ -466,7 +504,6 @@
   margin-bottom: 1rem;
   color: #333;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid #eee;
 }
 
 /* Job Info Display */
@@ -518,7 +555,7 @@
   display: flex;
   flex-direction: column;
   gap: 1rem; /* Space between the title and the row */
-  margin-bottom: 2rem; /* Space below the container */
+  margin-bottom: 2.5rem; /* Space below the container */
 }
 
 /* Row to display top applicants in a single row */
@@ -569,6 +606,8 @@
   color: #ffffff; /* White text color */
   font-size: 1.2rem; /* Font size for the rank number */
   font-weight: bold; /* Bold font for emphasis */
+  margin-bottom: 1.2rem;
+  margin-top:1rem;
 }
 
 .rank-circle {
@@ -622,6 +661,36 @@
   border-radius: 4px;        /* Keep rounded corners */
   border: 1px solid #eee;    /* Light border instead of red accent */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); /* Very subtle shadow */
+}
+
+/* Ranking status container */
+.ranking-status-container {
+  margin-bottom: 0.3rem;
+  padding: 0.5rem 0;
+  text-align: left;
+}
+
+.ranking-status {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.ranking-status.ranked {
+  color: #2b2626;
+}
+
+.ranking-status.unranked {
+  color: #6c757d;
+}
+
+.ranking-criteria {
+  font-weight: normal;
+  color: #545454;
+  font-size: 1.2rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  margin-left: 0.5rem;
 }
 
 /* Job Edit Form */
@@ -762,8 +831,8 @@
 
 /* Add this new status badge for approved status */
 .status-badge.approved {
-  background-color: #e3f2fd; /* Light blue background for approved */
-  color: #1976d2; /* Blue text for approved */
+  background-color: #f1e3fd; /* Light blue background for approved */
+  color: #9346ff; /* Blue text for approved */
 }
 
 /* Also add style for "interview completed" status */
@@ -868,7 +937,7 @@
 .applicant-status-actions {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-end; /* Center items horizontally */
   gap: 0.5rem;
 }
 
@@ -876,11 +945,11 @@
 .button-container {
   display: flex;
   gap: 0.5rem;
-  justify-content: flex-end;
+  justify-content: flex-end; /* Center buttons horizontally */
   width: 100%;
 }
 
-/* Align content inside applicant-status-actions to the right */
+/* Align content inside applicant-status-actions to the center */
 .applicant-status-actions-2 {
   display: flex;
   flex-direction: column; /* Arrange items vertically */
@@ -1134,40 +1203,55 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #eee;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+  position: relative;
 }
 
 .applicants-header h3 {
-  margin-bottom: 0; 
-  padding-bottom: 0; 
-  border-bottom: none; 
+  margin: 0;
+  padding: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #333;
 }
 
-/* Update styling for the Upload More CV button */
-.upload-more-cv-button {
-  background-color: #f96e5f;
-  color: white;
-  border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(249, 100, 95, 0.2);
+/* Center the applicants actions container */
+.applicants-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: center; /* Center the buttons horizontally */
+  flex-wrap: wrap;
 }
 
-.upload-more-cv-button:hover {
-  background-color: #d82f40;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(249, 100, 95, 0.3);
+/* Ensure all buttons in the actions container are centered */
+.applicants-actions .filter-container,
+.applicants-actions button {
+  margin: 0 auto; /* Add auto margin to center items */
 }
 
+/* Adjust the button container to center buttons */
+.button-container {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end; /* Center buttons horizontally */
+  width: 100%;
+}
 
-.upload-more-cv-container {
-  display: none; 
+/* Ensure the rank score container is centered */
+.rank-score-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Remove old styling for h3 in job-info-container that will now be handled by section-header */
+.job-info-container h3 {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 /* Add new section header styles for job details with interview questions button */
@@ -1200,19 +1284,13 @@
   box-shadow: 0 2px 4px rgba(249, 100, 95, 0.2);
   display: flex;
   align-items: center;
+  margin-left: auto; /* Push to the right edge */
 }
 
 .interview-questions-button:hover {
   background-color: #d82f40; /* Match hover state of Upload More CV */
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(249, 100, 95, 0.3);
-}
-
-/* Remove old styling for h3 in job-info-container that will now be handled by section-header */
-.job-info-container h3 {
-  border-bottom: none;
-  padding-bottom: 0;
-  margin-bottom: 0;
 }
 
 /* Add styles for the applicants-actions container */
@@ -1240,44 +1318,118 @@
   transition: all 0.3s ease;
 }
 
-/* Style for the Rank button */
+/* Style for the Rank button - updated with ranking theme and gold shining effect */
 .rank-button {
-  background-color: #ff8c4e;
+  background: linear-gradient(90deg, #ffa035, #ff7e28, #ff6a00);
   color: white;
   border: none;
   padding: 0.6rem 1.2rem;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  font-weight: 500;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(249, 100, 95, 0.2);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 4px 8px rgba(255, 106, 0, 0.3);
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Add a subtle golden shimmer effect to the button */
+.rank-button::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 215, 0, 0.1) 0%,
+    rgba(255, 215, 0, 0.05) 25%,
+    transparent 70%
+  );
+  opacity: 0;
+  transform: scale(0.5);
+  transform-origin: center;
+  animation: rankPulse 3s infinite ease-out;
+  pointer-events: none;
+}
+
+/* Add a trophy icon effect in the background */
+.rank-button::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: radial-gradient(
+    circle at 70% center,
+    rgba(255, 223, 0, 0.15) 0%,
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 .rank-button:hover {
-  background-color: #ed663d;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(249, 100, 95, 0.3);
+  box-shadow: 0 6px 12px rgba(255, 106, 0, 0.4);
 }
 
-.view-responses-button {
-  font-size: 0.9rem;
-  padding: 0.4rem 0.8rem;
-  border-radius: 4px;
-  background-color: #e1f5fe; /* Light blue background */
-  color: #0288d1; /* Blue text color */
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  min-width: 150px;
-  font-weight: normal;
+.rank-button:hover::before {
+  animation: rankShimmer 1.5s infinite ease-out;
+  opacity: 1;
 }
 
-.view-responses-button:hover {
-  background-color: #b3e5fc; /* Lighter blue on hover */
+.rank-button:hover::after {
+  opacity: 1;
 }
 
-/* Add a style for the new filter approved button */
+/* Add an AI icon and a small podium/trophy icon to the rank button */
+.rank-button .ai-icon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.7));
+}
+
+/* Shimmer animation for ranking effect */
+@keyframes rankShimmer {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.5;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 0.2;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* Subtle pulsing effect for the button at rest */
+@keyframes rankPulse {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 0.15;
+    transform: scale(1);
+  }
+}
+
 .filter-approved-button {
   background-color: #2196f3; /* Blue color to distinguish from the green completed button */
   color: white;
@@ -1314,4 +1466,89 @@
   background-color: #388e3c;
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+}
+
+/* Improved collapsible header styling */
+.collapsible-header {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+}
+
+.collapsible-header:hover {
+  background-color: #f8f8f8;
+}
+
+.collapsible-header.collapsed {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0.5rem;
+}
+
+.collapsible-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.collapsible-header .header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+/* Style the collapse icon to appear next to the title */
+.collapse-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: #666;
+  transition: transform 0.2s ease;
+}
+
+.collapsible-header.collapsed .collapse-icon {
+  transform: rotate(180deg);
+}
+
+/* Right-align the interview questions button */
+.interview-questions-button {
+  background-color: #f96e5f;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(249, 100, 95, 0.2);
+  display: flex;
+  align-items: center;
+  margin-left: auto; /* Push to the right edge */
+}
+
+/* Animate the content height */
+.job-info-container {
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+/* Add some space between sections when collapsed */
+.job-info-container.collapsed {
+  margin-bottom: 0.5rem;
+}
+
+/* Ensure the interview questions button is properly positioned */
+.interview-questions-button {
+  margin-right: 0.5rem;
 }

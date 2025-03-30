@@ -54,8 +54,8 @@ export default function Dashboard() {
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [rankPrompt, setRankPrompt] = useState("");
     const [processedJobId, setProcessedJobId] = useState("");  // <-- New state for processed job ID
-    const [filterCompletedInterviews, setFilterCompletedInterviews] = useState(false);
-    const [filterApprovedApplicants, setFilterApprovedApplicants] = useState(false); // Add state for approved filter
+    const [filterStatus, setFilterStatus] = useState('all'); // New state for filter dropdown
+    const [jobDetailsExpanded, setJobDetailsExpanded] = useState(true); // New state for collapsible section
 
     // Add state for department and skill editing
     const [departmentInput, setDepartmentInput] = useState("");
@@ -193,18 +193,27 @@ export default function Dashboard() {
     });
 
     const filteredApplicants = useMemo(() => {
-        if (filterCompletedInterviews) {
-            return applicants.filter(applicant =>
-                applicant.status && applicant.status.toLowerCase() === 'interview completed'
-            );
+        if (filterStatus === 'all') {
+            return applicants;
         }
-        if (filterApprovedApplicants) {
-            return applicants.filter(applicant =>
-                applicant.status && applicant.status.toLowerCase() === 'approved'
-            );
-        }
-        return applicants;
-    }, [applicants, filterCompletedInterviews, filterApprovedApplicants]);
+        return applicants.filter(applicant => {
+            const status = (applicant.status || '').toLowerCase();
+            switch (filterStatus) {
+                case 'approved':
+                    return status === 'approved';
+                case 'interview-completed':
+                    return status === 'interview completed';
+                case 'accepted':
+                    return status === 'accepted';
+                case 'new':
+                    return status === 'new' || !status;
+                case 'rejected':
+                    return status === 'rejected';
+                default:
+                    return true;
+            }
+        });
+    }, [applicants, filterStatus]);
 
     // Sort filtered jobs based on sortBy value
     const sortedJobs = [...filteredJobs].sort((a, b) => {
@@ -360,7 +369,7 @@ export default function Dashboard() {
         }, 300);
     };
 
-    // Modify handleEditToggle to reset input fields when starting to edit
+    // Modify handleEditToggle to ensure job details are expanded when editing
     const handleEditToggle = () => {
         // If we're starting to edit
         if (!isEditing) {
@@ -370,6 +379,9 @@ export default function Dashboard() {
             // Clear any pending input in department and skill fields
             setDepartmentInput("");
             setSkillInput("");
+            
+            // Ensure job details section is expanded when editing starts
+            setJobDetailsExpanded(true);
 
             // Schedule the textarea resize after render
             setTimeout(() => {
@@ -594,8 +606,8 @@ export default function Dashboard() {
                 const allCurrentTermsInPrevious = currentTerms.every(term => 
                     previousTerms.some(prevTerm => prevTerm.includes(term) || term.includes(prevTerm))
                 );
-                const allPreviousTermsInCurrent = previousTerms.every(term => 
-                    currentTerms.some(currTerm => currTerm.includes(term) || term.includes(currTerm))
+                const allPreviousTermsInCurrent = previousTerms.every(prevTerm => 
+                    currentTerms.some(currTerm => currTerm.includes(prevTerm) || prevTerm.includes(currTerm))
                 );
                 
                 // Consider it the same prompt if terms match in both directions
@@ -680,6 +692,11 @@ export default function Dashboard() {
                 setModalMessage("Using existing ranking based on the same criteria.");
                 setShowRankSuccessModal(true);
             }
+            
+            // Reload job data to update the UI with new ranking criteria
+            await fetchJob(selectedJob.jobId);
+            await fetchApplicants(selectedJob.jobId);
+            
         } catch (error) {
             // Centralized error handling
             console.error("Error in ranking applicants:", error);
@@ -988,6 +1005,11 @@ export default function Dashboard() {
         }, 300);
     };
 
+    // Add function to toggle job details visibility
+    const toggleJobDetails = () => {
+        setJobDetailsExpanded(!jobDetailsExpanded);
+    };
+
     if (isLoading) {
         return (
             <div className="dashboard-container" style={{
@@ -1083,6 +1105,7 @@ export default function Dashboard() {
                     jobId={selectedJob?.jobId}
                     jobTitle={selectedJob?.jobTitle}
                     onSubmit={handlePromptComplete}
+                    currentPrompt={selectedJob?.prompt || ""}
                 />
             )}
             {!selectedJob ? (
@@ -1198,7 +1221,7 @@ export default function Dashboard() {
                                     >
                                         Cancel
                                     </button>
-                                    <button className="save-button" onClick={handleSaveChanges}>
+                                    <button className="edit-job-button" onClick={handleSaveChanges}>
                                         Save Changes
                                     </button>
                                 </>
@@ -1208,255 +1231,272 @@ export default function Dashboard() {
 
                     <div className="job-detail-content">
                         <div className="job-info-container">
-                            <div className="applicants-header">
-                                <h3>Job Details</h3>
+                            <div className={`collapsible-header ${!jobDetailsExpanded ? 'collapsed' : ''}`} 
+                                 onClick={toggleJobDetails}>
+                                <h3>
+                                    Job Details
+                                    <div className="collapse-icon">
+                                        {jobDetailsExpanded ? (
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="18 15 12 9 6 15"></polyline>
+                                            </svg>
+                                        ) : (
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                            </svg>
+                                        )}
+                                    </div>
+                                </h3>
+                                
                                 {!isEditing && (
-                                    <button
-                                        className="interview-questions-button"
-                                        onClick={handleInterviewQuestionsClick}
-                                    >
-                                        Interview Questions
-                                    </button>
+                                    <div className="header-actions">
+                                        <button
+                                            className="interview-questions-button"
+                                            onClick={(e) => {
+                                                e.stopPropagation(); // Prevent toggling when clicking the button
+                                                handleInterviewQuestionsClick();
+                                            }}
+                                        >
+                                            Interview Questions
+                                        </button>
+                                    </div>
                                 )}
                             </div>
 
-                            {isEditing ? (
-                                <div className="job-edit-form">
-                                    <div className="form-group">
-                                        <label>Job Title</label>
-                                        <input
-                                            type="text"
-                                            name="jobTitle"
-                                            value={editedJob.jobTitle}
-                                            onChange={handleInputChange}
-                                        />
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label>Job Description</label>
-                                        <textarea
-                                            name="jobDescription"
-                                            value={editedJob.jobDescription}
-                                            onChange={handleInputChange}
-                                            ref={descriptionTextareaRef}
-                                            className="auto-resize-textarea"
-                                        />
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label>Minimum CGPA</label>
-                                        <input
-                                            type="number"
-                                            name="minimumCGPA"
-                                            value={editedJob.minimumCGPA}
-                                            onChange={handleInputChange}
-                                            onBlur={handleMinimumCGPABlur}
-                                            step="0.01"
-                                            min="0"
-                                            max="4.0"
-                                        />
-                                    </div>
-
-                                    {/* Editable departments field */}
-                                    <div className="form-group">
-                                        <label>Departments</label>
-                                        <div className="suggestion-container">
-                                            <div className="input-group">
+                            {jobDetailsExpanded && (
+                                <>
+                                    {isEditing ? (
+                                        <div className="job-edit-form">
+                                            <div className="form-group">
+                                                <label>Job Title</label>
                                                 <input
                                                     type="text"
-                                                    className="form-input"
-                                                    value={departmentInput}
-                                                    onChange={(e) => setDepartmentInput(e.target.value)}
-                                                    onKeyPress={handleDepartmentKeyPress}
-                                                    placeholder="Enter a department"
-                                                    onBlur={() => {
-                                                        setTimeout(() => {
-                                                            setShowDepartmentSuggestions(false);
-                                                        }, 200);
-                                                    }}
+                                                    name="jobTitle"
+                                                    value={editedJob.jobTitle}
+                                                    onChange={handleInputChange}
                                                 />
-                                                <button
-                                                    type="button"
-                                                    className="add-button"
-                                                    onClick={handleAddDepartment}
-                                                    disabled={!departmentInput.trim()}
-                                                >
-                                                    Add
-                                                </button>
                                             </div>
-                                            {showDepartmentSuggestions && (
-                                                <ul className="suggestions-list">
-                                                    {departmentSuggestions.map((suggestion, index) => (
-                                                        <li
-                                                            key={index}
-                                                            onMouseDown={(e) => {
-                                                                e.preventDefault();
-                                                                handleDepartmentSelect(suggestion);
-                                                            }}
-                                                        >
-                                                            {suggestion}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                        </div>
-                                        {editedJob.departments && editedJob.departments.length > 0 && (
-                                            <div className="tags-container departments-container">
-                                                {editedJob.departments.map((department, index) => (
-                                                    <div key={index} className="tag">
-                                                        {department}
-                                                        <button
-                                                            type="button"
-                                                            className="tag-remove"
-                                                            onClick={() => removeDepartment(department)}
-                                                        >
-                                                            ×
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
 
-                                    {/* Editable required skills field */}
-                                    <div className="form-group">
-                                        <label>Required Skills</label>
-                                        <div className="suggestion-container">
-                                            <div className="input-group">
+                                            <div className="form-group">
+                                                <label>Job Description</label>
+                                                <textarea
+                                                    name="jobDescription"
+                                                    value={editedJob.jobDescription}
+                                                    onChange={handleInputChange}
+                                                    ref={descriptionTextareaRef}
+                                                    className="auto-resize-textarea"
+                                                />
+                                            </div>
+
+                                            <div className="form-group">
+                                                <label>Minimum CGPA</label>
                                                 <input
-                                                    type="text"
-                                                    className="form-input"
-                                                    value={skillInput}
-                                                    onChange={(e) => setSkillInput(e.target.value)}
-                                                    onKeyPress={handleSkillKeyPress}
-                                                    placeholder="Enter a skill"
-                                                    onBlur={() => {
-                                                        setTimeout(() => {
-                                                            setShowSkillSuggestions(false);
-                                                        }, 200);
-                                                    }}
+                                                    type="number"
+                                                    name="minimumCGPA"
+                                                    value={editedJob.minimumCGPA}
+                                                    onChange={handleInputChange}
+                                                    onBlur={handleMinimumCGPABlur}
+                                                    step="0.01"
+                                                    min="0"
+                                                    max="4.0"
                                                 />
-                                                <button
-                                                    type="button"
-                                                    className="add-button"
-                                                    onClick={handleAddSkill}
-                                                    disabled={!skillInput.trim()}
-                                                >
-                                                    Add
-                                                </button>
                                             </div>
-                                            {showSkillSuggestions && (
-                                                <ul className="suggestions-list">
-                                                    {skillSuggestions.map((suggestion, index) => (
-                                                        <li
-                                                            key={index}
-                                                            onMouseDown={(e) => {
-                                                                e.preventDefault();
-                                                                handleSkillSelect(suggestion);
+
+                                            {/* Editable departments field */}
+                                            <div className="form-group">
+                                                <label>Departments</label>
+                                                <div className="suggestion-container">
+                                                    <div className="input-group">
+                                                        <input
+                                                            type="text"
+                                                            className="form-input"
+                                                            value={departmentInput}
+                                                            onChange={(e) => setDepartmentInput(e.target.value)}
+                                                            onKeyPress={handleDepartmentKeyPress}
+                                                            placeholder="Enter a department"
+                                                            onBlur={() => {
+                                                                setTimeout(() => {
+                                                                    setShowDepartmentSuggestions(false);
+                                                                }, 200);
                                                             }}
-                                                        >
-                                                            {suggestion}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                        </div>
-                                        {editedJob.requiredSkills && editedJob.requiredSkills.length > 0 && (
-                                            <div className="tags-container skills-container">
-                                                {editedJob.requiredSkills.map((skill, index) => (
-                                                    <div key={index} className="tag">
-                                                        {skill}
+                                                        />
                                                         <button
                                                             type="button"
-                                                            className="tag-remove"
-                                                            onClick={() => removeSkill(skill)}
+                                                            className="add-button"
+                                                            onClick={handleAddDepartment}
+                                                            disabled={!departmentInput.trim()}
                                                         >
-                                                            ×
+                                                            Add
                                                         </button>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="job-info">
-                                    <div className="info-columns">
-                                        <div className="info-column">
-                                            <div className="info-group">
-                                                <p className="info-label">Posted:</p>
-                                                <p className="info-value">{formatDate(selectedJob.createdAt)}</p>
-                                            </div>
-
-                                            <div className="info-group">
-                                                <p className="info-label">Departments:</p>
-                                                <div className="departments-display">
-                                                    {selectedJob.departments.map((dept, index) => (
-                                                        <span key={index} className="department-tag">{dept}</span>
-                                                    ))}
+                                                    {showDepartmentSuggestions && (
+                                                        <ul className="suggestions-list">
+                                                            {departmentSuggestions.map((suggestion, index) => (
+                                                                <li
+                                                                    key={index}
+                                                                    onMouseDown={(e) => {
+                                                                        e.preventDefault();
+                                                                        handleDepartmentSelect(suggestion);
+                                                                    }}
+                                                                >
+                                                                    {suggestion}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    )}
                                                 </div>
+                                                {editedJob.departments && editedJob.departments.length > 0 && (
+                                                    <div className="tags-container departments-container">
+                                                        {editedJob.departments.map((department, index) => (
+                                                            <div key={index} className="tag">
+                                                                {department}
+                                                                <button
+                                                                    type="button"
+                                                                    className="tag-remove"
+                                                                    onClick={() => removeDepartment(department)}
+                                                                >
+                                                                    ×
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
 
-                                            <div className="info-group">
-                                                <p className="info-label">Minimum CGPA:</p>
-                                                <p className="info-value">{selectedJob.minimumCGPA.toFixed(2)}</p>
-                                            </div>
-
-                                            <div className="info-group">
-                                                <p className="info-label">Required Skills:</p>
-                                                <div className="skills-display">
-                                                    {selectedJob.requiredSkills && selectedJob.requiredSkills.map((skill, index) => (
-                                                        <span key={index} className="skill-tag">{skill}</span>
-                                                    ))}
+                                            {/* Editable required skills field */}
+                                            <div className="form-group">
+                                                <label>Required Skills</label>
+                                                <div className="suggestion-container">
+                                                    <div className="input-group">
+                                                        <input
+                                                            type="text"
+                                                            className="form-input"
+                                                            value={skillInput}
+                                                            onChange={(e) => setSkillInput(e.target.value)}
+                                                            onKeyPress={handleSkillKeyPress}
+                                                            placeholder="Enter a skill"
+                                                            onBlur={() => {
+                                                                setTimeout(() => {
+                                                                    setShowSkillSuggestions(false);
+                                                                }, 200);
+                                                            }}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            className="add-button"
+                                                            onClick={handleAddSkill}
+                                                            disabled={!skillInput.trim()}
+                                                        >
+                                                            Add
+                                                        </button>
+                                                    </div>
+                                                    {showSkillSuggestions && (
+                                                        <ul className="suggestions-list">
+                                                            {skillSuggestions.map((suggestion, index) => (
+                                                                <li
+                                                                    key={index}
+                                                                    onMouseDown={(e) => {
+                                                                        e.preventDefault();
+                                                                        handleSkillSelect(suggestion);
+                                                                    }}
+                                                                >
+                                                                    {suggestion}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    )}
                                                 </div>
+                                                {editedJob.requiredSkills && editedJob.requiredSkills.length > 0 && (
+                                                    <div className="tags-container skills-container">
+                                                        {editedJob.requiredSkills.map((skill, index) => (
+                                                            <div key={index} className="tag">
+                                                                {skill}
+                                                                <button
+                                                                    type="button"
+                                                                    className="tag-remove"
+                                                                    onClick={() => removeSkill(skill)}
+                                                                >
+                                                                    ×
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
+                                    ) : (
+                                        <div className="job-info">
+                                            <div className="info-columns">
+                                                <div className="info-column">
+                                                    <div className="info-group">
+                                                        <p className="info-label">Posted:</p>
+                                                        <p className="info-value">{formatDate(selectedJob.createdAt)}</p>
+                                                    </div>
 
-                                    </div>
+                                                    <div className="info-group">
+                                                        <p className="info-label">Departments:</p>
+                                                        <div className="departments-display">
+                                                            {selectedJob.departments.map((dept, index) => (
+                                                                <span key={index} className="department-tag">{dept}</span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
 
-                                    <div className="info-group description-group">
-                                        <p className="info-label">Description:</p>
-                                        <p className="info-value">{selectedJob.jobDescription}</p>
-                                    </div>
-                                </div>
+                                                    <div className="info-group">
+                                                        <p className="info-label">Minimum CGPA:</p>
+                                                        <p className="info-value">{selectedJob.minimumCGPA.toFixed(2)}</p>
+                                                    </div>
+
+                                                    <div className="info-group">
+                                                        <p className="info-label">Required Skills:</p>
+                                                        <div className="skills-display">
+                                                            {selectedJob.requiredSkills && selectedJob.requiredSkills.map((skill, index) => (
+                                                                <span key={index} className="skill-tag">{skill}</span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                            </div>
+
+                                            <div className="info-group description-group">
+                                                <p className="info-label">Description:</p>
+                                                <p className="info-value">{selectedJob.jobDescription}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
 
-                        <div className="applicants-container">
+                        <div className="job-info-container">
                             <div className="applicants-header">
                                 <h3>Applicants ({filteredApplicants.length})</h3>
                                 {!isEditing && (
                                     <div className="applicants-actions">
-                                        {/* Show All Applicants button when any filter is active */}
-                                        {(filterApprovedApplicants || filterCompletedInterviews) && (
-                                            <button className="filter-completed-button" 
-                                                    style={{backgroundColor: "#6c757d"}} /* Gray color for "Show All" */
-                                                    onClick={() => {
-                                                        setFilterApprovedApplicants(false);
-                                                        setFilterCompletedInterviews(false);
-                                                    }}>
-                                                Show All Applicants
-                                            </button>
-                                        )
-                                        }
-                                        
-                                        {/* Only show filter buttons when not already active */}
-                                        {!filterApprovedApplicants && !filterCompletedInterviews && (
-                                            <button className="filter-approved-button" onClick={() => setFilterApprovedApplicants(true)}>
-                                                Show Approved Applicants
-                                            </button>
-                                        )
-                                        }
-                                        
-                                        {!filterCompletedInterviews && !filterApprovedApplicants && (
-                                            <button className="filter-completed-button" onClick={() => setFilterCompletedInterviews(true)}>
-                                                Show Completed Interviews
-                                            </button>
-                                        )
-                                        }
+                                        <div className="filter-container">
+                                            <select
+                                                className="filter-select"
+                                                value={filterStatus}
+                                                onChange={(e) => setFilterStatus(e.target.value)}
+                                            >
+                                                <option value="all">All Applicants</option>
+                                                <option value="approved">Approved Applicants</option>
+                                                <option value="interview-completed">Completed Interviews</option>
+                                                <option value="accepted">Accepted Applicants</option>
+                                                <option value="new">New Applicants</option>
+                                                <option value="rejected">Rejected Applicants</option>
+                                            </select>
+                                        </div>
                                         
                                         <button className="rank-button" onClick={handleRankApplicants}>
-                                            {selectedJob.prompt ? "Rerank Applicants" : "Rank Applicants"}
+                                            <svg className="ai-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M12 15L8.5 10L15.5 10L12 15Z" fill="currentColor"/>
+                                                <path d="M7 5H17L21 9L12 20L3 9L7 5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                <path d="M12 20V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                <path d="M12 8V8.01" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                                            </svg>
+                                            {selectedJob.prompt ? "Rerank Applicants with AI" : "Rank Applicants with AI"}
                                         </button>
                                         
                                         <button className="upload-more-cv-button" onClick={handleUploadMoreCV}>
@@ -1472,6 +1512,17 @@ export default function Dashboard() {
                                 </div>
                             ) : (
                                 <div className="applicants-list">
+                                    {/* Ranking status title - new element */}
+                                    <div className="ranking-status-container">
+                                        {selectedJob.prompt ? (
+                                            <h3 className="ranking-status ranked">
+                                                Ranked by: <span className="ranking-criteria">{selectedJob.prompt}</span>
+                                            </h3>
+                                        ) : (
+                                            <h3 className="ranking-status unranked">Unranked Applicants</h3>
+                                        )}
+                                    </div>
+                                    
                                     {filteredApplicants.length === 1 && (
                                         /* Single applicant layout - only middle position */
                                         <div key={filteredApplicants[0].candidateId} className="applicant-card">

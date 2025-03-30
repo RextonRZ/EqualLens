@@ -1,10 +1,31 @@
 import React, { useState, useEffect } from "react";
 import "./RankApplicantsModal.css"; // Ensure this CSS file includes styles for the custom checkbox
 
-const RankApplicantsModal = ({ isOpen, onClose, jobId, jobTitle, onSubmit }) => {
+const RankApplicantsModal = ({ isOpen, onClose, jobId, jobTitle, onSubmit, currentPrompt }) => {
     const [selectedOptions, setSelectedOptions] = useState([]);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [showMissingModal, setShowMissingModal] = useState(false);
+
+    // Parse current prompt and pre-select checkboxes based on it
+    useEffect(() => {
+        if (currentPrompt) {
+            const newSelectedOptions = [];
+            const promptLower = currentPrompt.toLowerCase();
+            
+            // Check for each criteria in the prompt
+            if (promptLower.includes("skill")) {
+                newSelectedOptions.push("Skills");
+            }
+            if (promptLower.includes("experience")) {
+                newSelectedOptions.push("Experience");
+            }
+            if (promptLower.includes("education")) {
+                newSelectedOptions.push("Education");
+            }
+            
+            setSelectedOptions(newSelectedOptions);
+        }
+    }, [currentPrompt]);
 
     // Hide body scrolling when modal is open
     useEffect(() => {
