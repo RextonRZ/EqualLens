@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './ApplicantDetails.css';
+import './Dashboard.css';
 import '../pageloading.css'; // Import the loading animation CSS
 
 // LoadingAnimation component for consistent loading UI across the application
@@ -1076,7 +1077,7 @@ export default function ApplicantDetails() {
 
                         {/* Skill Large Container */}
                         <div className="applicant-info-container" style={{ marginTop: "5px" }}>
-                            <div className="section-header">
+                            <div className="applicants-header">
                                 <h2>Skills</h2>
                             </div>
                             {/* Soft Skill Container */}
@@ -1122,7 +1123,7 @@ export default function ApplicantDetails() {
 
                         {/* Education Large Container */}
                         <div className="applicant-info-container" style={{ marginTop: "5px" }}>
-                            <div className="section-header">
+                            <div className="applicants-header">
                                 <h2>Education</h2>
                             </div>
                             {/* Education Level Container */}
@@ -1168,7 +1169,7 @@ export default function ApplicantDetails() {
 
                         {/* Experience Large Container */}
                         <div className="applicant-info-container" style={{ marginTop: "5px" }}>
-                            <div className="section-header">
+                            <div className="applicants-header">
                                 <h2>Experience</h2>
                             </div>
                             {/* Work Experience Container */}
