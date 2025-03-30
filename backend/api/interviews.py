@@ -1,3 +1,6 @@
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+import smtplib
 from fastapi import APIRouter, HTTPException, Depends, Body, Query, Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
@@ -739,48 +742,341 @@ async def get_interview_status(
         logger.error("Error getting interview status: %s", str(e))
         raise HTTPException(status_code=500, detail=f"Failed to get interview status: {str(e)}")
 
-@router.get("/admin/interviews")
-async def get_all_interviews(
-    status: Optional[str] = Query(None),
+@router.get("/responses/{application_id}")
+async def get_interview_responses(
+    application_id: str,
     db: firestore.Client = Depends(get_db)
 ):
-    """Admin endpoint to get all interviews (optionally filtered by status)"""
+    """Get interview responses for an application."""
     try:
-        # Query interviews
-        if status:
-            interviews_query = db.collection('interviewLinks').where('status', '==', status).limit(100).get()
-        else:
-            interviews_query = db.collection('interviewLinks').limit(100).get()
+        # Query for interview responses for this application
+        responses_doc = db.collection('interviewResponses').document(application_id).get()
         
-        interviews = []
-        for doc in interviews_query:
-            interview_data = doc.to_dict()
+        if not responses_doc.exists:
+            raise HTTPException(status_code=404, detail="No interview responses found for this application")
+        
+        return responses_doc.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching interview responses: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch interview responses: {str(e)}")
+    
+@router.put("/update-responses/{application_id}")
+async def update_interview_responses(
+    application_id: str,
+    data: Dict[str, Any],
+    db: firestore.Client = Depends(get_db)
+):
+    """Update interview responses for an application."""
+    try:
+        # Update the document in Firestore
+        db.collection('interviewResponses').document(application_id).set(data)
+        
+        return {"success": True, "message": "Responses updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating interview responses: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update interview responses: {str(e)}")
+    
+@router.post("/generate-feedback")
+async def generate_ai_feedback(
+    request: Dict[str, Any],
+    db: firestore.Client = Depends(get_db)
+):
+    """Generate AI feedback for interview responses."""
+    try:
+        # Extract required fields
+        application_id = request.get("applicationId")
+        responses = request.get("responses", [])
+        job_title = request.get("jobTitle", "Unknown position")
+        job_id = request.get("jobId")
+        
+        if not application_id or not responses:
+            raise HTTPException(status_code=400, detail="applicationId and responses are required")
+        
+        # Fetch job details if jobId is provided
+        job_data = {}
+        if job_id:
+            job_doc = db.collection('jobs').document(job_id).get()
+            if job_doc.exists:
+                job_data = job_doc.to_dict()
+                job_title = job_data.get('jobTitle', job_title)
+        
+        # Initialize Gemini API
+        from services.gemini_service import GeminiService
+        gemini_service = GeminiService()
+        
+        # Generate feedback for each response
+        feedback_results = []
+        
+        for response in responses:
+            question_text = response.get("questionText", "Unknown question")
+            transcript = response.get("transcript", "")
+            response_id = response.get("responseId")
             
-            # Get candidate and job info for display
+            if not response_id:
+                continue
+                
+            # Skip empty transcripts
+            if not transcript.strip():
+                feedback_results.append({
+                    "responseId": response_id,
+                    "feedback": "<p>No transcript available for analysis.</p>"
+                })
+                continue
+            
+            # Prepare job-specific context
+            job_context = ""
+            if job_data:
+                required_skills = ", ".join(job_data.get('requiredSkills', []))
+                job_description = job_data.get('jobDescription', '')
+                departments = ", ".join(job_data.get('departments', []))
+                job_context = f"""
+                Job Title: {job_title}
+                Department(s): {departments}
+                Required Skills: {required_skills}
+                Key Responsibilities: {job_description}
+                """
+            
+            # Generate feedback using Gemini with improved prompt
+            prompt = f"""
+            As an HR interview evaluator for a {job_title} position, analyze the following response:
+            
+            QUESTION: {question_text}
+            
+            CANDIDATE'S ANSWER: {transcript}
+            
+            JOB CONTEXT:
+            {job_context}
+            
+            Provide a CONCISE evaluation of the response with the following structure:
+            
+            1. STRENGTHS (3-4 bullet points)
+            2. AREAS FOR IMPROVEMENT (3-4 bullet points)
+            3. ALIGNMENT WITH JOB REQUIREMENTS (1-2 short sentences)
+            4. OVERALL ASSESSMENT (2-3 sentences maximum)
+            
+            FORMAT GUIDELINES:
+            - Use HTML formatting with <p>, <ul>, and <li> tags
+            - Highlight KEY POINTS with <strong> tags
+            - Keep bullet points brief (under 15 words each)
+            - Total feedback should be scannable in under 30 seconds
+            - Focus on actionable insights for HR decision-making
+            """
+            
             try:
-                candidate_doc = db.collection('candidates').document(interview_data.get('candidateId')).get()
-                job_doc = db.collection('jobs').document(interview_data.get('jobId')).get()
+                response_content = await gemini_service.model.generate_content_async(prompt)
+                feedback_html = response_content.text
                 
-                candidate_name = "Unknown"
-                job_title = "Unknown Position"
+                # Clean up any markdown to ensure it's valid HTML
+                if "```html" in feedback_html:
+                    feedback_html = feedback_html.split("```html")[1].split("```")[0].strip()
                 
-                if candidate_doc.exists:
-                    candidate_data = candidate_doc.to_dict()
-                    candidate_name = f"{candidate_data.get('firstName', '')} {candidate_data.get('lastName', '')}"
+                # Make sure HTML is properly formatted
+                if not feedback_html.strip().startswith("<"):
+                    # Convert simple markdown-style lists to HTML lists if needed
+                    feedback_html = feedback_html.replace("**", "<strong>").replace("**", "</strong>")
+                    feedback_html = feedback_html.replace("- ", "<li>").replace("\n- ", "</li>\n<li>")
+                    
+                    # Wrap in proper HTML structure
+                    sections = feedback_html.split("\n\n")
+                    formatted_sections = []
+                    
+                    for section in sections:
+                        if section.strip():
+                            if "<li>" in section:
+                                formatted_section = f"<ul>{section}</li></ul>"
+                                formatted_sections.append(formatted_section)
+                            else:
+                                formatted_section = f"<p>{section}</p>"
+                                formatted_sections.append(formatted_section)
+                    
+                    feedback_html = "\n".join(formatted_sections)
                 
-                if job_doc.exists:
-                    job_data = job_doc.to_dict()
-                    job_title = job_data.get('jobTitle', 'Unknown Position')
+                feedback_results.append({
+                    "responseId": response_id,
+                    "feedback": feedback_html
+                })
                 
-                interview_data['candidateName'] = candidate_name
-                interview_data['jobTitle'] = job_title
-            except Exception as e:
-                logger.warning("Error getting related data for interview %s: %s", doc.id, str(e))
-            
-            interviews.append(interview_data)
+            except Exception as feedback_error:
+                logger.error(f"Error generating feedback for response {response_id}: {feedback_error}")
+                feedback_results.append({
+                    "responseId": response_id,
+                    "feedback": "<p>Error generating feedback for this response.</p>"
+                })
         
-        return interviews
+        return {"feedback": feedback_results}
     
     except Exception as e:
-        logger.error("Error getting interviews: %s", str(e))
-        raise HTTPException(status_code=500, detail=f"Failed to get interviews: {str(e)}")
+        logger.error(f"Error generating AI feedback: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate AI feedback: {str(e)}")
+
+@router.post("/send-offer")
+async def send_job_offer(
+    request: Dict[str, Any]
+):
+    """Send job offer email to candidate."""
+    try:
+        # Extract required fields
+        application_id = request.get("applicationId")
+        candidate_id = request.get("candidateId")
+        job_id = request.get("jobId")
+        email = request.get("email")
+        candidate_name = request.get("candidateName", "Candidate")
+        job_title = request.get("jobTitle", "the position")
+        
+        if not application_id or not candidate_id or not job_id or not email:
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        # Create job offer email
+        email_sent = send_job_offer_email(
+            email=email,
+            candidate_name=candidate_name,
+            job_title=job_title
+        )
+        
+        # Update application status
+        from core.firebase import firebase_client
+        firebase_client.update_document('applications', application_id, {
+            'status': 'approved',
+            'approvedAt': datetime.now().isoformat()
+        })
+        
+        # Create notification record
+        notification_id = str(uuid.uuid4())
+        notification_data = {
+            'candidateId': candidate_id,
+            'applicationId': application_id,
+            'type': 'job_offer',
+            'sentDate': datetime.now().isoformat(),
+            'content': f"Job offer email for {job_title}",
+            'status': 'sent' if email_sent else 'failed'
+        }
+        
+        firebase_client.create_document('emailNotifications', notification_id, notification_data)
+        
+        return {
+            "success": True,
+            "message": "Job offer email sent successfully",
+            "emailSent": email_sent
+        }
+    
+    except Exception as e:
+        logger.error(f"Error sending job offer: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to send job offer: {str(e)}")
+
+@router.post("/send-rejection")
+async def send_rejection_email_endpoint(
+    request: Dict[str, Any]
+):
+    """Send rejection email to candidate."""
+    try:
+        # Extract required fields
+        application_id = request.get("applicationId")
+        candidate_id = request.get("candidateId")
+        job_id = request.get("jobId")
+        email = request.get("email")
+        candidate_name = request.get("candidateName", "Candidate")
+        job_title = request.get("jobTitle", "the position")
+        
+        if not application_id or not candidate_id or not job_id or not email:
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        # Send rejection email
+        email_sent = send_rejection_email(
+            email=email,
+            candidate_name=candidate_name,
+            job_title=job_title
+        )
+        
+        # Update application status
+        from core.firebase import firebase_client
+        firebase_client.update_document('applications', application_id, {
+            'status': 'rejected',
+            'rejectedAt': datetime.now().isoformat()
+        })
+        
+        # Create notification record
+        notification_id = str(uuid.uuid4())
+        notification_data = {
+            'candidateId': candidate_id,
+            'applicationId': application_id,
+            'type': 'rejection',
+            'sentDate': datetime.now().isoformat(),
+            'content': f"Rejection email for {job_title}",
+            'status': 'sent' if email_sent else 'failed'
+        }
+        
+        firebase_client.create_document('emailNotifications', notification_id, notification_data)
+        
+        return {
+            "success": True,
+            "message": "Rejection email sent successfully",
+            "emailSent": email_sent
+        }
+    
+    except Exception as e:
+        logger.error(f"Error sending rejection: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to send rejection: {str(e)}")
+
+# Add this function to interview_service.py
+def send_job_offer_email(email: str, candidate_name: str, job_title: str) -> bool:
+    """Send job offer email to candidate"""
+    try:
+        # Get email credentials from environment variables
+        smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        smtp_username = os.getenv("SMTP_USERNAME", "")
+        smtp_password = os.getenv("SMTP_PASSWORD", "")
+        
+        if not smtp_username or not smtp_password:
+            logger.warning("SMTP credentials not set. Email would have been sent to: %s", email)
+            return False
+        
+        # Create message
+        msg = MIMEMultipart()
+        msg['From'] = smtp_username
+        msg['To'] = email
+        msg['Subject'] = f"Job Offer - {job_title} Position"
+        
+        # Email body
+        body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h1 style="color: #4caf50;">Congratulations!</h1>
+                </div>
+                <p>Dear {candidate_name},</p>
+                <p>We are delighted to offer you the position of <strong>{job_title}</strong> at EqualLens.</p>
+                <p>After careful consideration of your qualifications, experience, and performance in the interview process, we believe you are an excellent fit for our team and company culture.</p>
+                <p>Our HR department will contact you within the next 2-3 business days to discuss the details of your employment, including:</p>
+                <ul>
+                    <li>Start date</li>
+                    <li>Compensation package</li>
+                    <li>Benefits information</li>
+                    <li>Onboarding process</li>
+                </ul>
+                <p>Please feel free to email us if you have any questions before then.</p>
+                <p>We are excited about the possibility of you joining our team and contributing to our success.</p>
+                <p>Sincerely,</p>
+                <p>The EqualLens Recruiting Team</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        msg.attach(MIMEText(body, 'html'))
+        
+        # Connect to server and send email
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        server.send_message(msg)
+        server.quit()
+        
+        logger.info("Job offer email sent successfully to %s", email)
+        return True
+    except Exception as e:
+        logger.error("Failed to send job offer email: %s", str(e))
+        return False

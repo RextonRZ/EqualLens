@@ -1,0 +1,451 @@
+.interview-responses-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2.5rem;
+    background-color: #f8fafc;
+    min-height: 90vh;
+}
+
+.back-button {
+    background: none;
+    border: none;
+    color: #F9645F;
+    font-size: 1rem;
+    padding: 0.5rem 0;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+}
+
+.back-button:hover {
+    text-decoration: underline;
+}
+
+.back-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+}
+
+.responses-header {
+    margin-bottom: 2rem;
+}
+
+.responses-header h1 {
+    color: #333;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    position: relative;
+    display: inline-block;
+}
+
+.responses-header h1::after {
+    content: "";
+    position: absolute;
+    bottom: -8px;
+    left: 0;
+    width: 40%;
+    height: 3px;
+    background: linear-gradient(to right, #F9645F, #ff8783);
+    border-radius: 2px;
+}
+
+.candidate-info {
+    display: flex;
+    gap: 2rem;
+    margin-top: 1rem;
+    color: #555;
+    font-size: 1.1rem;
+}
+
+.candidate-id {
+    font-weight: 600;
+}
+
+.job-title {
+    font-style: italic;
+}
+
+.generating-feedback-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: #fffbeb;
+    border-left: 4px solid #f59e0b;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.9rem;
+    color: #92400e;
+}
+
+.response-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.response-card {
+    background-color: white;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+    border: 1px solid #f1f1f1;
+}
+
+.question-header {
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 1rem;
+}
+
+.question-number {
+    display: inline-block;
+    background-color: #4caf50;
+    color: white;
+    padding: 0.3rem 0.6rem;
+    border-radius: 2rem;
+    font-size: 0.8rem;
+    margin-bottom: 0.5rem;
+}
+
+.question-header h3 {
+    color: #333;
+    font-size: 1.2rem;
+    line-height: 1.4;
+}
+
+.audio-section {
+    margin-bottom: 1.5rem;
+}
+
+.audio-section h4 {
+    color: #4a5568;
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+}
+
+.audio-player {
+    background-color: #f8fafc;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    border: 1px solid #e2e8f0;
+}
+
+.audio-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.audio-button {
+    background: none;
+    border: none;
+    color: #4a5568;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.audio-button:hover {
+    background-color: #e2e8f0;
+}
+
+.audio-progress-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.audio-progress {
+    width: 100%;
+    height: 5px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #e2e8f0;
+    border-radius: 5px;
+    outline: none;
+}
+
+.audio-progress::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    background: #4caf50;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.audio-time {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #718096;
+}
+
+.audio-loading,
+.audio-error {
+    padding: 1rem;
+    color: #4a5568;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.audio-error {
+    color: #e53e3e;
+}
+
+.transcript-section {
+    margin-bottom: 1.5rem;
+}
+
+.transcript-section h4 {
+    color: #4a5568;
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+}
+
+.transcript-text {
+    background-color: #f8fafc;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    border: 1px solid #e2e8f0;
+    white-space: pre-wrap;
+    line-height: 1.6;
+    color: #4a5568;
+}
+
+.transcript-stats {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: #718096;
+}
+
+.feedback-section h4 {
+    color: #4a5568;
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+}
+
+.feedback-text {
+    background-color: #f0f9ff;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    border: 1px solid #bfdbfe;
+    line-height: 1.6;
+    color: #1e40af;
+}
+
+.feedback-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
+    color: #718096;
+    font-style: italic;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    justify-content: flex-end;
+}
+
+.reject-button {
+    background-color: #ef4444;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.375rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.reject-button:hover {
+    background-color: #dc2626;
+    transform: translateY(-2px);
+}
+
+.approve-button {
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.375rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.approve-button:hover {
+    background-color: #388e3c;
+    transform: translateY(-2px);
+}
+
+.error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    background-color: white;
+    border-radius: 0.75rem;
+    padding: 2rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+    text-align: center;
+}
+
+.error-container h2 {
+    color: #e53935;
+    margin: 0;
+}
+
+.error-container p {
+    color: #555;
+    max-width: 600px;
+}
+
+.no-responses {
+    background-color: white;
+    border-radius: 0.75rem;
+    padding: 3rem 1.5rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+    text-align: center;
+    color: #6b7280;
+}
+
+/* Status modal styling */
+.status-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.status-modal {
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 30px;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    animation: slideIn 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.status-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    margin-bottom: 20px;
+}
+
+.error-icon {
+    background-color: rgba(244, 67, 54, 0.1);
+    color: #f44336;
+}
+
+.success-icon {
+    background-color: rgba(76, 175, 80, 0.1);
+    color: #4caf50;
+}
+
+.warning-icon {
+    background-color: rgba(255, 193, 7, 0.1);
+    color: #ff9800;
+}
+
+.status-title {
+    font-size: 24px;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.status-description {
+    font-size: 16px;
+    color: #555;
+    margin-bottom: 25px;
+    line-height: 1.5;
+}
+
+.status-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.status-button {
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+}
+
+.primary-button {
+    background-color: #ef402d;
+    color: white;
+}
+
+.primary-button:hover {
+    background-color: #d63020;
+}
+
+.secondary-button {
+    background-color: #f1f1f1;
+    color: #333;
+}
+
+.secondary-button:hover {
+    background-color: #e1e1e1;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}

@@ -264,3 +264,48 @@ async def generate_interview_question(request: Dict[str, Any]):
     except Exception as e:
         logger.error(f"Error generating interview question: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate interview question: {str(e)}")
+    
+@router.get("/candidate/{candidate_id}")
+async def get_candidate(candidate_id: str):
+    """Get a candidate by ID."""
+    try:
+        logger.info(f"Fetching candidate {candidate_id}")
+        candidate = CandidateService.get_candidate(candidate_id)
+        if not candidate:
+            raise HTTPException(status_code=404, detail=f"Candidate {candidate_id} not found")
+        return candidate
+    except Exception as e:
+        logger.error(f"Error fetching candidate {candidate_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch candidate: {str(e)}")
+    
+@router.put("/update-status/{application_id}")
+async def update_application_status(application_id: str, status_data: Dict[str, Any]):
+    """Update the status of an application and candidate."""
+    try:
+        status = status_data.get("status")
+        if not status:
+            raise HTTPException(status_code=400, detail="Status is required")
+        
+        # Update application status
+        success = JobService.update_application_status(application_id, status)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update application status")
+        
+        # Get the candidate ID from the application
+        application = JobService.get_application(application_id)
+        if not application:
+            raise HTTPException(status_code=404, detail="Application not found")
+        
+        candidate_id = application.get("candidateId")
+        if not candidate_id:
+            raise HTTPException(status_code=400, detail="Candidate ID not found in application")
+        
+        # Update candidate status
+        success = CandidateService.update_candidate_status(candidate_id, status)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update candidate status")
+        
+        return {"message": "Application and candidate status updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating application status: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update application status: {str(e)}")

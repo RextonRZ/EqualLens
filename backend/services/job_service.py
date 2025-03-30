@@ -160,3 +160,21 @@ class JobService:
         except Exception as e:
             logger.error(f"Error getting applications for job {job_id}: {e}")
             return []
+
+    @staticmethod
+    def update_application_status(application_id: str, status: str) -> bool:
+        """Update the status of an application."""
+        try:
+            return firebase_client.update_document('applications', application_id, {'status': status})
+        except Exception as e:
+            logger.error(f"Error updating application {application_id} status: {e}")
+            return False
+
+    @staticmethod
+    def get_application(application_id: str) -> Optional[Dict[str, Any]]:
+        """Get an application by ID."""
+        try:
+            return firebase_client.get_document('applications', application_id)
+        except Exception as e:
+            logger.error(f"Error getting application {application_id}: {e}")
+            return None
