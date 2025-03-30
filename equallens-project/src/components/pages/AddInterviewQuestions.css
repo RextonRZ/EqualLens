@@ -1163,6 +1163,8 @@
     margin-top: 1rem; /* Reduced from 1.5rem to bring it closer */
     padding-top: 1rem; /* Reduced from 1.5rem to bring it closer */
     border-top: 1px solid #eee;
+    display: flex;
+    justify-content: center;
 }
 
 .save-button {
@@ -2168,6 +2170,7 @@
 
 .action-buttons {
     display: flex;
+    align-items: center;
     justify-content: center;
     gap: 1rem;
 }

@@ -6,6 +6,7 @@
     align-items: center;
     position: relative;
     overflow: hidden;
+    padding-top: 0; /* Ensure no padding at top */
 }
 
 video {
@@ -17,7 +18,7 @@ video {
     left: 0;
     z-index: -1;
     display: block; /* Ensure it displays as a block element */
-    object-position: 70% center; /* Move focus to right where the eye is */
+    object-position: 80% center; /* Moved further right from 70% to 80% */
 }
 
 .hero-overlay {
@@ -42,16 +43,20 @@ video {
     width: 100%;
     max-width: 1400px;
     display: flex;
-    justify-content: flex-start;
+    justify-content: center; /* Changed from space-between to center */
+    align-items: center;
     padding: 0 20px;
+    gap: 30px; /* Add gap between left and right content */
+    margin-top: -20px; /* Adjust this value to move content down more */
 }
 
 .left-content {
-    width: 50%;
-    max-width: 600px;
+    width: 45%; /* Slightly reduced from 50% */
+    max-width: 580px;
     text-align: left;
     animation: fadeIn 1.2s ease-in-out;
-    margin-left: 5%;
+    margin-left: 0; /* Removed margin */
+    margin-top: 0px; /* Move text slightly up */
 }
 
 .left-content h1 {
@@ -113,6 +118,171 @@ video {
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); /* Adjusted shadow color */
 }
 
+.right-content {
+    width: 50%; /* Increased from 45% */
+    display: flex;
+    justify-content: flex-start; /* Changed to flex-start to bring it closer to the text */
+    align-items: center;
+    animation: fadeIn 1.5s ease-in-out;
+    margin-top: -40px; /* Move slider further up */
+    margin-left: -50px; /* Increased from -20px to move closer to text */
+}
+
+/* Curve Slider */
+.curve-slider {
+    width: 120%; /* Increased from 110% */
+    height: 450px; /* Increased from 420px */
+    position: relative;
+    perspective: 1200px;
+    overflow: visible;
+}
+
+.slides-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+}
+
+.curve-slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.8s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transform: translateX(-100%) rotateY(-15deg) scale(0.9); /* Changed from 100% to -100% */
+}
+
+/* Active slide - fully visible but shifted to the left */
+.curve-slide.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-10%) rotateY(-15deg) scale(1); /* Move active slide more to the left */
+    z-index: 2;
+}
+
+/* Previous slide - showing exactly 20% at the left edge */
+.curve-slide.prev {
+    opacity: 0.01;
+    visibility: visible;
+    transform: translateX(-80%) rotateY(-15deg) scale(0.9);
+    z-index: 1;
+    filter: blur(1px);
+    cursor: pointer; /* Add pointer cursor to indicate it's clickable */
+    transition: all 0.4s ease; /* Make the hover transition faster */
+}
+
+.curve-slide.prev:hover {
+    opacity: 0.4; /* Increase opacity on hover for better feedback */
+    filter: blur(0); /* Remove blur on hover */
+    transform: translateX(-78%) rotateY(-12deg) scale(0.92); /* Slight movement on hover */
+}
+
+/* Next slide - showing exactly 20% at the right edge */
+.curve-slide.next {
+    opacity: 0.3;
+    visibility: visible;
+    transform: translateX(80%) rotateY(-15deg) scale(0.9); /* Position it so only 20% is visible */
+    z-index: 1;
+    filter: blur(1px);
+    cursor: pointer; /* Add pointer cursor to indicate it's clickable */
+    transition: all 0.4s ease; /* Make the hover transition faster */
+}
+
+.curve-slide.next:hover {
+    opacity: 0.5; /* Increase opacity on hover for better feedback */
+    filter: blur(0); /* Remove blur on hover */
+    transform: translateX(78%) rotateY(-12deg) scale(0.92); /* Slight movement on hover */
+}
+
+.feature-image {
+    max-width: 100%;
+    height: auto;
+    max-height: 380px; /* Increased from 360px */
+    border-radius: 18px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+    transform: perspective(1000px) rotateY(-15deg);
+    transition: transform 0.5s ease;
+}
+
+.feature-image:hover {
+    transform: perspective(1000px) rotateY(-5deg) translateY(-10px);
+}
+
+.feature-video {
+    width: 100%;
+    height: 400px; /* Fixed height instead of max-height */
+    border-radius: 18px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+    transform: perspective(1000px) rotateY(-15deg);
+    transition: transform 0.5s ease;
+    object-fit: cover; /* Ensure the video covers the area properly */
+    object-position: center; /* Center the video content */
+    background-color: rgba(0, 0, 0, 0.2); /* Add a subtle background for videos with transparent areas */
+}
+
+.feature-video:hover {
+    transform: perspective(1000px) rotateY(-5deg) translateY(-10px);
+}
+
+/* Add a container for the video to maintain consistent dimensions */
+.video-container {
+    width: 100%;
+    height: 380px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.feature-card {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(5px);
+    border-radius: 18px;
+    padding: 45px; /* Increased from 40px */
+    width: 95%; /* Increased from 90% */
+    height: 85%; /* Increased from 80% */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    color: white;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+    transform: perspective(1000px) rotateY(-15deg);
+    transition: transform 0.5s ease;
+}
+
+/* Adjust the hover effects to work with the new positioning */
+.curve-slide.active .feature-image:hover,
+.curve-slide.active .feature-card:hover,
+.curve-slide.active .feature-video:hover {
+    transform: perspective(1000px) rotateY(-5deg) translateY(-10px);
+    z-index: 3;
+}
+
+.feature-card h3 {
+    font-size: 34px; /* Increased from 32px */
+    font-weight: 700;
+    margin-bottom: 25px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.feature-card p {
+    font-size: 24px; /* Increased from 22px */
+    line-height: 1.6;
+    font-weight: 400;
+}
+
+/* Hide old slider components */
+.simple-slider, .slider-nav, .slider-dots, .dot {
+    display: none;
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -126,14 +296,43 @@ video {
 
 @media screen and (max-width: 1200px) {
     .left-content {
-        width: 60%;
+        width: 45%;
+    }
+    
+    .right-content {
+        width: 50%;
+        margin-left: -40px;
+    }
+    
+    .curve-slider {
+        height: 380px;  /* Adjusted for this breakpoint */
+    }
+    
+    .feature-card h3 {
+        font-size: 28px;
+    }
+    
+    .feature-card p {
+        font-size: 20px;
+    }
+    
+    .hero-content {
+        margin-top: -30px; /* Slightly less shift on smaller screens */
     }
 }
 
 @media screen and (max-width: 960px) {
+    .hero-content {
+        gap: 20px;
+    }
+    
     .left-content {
-        width: 80%;
-        margin-left: 0;
+        width: 50%;
+    }
+    
+    .right-content {
+        width: 45%;
+        margin-left: -20px;
     }
     
     .left-content h1 {
@@ -147,17 +346,62 @@ video {
     video {
         object-position: 80% center; /* Adjust for smaller screens */
     }
+    
+    .curve-slider {
+        height: 340px;  /* Adjusted for this breakpoint */
+    }
+    
+    .feature-card {
+        padding: 30px;
+    }
+    
+    .feature-card h3 {
+        font-size: 26px;
+        margin-bottom: 20px;
+    }
+    
+    .feature-card p {
+        font-size: 18px;
+    }
+    
+    /* Adjust previous slide visibility on smaller screens */
+    .curve-slide.prev {
+        transform: translateX(-85%) rotateY(-15deg) scale(0.9); /* Show only 15% on smaller screens */
+    }
+    
+    .curve-slide.prev:hover {
+        transform: translateX(-83%) rotateY(-12deg) scale(0.92); /* Adjust hover on smaller screens */
+    }
+    
+    /* Adjust next slide visibility on smaller screens */
+    .curve-slide.next {
+        transform: translateX(80%) rotateY(-15deg) scale(0.9); /* Keep consistent on smaller screens */
+    }
+    
+    /* Adjust for smaller screens */
+    .curve-slide.active {
+        transform: translateX(-5%) rotateY(-15deg) scale(1); /* Less shift on smaller screens */
+    }
+    
+    .hero-content {
+        margin-top: -25px;
+    }
 }
 
 @media screen and (max-width: 768px) {
     .hero-content {
+        flex-direction: column;
         justify-content: center;
+        gap: 30px;
+        margin-top: 0; /* Reset on mobile for better vertical centering */
     }
     
     .left-content {
         width: 100%;
         text-align: center;
         padding: 0 15px;
+        margin-bottom: 0; /* Removed margin */
+        margin-top: 0;
     }
     
     .left-content h1 {
@@ -177,6 +421,34 @@ video {
         font-size: 16px;
         width: 100%;
     }
+    
+    .right-content {
+        width: 90%; /* Increased from 80% */
+        margin-top: 0;
+        margin-left: 0;
+    }
+    
+    .curve-slider {
+        height: 280px;
+        max-width: 500px;
+    }
+    
+    /* Hide previous slide completely on mobile */
+    .curve-slide.prev {
+        opacity: 0;
+        visibility: hidden;
+    }
+    
+    /* Hide next slide completely on mobile */
+    .curve-slide.next {
+        opacity: 0;
+        visibility: hidden;
+    }
+    
+    /* Center the slide on mobile */
+    .curve-slide.active {
+        transform: translateX(0) rotateY(-15deg) scale(1);
+    }
 }
 
 @media screen and (max-width: 480px) {
@@ -191,5 +463,35 @@ video {
     
     video {
         object-position: 85% center; /* Further adjust for mobile */
+    }
+    
+    .curve-slider {
+        height: 250px;
+    }
+    
+    .feature-card {
+        padding: 20px;
+        height: 75%;
+    }
+    
+    .feature-card h3 {
+        font-size: 20px;
+        margin-bottom: 10px;
+    }
+    
+    .feature-card p {
+        font-size: 14px;
+        line-height: 1.4;
+    }
+    
+    .slider-nav {
+        width: 35px;
+        height: 35px;
+        font-size: 16px;
+    }
+    
+    .dot {
+        width: 8px;
+        height: 8px;
     }
 }

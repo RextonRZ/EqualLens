@@ -32,7 +32,7 @@ function Navbar() {
             <Link to='/' className='navbar-logo' onClick={closeMobileMenu}>
                 <img 
                   src="/equalLensLogoWhite.png" 
-                  alt="EqualLens Logo" 
+                  alt="EqualLens Logo Light" 
                   className="navbar-logo-image" 
                 />
             </Link>
@@ -65,7 +65,7 @@ function Navbar() {
                 </Link>
               </li>
             </ul>
-            {button && <Button className="btn" buttonStyle='btn--primary'>SIGN UP</Button>}
+            {/* {button && <Button className="btn" buttonStyle='btn--primary'>SIGN UP</Button>} */}
           </div>
         </nav>
       </>

@@ -183,7 +183,7 @@ class GeminiIVQuestionService:
         - Ask about strengths and weaknesses relevant to the job
         - Reference specific details from the candidate's resume but don't clash with section 3
         - Make all these questions compulsory with appropriate time limits
-        - Only 3 compulsory questions without any optional questions
+        - 3 compulsory questions and 0 optional question
 
         SECTION 2: JOB-SPECIFIC QUESTIONS
         - Ask why they applied for this specific position
