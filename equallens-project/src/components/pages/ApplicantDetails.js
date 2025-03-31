@@ -19,13 +19,12 @@ const LoadingAnimation = () => {
 // Fetch applicants for a selected job from the backend API
 const fetchApplicants = async (jobId) => {
     try {
-        // Fix the API endpoint to match the backend API structure
         const response = await fetch(`http://localhost:8000/api/candidates/applicants?jobId=${jobId}`);
         if (!response.ok) {
             throw new Error(`Network response was not ok: ${response.status}`);
         }
         const applicantsData = await response.json();
-        console.log("Fetched applicants data:", applicantsData); // Debug: log the received data
+        console.log("Fetched applicants data:", applicantsData);
         return applicantsData;
     } catch (err) {
         console.error("Error fetching applicants:", err);
@@ -35,13 +34,12 @@ const fetchApplicants = async (jobId) => {
 // Generate detailed information for a specific applicant from the backend API
 const generateApplicantDetail = async (candidateId) => {
     try {
-        // Fix the API endpoint to match the backend API structure
         const response = await fetch(`http://localhost:8000/api/candidates/detail/${candidateId}`);
         if (!response.ok) {
             throw new Error(`Network response was not ok: ${response.status}`);
         }
         const applicantDetails = await response.json();
-        console.log("Generated applicant detail:", applicantDetails); // Debug: log the received data
+        console.log("Generated applicant detail:", applicantDetails);
         return applicantDetails;
     } catch (err) {
         console.error("Error generating applicant details:", err);
@@ -51,7 +49,6 @@ const generateApplicantDetail = async (candidateId) => {
 // Fetch the latest job data to ensure we have the most up-to-date information
 const fetchJob = async (jobId) => {
     try {
-        // Fetch the latest job data to ensure we have the most up-to-date information
         const jobResponse = await fetch(`http://localhost:8000/api/jobs/${jobId}`);
         if (!jobResponse.ok) {
             throw new Error(`Failed to fetch updated job data: ${jobResponse.status}`);
@@ -88,7 +85,6 @@ export default function ApplicantDetails() {
     let id = null;
 
     useEffect(() => {
-        // Set all to default
         setIsLoading(true);
         setError(null);
         setShowErrorModal(false);
@@ -102,10 +98,9 @@ export default function ApplicantDetails() {
         setPrompt("");
 
         const fetchData = async () => {
-            // Extract candidateId from the URL path
             const pathSegments = location.pathname.split("/");
-            id = pathSegments[pathSegments.length - 1]; // Gets the last segment
-            const jobId = pathSegments[pathSegments.length - 2]; // Gets the second-to-last segment
+            id = pathSegments[pathSegments.length - 1];
+            const jobId = pathSegments[pathSegments.length - 2];
             setJob_id(jobId);
 
             if (!id) {
@@ -126,7 +121,6 @@ export default function ApplicantDetails() {
                 return;
             }
 
-            // Only proceed with fetching if we have a valid ID
             if (!id || !jobId) {
                 return;
             }
@@ -135,12 +129,10 @@ export default function ApplicantDetails() {
                 const applicants = await fetchApplicants(jobId);
                 const jobData = await fetchJob(jobId);
 
-                // Make sure we have applicants data to work with
                 if (!applicants || applicants.length === 0) {
                     throw new Error("No applicants found for this job.");
                 }
 
-                // Find the candidate with matching ID in the applicants array
                 const candidateData = applicants.find(candidate =>
                     candidate.candidateId && candidate.candidateId.toString() === id
                 );
@@ -156,25 +148,20 @@ export default function ApplicantDetails() {
 
                 console.log("Candidate data:", candidateData);
 
-                // Check if the candidateData has the attribute detailed_profile and the detailed_profile is not empty
                 if (!candidateData.detailed_profile || candidateData.detailed_profile === "") {
                     detailData = await handleCreateDetail();
 
                     console.log("Generated detail text:", detailData);
                 } else {
-                    // candidateData already has the detailed information
                     try {
-                        // Check if the candidate data has the expected structure
                         if (candidateData && candidateData.detailed_profile && candidateData.detailed_profile.summary) {
                             detailData = { detailed_profile: candidateData.detailed_profile };
                             setDetail(detailData);
                         } else {
-                            // If structure is wrong, regenerate the details
                             console.warn("Detail text found but didn't have the expected structure, regenerating...");
                             detailData = await handleCreateDetail();
                         }
                     } catch (error) {
-                        // If parsing fails, regenerate the details
                         console.warn("Failed to parse existing detail text, regenerating...", error);
                         detailData = await handleCreateDetail();
                     }
@@ -197,7 +184,6 @@ export default function ApplicantDetails() {
     }, [navigate]);
 
     const handleCreateDetail = async () => {
-        // Check if id has been set
         if (!id) {
             setModalMessage("Candidate ID not found in URL.");
             setShowErrorModal(true);
@@ -212,7 +198,6 @@ export default function ApplicantDetails() {
 
         console.log("Updating applicant with detailed profile:", response);
 
-        // Update the applicant in Firestore with the new detailed profile
         await fetch(`http://localhost:8000/api/candidates/candidate/${id}`, {
             method: 'PUT',
             headers: {
@@ -228,7 +213,6 @@ export default function ApplicantDetails() {
     }
 
     const handleBackToJob = () => {
-        // Use React Router's navigate
         setTimeout(() => {
             if (job_id) {
                 navigate(`/dashboard`, {
@@ -243,22 +227,18 @@ export default function ApplicantDetails() {
         }, 800);
     };
 
-    // Handle View Details button click
     const handleShowDetailedBreakdown = () => {
         setShowDetailedBreakdownModal(true);
     };
 
     const checkApplicationStatus = (action) => {
-        // Check if application has a status that would prevent the action
         if (!applicant || !applicant.status) {
-            // If no status, assume it's a new application
             return true;
         }
 
         const status = applicant.status.toLowerCase();
 
         if (action === 'accept') {
-            // If already interviewed or rejected, don't allow accepting
             if (status === 'interview scheduled' || status === 'interview completed') {
                 setModalMessage("This candidate already has an interview scheduled.");
                 setShowInfoModal(true);
@@ -269,7 +249,6 @@ export default function ApplicantDetails() {
                 return false;
             }
         } else if (action === 'reject') {
-            // If already rejected or completed interview, don't allow rejecting
             if (status === 'rejected') {
                 setModalMessage("This candidate has already been rejected.");
                 setShowInfoModal(true);
@@ -309,7 +288,6 @@ export default function ApplicantDetails() {
 
         try {
             if (confirmAction === 'accept') {
-                // Generate interview link and send email
                 const response = await fetch('http://localhost:8000/api/interviews/generate-link', {
                     method: 'POST',
                     headers: {
@@ -331,21 +309,17 @@ export default function ApplicantDetails() {
                 setModalMessage(`Interview invitation has been sent to the candidate. The link will expire in 7 days.`);
                 setShowSuccessModal(true);
 
-                // Update local applicant status
                 setApplicant({
                     ...applicant,
                     status: 'interview scheduled'
                 });
 
-                // After showing success modal, we'll show question reminder
-                // We set a timeout to ensure the success modal is seen first
                 setTimeout(() => {
                     setShowSuccessModal(false);
                     setShowQuestionReminderModal(true);
                 }, 1500);
 
             } else if (confirmAction === 'reject') {
-                // Reject the candidate
                 const response = await fetch(`http://localhost:8000/api/interviews/reject`, {
                     method: 'POST',
                     headers: {
@@ -366,7 +340,6 @@ export default function ApplicantDetails() {
                 setModalMessage('Rejection email has been sent to the candidate.');
                 setShowSuccessModal(true);
 
-                // Update local applicant status
                 setApplicant({
                     ...applicant,
                     status: 'rejected'
@@ -380,7 +353,6 @@ export default function ApplicantDetails() {
             setProcessingAction(false);
         }
     };
-
 
     const ErrorModal = () => (
         <div className="status-modal-overlay" role="dialog" aria-modal="true">
@@ -402,7 +374,6 @@ export default function ApplicantDetails() {
             </div>
         </div>
     );
-
 
     const InfoModal = () => (
         <div className="status-modal-overlay" role="dialog" aria-modal="true">
@@ -439,7 +410,6 @@ export default function ApplicantDetails() {
                 <div className="status-buttons">
                     <button className="status-button primary-button" onClick={() => {
                         setShowSuccessModal(false);
-                        // Only navigate back if it's not an 'accept' action
                         if (confirmAction !== 'accept') {
                             handleBackToJob();
                         }
@@ -495,7 +465,7 @@ export default function ApplicantDetails() {
                         className="status-button secondary-button"
                         onClick={() => {
                             setShowQuestionReminderModal(false);
-                            handleBackToJob(); // Return to job details if canceled
+                            handleBackToJob();
                         }}
                     >
                         Not Now
@@ -539,10 +509,8 @@ export default function ApplicantDetails() {
                 </div>
 
                 <div className="detail-modal-body">
-                    {/* Check if Skills is included in the prompt */}
                     {job.prompt.includes("Skills") && (
                         <>
-                            {/* Relevance to Requesting Job */}
                             <div className="score-card">
                                 <h4>Relevance to Requesting Job</h4>
                                 <div className="progress-bar-container">
@@ -562,7 +530,6 @@ export default function ApplicantDetails() {
                                 </div>
                             </div>
 
-                            {/* Proficiency Level */}
                             <div className="score-card">
                                 <h4>Proficiency Level</h4>
                                 <div className="progress-bar-container">
@@ -582,7 +549,6 @@ export default function ApplicantDetails() {
                                 </div>
                             </div>
 
-                            {/* Additional Skills */}
                             <div className="score-card">
                                 <h4>Additional Skills</h4>
                                 <div className="progress-bar-container">
@@ -604,10 +570,8 @@ export default function ApplicantDetails() {
                         </>
                     )}
 
-                    {/* Check if Experience is included in the prompt */}
                     {job.prompt.includes("Experience") && (
                         <>
-                            {/* Job Experience */}
                             <div className="score-card">
                                 <h4>Job Experience</h4>
                                 <div className="progress-bar-container">
@@ -627,7 +591,6 @@ export default function ApplicantDetails() {
                                 </div>
                             </div>
 
-                            {/* Project and Co-curricular Experience */}
                             <div className="score-card">
                                 <h4>Project and Co-curricular Experience</h4>
                                 <div className="progress-bar-container">
@@ -647,7 +610,6 @@ export default function ApplicantDetails() {
                                 </div>
                             </div>
 
-                            {/* Certifications and Training */}
                             <div className="score-card">
                                 <h4>Certifications and Training</h4>
                                 <div className="progress-bar-container">
@@ -669,10 +631,8 @@ export default function ApplicantDetails() {
                         </>
                     )}
 
-                    {/* Check if Education is included in the prompt */}
                     {job.prompt.includes("Education") && (
                         <>
-                            {/* Level of Study */}
                             <div className="score-card">
                                 <h4>Level of Study</h4>
                                 <div className="progress-bar-container">
@@ -692,7 +652,6 @@ export default function ApplicantDetails() {
                                 </div>
                             </div>
 
-                            {/* Awards and Achievements */}
                             <div className="score-card">
                                 <h4>Awards and Achievements</h4>
                                 <div className="progress-bar-container">
@@ -712,7 +671,6 @@ export default function ApplicantDetails() {
                                 </div>
                             </div>
 
-                            {/* Relevant Coursework and Research */}
                             <div className="score-card">
                                 <h4>Relevant Coursework and Research</h4>
                                 <div className="progress-bar-container">
@@ -858,7 +816,6 @@ export default function ApplicantDetails() {
                                 <div className="info-group">
                                     <p className="info-label" style={{ textAlign: "center" }}>Rank Score:</p>
                                     <div className="experience-container" style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                                        {/* Skill Circle */}
                                         <div className="skill" style={{ marginLeft: "10px", marginTop: "10px" }}>
                                             <div className="outer">
                                                 <div className="inner">
@@ -870,15 +827,15 @@ export default function ApplicantDetails() {
                                                     <svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="160px" height="160px">
                                                         <defs>
                                                             <linearGradient id="GradientColor">
-                                                                <stop offset="0%" stop-color="#ef402d" />
-                                                                <stop offset="100%" stop-color="#f9a825" />
+                                                                <stop offset="0%" stopColor="#ef402d" />
+                                                                <stop offset="100%" stopColor="#f9a825" />
                                                             </linearGradient>
                                                         </defs>
                                                         <circle
                                                             cx="80"
                                                             cy="80"
                                                             r="70"
-                                                            stroke-linecap="round"
+                                                            strokeLinecap="round"
                                                             transform="rotate(-90 80 80)"
                                                             style={{
                                                                 strokeDashoffset:
@@ -915,13 +872,10 @@ export default function ApplicantDetails() {
                                     <div className="info-group">
                                         <p className="info-label">Score Breakdown:</p>
                                         <div className="scores-container">
-                                            {/* Dynamically Render Score Cards */}
                                             {job?.prompt && job.prompt !== "" && (
                                                 <div className="scores-container">
-                                                    {/* Check if Skills is included in the prompt */}
                                                     {job.prompt.includes("Skills") && (
                                                         <>
-                                                            {/* Relevance to Requesting Job */}
                                                             <div className="score-card">
                                                                 <h4>Relevance to Requesting Job</h4>
                                                                 <div className="progress-bar-container">
@@ -936,7 +890,6 @@ export default function ApplicantDetails() {
                                                                 <p>{applicant.rank_score?.relevance ? `${applicant.rank_score.relevance}/10` : "0/10"}</p>
                                                             </div>
 
-                                                            {/* Proficiency Level */}
                                                             <div className="score-card">
                                                                 <h4>Proficiency Level</h4>
                                                                 <div className="progress-bar-container">
@@ -951,7 +904,6 @@ export default function ApplicantDetails() {
                                                                 <p>{applicant.rank_score?.proficiency ? `${applicant.rank_score.proficiency}/10` : "0/10"}</p>
                                                             </div>
 
-                                                            {/* Additional Skills */}
                                                             <div className="score-card">
                                                                 <h4>Additional Skills</h4>
                                                                 <div className="progress-bar-container">
@@ -968,10 +920,8 @@ export default function ApplicantDetails() {
                                                         </>
                                                     )}
 
-                                                    {/* Check if Experience is included in the prompt */}
                                                     {job.prompt.includes("Experience") && (
                                                         <>
-                                                            {/* Job Experience */}
                                                             <div className="score-card">
                                                                 <h4>Job Experience</h4>
                                                                 <div className="progress-bar-container">
@@ -986,7 +936,6 @@ export default function ApplicantDetails() {
                                                                 <p>{applicant.rank_score?.jobExp ? `${applicant.rank_score.jobExp}/10` : "N/A"}</p>
                                                             </div>
 
-                                                            {/* Project and Co-curricular Experience */}
                                                             <div className="score-card">
                                                                 <h4>Project and Co-curricular Experience</h4>
                                                                 <div className="progress-bar-container">
@@ -1001,7 +950,6 @@ export default function ApplicantDetails() {
                                                                 <p>{applicant.rank_score?.projectCocurricularExp ? `${applicant.rank_score.projectCocurricularExp}/10` : "0/10"}</p>
                                                             </div>
 
-                                                            {/* Certifications and Training */}
                                                             <div className="score-card">
                                                                 <h4>Certifications and Training</h4>
                                                                 <div className="progress-bar-container">
@@ -1018,10 +966,8 @@ export default function ApplicantDetails() {
                                                         </>
                                                     )}
 
-                                                    {/* Check if Education is included in the prompt */}
                                                     {job.prompt.includes("Education") && (
                                                         <>
-                                                            {/* Level of Study */}
                                                             <div className="score-card">
                                                                 <h4>Level of Study</h4>
                                                                 <div className="progress-bar-container">
@@ -1036,7 +982,6 @@ export default function ApplicantDetails() {
                                                                 <p>{applicant.rank_score?.studyLevel ? `${applicant.rank_score.studyLevel}/10` : "0/10"}</p>
                                                             </div>
 
-                                                            {/* Awards and Achievements */}
                                                             <div className="score-card">
                                                                 <h4>Awards and Achievements</h4>
                                                                 <div className="progress-bar-container">
@@ -1051,7 +996,6 @@ export default function ApplicantDetails() {
                                                                 <p>{applicant.rank_score?.awards ? `${applicant.rank_score.awards}/10` : "0/10"}</p>
                                                             </div>
 
-                                                            {/* Relevant Coursework and Research */}
                                                             <div className="score-card">
                                                                 <h4>Relevant Coursework and Research</h4>
                                                                 <div className="progress-bar-container">
@@ -1075,12 +1019,10 @@ export default function ApplicantDetails() {
                                 : ""}
                         </div>
 
-                        {/* Skill Large Container */}
                         <div className="applicant-info-container" style={{ marginTop: "5px" }}>
                             <div className="applicants-header">
                                 <h2>Skills</h2>
                             </div>
-                            {/* Soft Skill Container */}
                             <div className="applicant-info">
                                 {detail.detailed_profile.soft_skills && detail.detailed_profile.soft_skills.length > 0 ? (
                                     <div className="info-group" style={{ marginBottom: "10px" }}>
@@ -1093,7 +1035,6 @@ export default function ApplicantDetails() {
                                     </div>
                                 ) : <div></div>}
                             </div>
-                            {/* Technical Skill Container */}
                             <div className="applicant-info">
                                 {detail.detailed_profile.technical_skills && detail.detailed_profile.technical_skills.length > 0 ? (
                                     <div className="info-group" style={{ marginBottom: "10px" }}>
@@ -1106,7 +1047,6 @@ export default function ApplicantDetails() {
                                     </div>
                                 ) : <div></div>}
                             </div>
-                            {/* Language Container */}
                             <div className="applicant-info">
                                 {detail.detailed_profile.languages && detail.detailed_profile.languages.length > 0 ? (
                                     <div className="info-group" style={{ marginBottom: "10px" }}>
@@ -1121,12 +1061,10 @@ export default function ApplicantDetails() {
                             </div>
                         </div>
 
-                        {/* Education Large Container */}
                         <div className="applicant-info-container" style={{ marginTop: "5px" }}>
                             <div className="applicants-header">
                                 <h2>Education</h2>
                             </div>
-                            {/* Education Level Container */}
                             <div className="applicant-info">
                                 {detail.detailed_profile.education && detail.detailed_profile.education.length > 0 ? (
                                     <div className="info-group" style={{ marginBottom: "10px" }}>
@@ -1139,7 +1077,6 @@ export default function ApplicantDetails() {
                                     </div>
                                 ) : <div></div>}
                             </div>
-                            {/* Certifications Container */}
                             <div className="applicant-info">
                                 {detail.detailed_profile.certifications && detail.detailed_profile.certifications.length > 0 ? (
                                     <div className="info-group" style={{ marginBottom: "10px" }}>
@@ -1152,7 +1089,6 @@ export default function ApplicantDetails() {
                                     </div>
                                 ) : <div></div>}
                             </div>
-                            {/* Awards Container */}
                             <div className="applicant-info">
                                 {detail.detailed_profile.awards && detail.detailed_profile.awards.length > 0 ? (
                                     <div className="info-group" style={{ marginBottom: "10px" }}>
@@ -1167,12 +1103,10 @@ export default function ApplicantDetails() {
                             </div>
                         </div>
 
-                        {/* Experience Large Container */}
                         <div className="applicant-info-container" style={{ marginTop: "5px" }}>
                             <div className="applicants-header">
                                 <h2>Experience</h2>
                             </div>
-                            {/* Work Experience Container */}
                             <div className="applicant-info">
                                 {detail.detailed_profile.work_experience && detail.detailed_profile.work_experience.length > 0 ? (
                                     <div className="info-group" style={{ marginBottom: "10px" }}>
@@ -1185,7 +1119,6 @@ export default function ApplicantDetails() {
                                     </div>
                                 ) : <div></div>}
                             </div>
-                            {/* Projects Container */}
                             <div className="applicant-info">
                                 {detail.detailed_profile.projects && detail.detailed_profile.projects.length > 0 ? (
                                     <div className="info-group" style={{ marginBottom: "10px" }}>
@@ -1198,7 +1131,6 @@ export default function ApplicantDetails() {
                                     </div>
                                 ) : <div></div>}
                             </div>
-                            {/* Co-curricular Activities Container */}
                             <div className="applicant-info">
                                 {detail.detailed_profile.co_curricular_activities && detail.detailed_profile.co_curricular_activities.length > 0 ? (
                                     <div className="info-group" style={{ marginBottom: "10px" }}>
