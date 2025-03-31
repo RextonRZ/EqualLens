@@ -4,9 +4,8 @@ import './Home.css';
 import Footer from '../Footer';
 import { Link } from 'react-router-dom';
 // Import Three.js related packages with compatible versions
-import { Color, LinearEncoding } from "three";
+import { Color } from "three";
 import { useFont } from "@react-three/drei";
-import { degToRad } from "three/src/math/MathUtils";
 
 // Create a bloom color effect similar to Experience.jsx
 const bloomColor = new Color("#fff");
