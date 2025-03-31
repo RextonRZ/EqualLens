@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import "./AddInterviewQuestions.css";
 import '../pageloading.css'; // Import the loading animation CSS
 import axios from 'axios'; // Add axios for API calls
+import CandidateProfileModal from '../CandidateProfileModal'; // Corrected import path
 
 // Add LoadingAnimation component for consistency
 const LoadingAnimation = () => {
@@ -71,6 +72,8 @@ const AddInterviewQuestions = () => {
     const [showAIConfirmModal, setShowAIConfirmModal] = useState(false);
     const [generatingQuestionForSection, setGeneratingQuestionForSection] = useState(null);
     const [expandedSections, setExpandedSections] = useState({});
+    const [showCandidateProfileModal, setShowCandidateProfileModal] = useState(false);
+    const [viewingCandidateId, setViewingCandidateId] = useState(null);
 
     const location = useLocation();
     const queryParams = new URLSearchParams(location.search);
@@ -603,7 +606,14 @@ const AddInterviewQuestions = () => {
     };
 
     const handleViewProfile = () => {
-        console.log("View profile for candidate:", selectedApplicant);
+        if (!selectedApplicant || selectedApplicant === "all") {
+            setErrorMessage("Please select a specific applicant to view their profile.");
+            setShowErrorModal(true);
+            return;
+        }
+        
+        setViewingCandidateId(selectedApplicant);
+        setShowCandidateProfileModal(true);
     };
 
     const validateSections = () => {
@@ -1847,6 +1857,13 @@ const AddInterviewQuestions = () => {
             {showUnsavedResetModal && <UnsavedResetModal />}
             {showCandidateSwitchModal && <CandidateSwitchModal />}
             {showAIConfirmModal && <AIConfirmModal />}
+            
+            {/* Add CandidateProfileModal */}
+            <CandidateProfileModal 
+                candidateId={viewingCandidateId} 
+                isOpen={showCandidateProfileModal} 
+                onClose={() => setShowCandidateProfileModal(false)} 
+            />
             
             <div className="page-header">
                 <button className="back-button" onClick={handleGoBackToJobDetails}>
