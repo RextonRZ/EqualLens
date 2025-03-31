@@ -521,12 +521,16 @@ def score_response(transcript, audio_url, question_text):
         total_confidence = (confidence_scores['transcript'] * 0.10) + (confidence_scores['audio'] * 0.20)
         total_clarity = (clarity_scores['transcript'] * 0.15) + (clarity_scores['audio'] * 0.15)
         total_engagement = (engagement_scores['transcript'] * 0.0) + (engagement_scores['audio'] * 0.10)
+
+        # Calculate the overall total
+        overall_score = total_relevance + total_confidence + total_clarity + total_engagement
         
         return {
             'relevance': total_relevance,
             'confidence': total_confidence,
             'clarity': total_clarity,
-            'engagement': total_engagement
+            'engagement': total_engagement,
+            'total_score': overall_score
         }
     except Exception as e:
         logging.error(f"Error scoring response: {str(e)}")

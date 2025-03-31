@@ -634,6 +634,7 @@ async def submit_interview_response(
                     confidence = scores.get('confidence', 0)
                     relevance = scores.get('relevance', 0)
                     engagement = scores.get('engagement', 0)
+                    total_score = scores.get('total_score', 0)
 
                     logger.info(f"Response scores: clarity={clarity}, confidence={confidence}, relevance={relevance}, engagement={engagement}")
 
@@ -669,7 +670,7 @@ async def submit_interview_response(
                     'confidence': float(confidence),
                     'relevance': float(relevance),
                     'engagement': float(engagement),
-                    'totalScore': 0,
+                    'totalScore': float(total_score)
                 },
                 'questions': [question_response],
                 'createdAt': datetime.utcnow(),
@@ -690,12 +691,14 @@ async def submit_interview_response(
             existing_confidence = existing_analysis.get('confidence', 0)
             existing_relevance = existing_analysis.get('relevance', 0)
             existing_engagement = existing_analysis.get('engagement', 0)
+            existing_total_score = existing_analysis.get('totalScore', 0)
 
             # Add the new scores to existing scores
             updated_clarity = existing_clarity + float(clarity)
             updated_confidence = existing_confidence + float(confidence)
             updated_relevance = existing_relevance + float(relevance)
             updated_engagement = existing_engagement + float(engagement)
+            updated_total_score = existing_total_score + float(total_score)
 
             # Update the analysis scores
             interview_doc_ref.update({
@@ -704,7 +707,7 @@ async def submit_interview_response(
                     'confidence': updated_confidence,
                     'relevance': updated_relevance,
                     'engagement': updated_engagement,
-                    'totalScore': 0
+                    'totalScore': updated_total_score
                 },
                 'questions': firestore.ArrayUnion([question_response]),
                 'updatedAt': datetime.utcnow()
@@ -761,24 +764,25 @@ async def complete_interview(
         num_questions = len(interview_response_data.get('questions', []))  # Default to empty list if 'questions' key is missing
 
         if num_questions > 0:
-            total_score = (
-                (interview_response_data['analysis']['clarity'] / num_questions) +
-                (interview_response_data['analysis']['confidence'] / num_questions) +
-                (interview_response_data['analysis']['relevance'] / num_questions) +
-                (interview_response_data['analysis']['engagement'] / num_questions)
-            ) / 4  # Average of the four scores
+            clarity = interview_response_data['analysis'].get('clarity', 0) / num_questions
+            confidence = interview_response_data['analysis'].get('confidence', 0) / num_questions
+            relevance = interview_response_data['analysis'].get('relevance', 0) / num_questions
+            engagement = interview_response_data['analysis'].get('engagement', 0) / num_questions
+            total_score = interview_response_data['analysis'].get('totalScore', 0) / num_questions
         else:
             total_score = 0  # Avoid division by zero
 
         # Ensure total_score is a standard float (avoid Firestore errors)
         total_score = float(total_score)
 
-        # Update interview response total score in Firestore
+        # Update interview response score in Firestore
         db.collection('interviewResponses').document(application_id).update({
+            'analysis.clarity': clarity,
+            'analysis.confidence': confidence,
+            'analysis.relevance': relevance,
+            'analysis.engagement': engagement,
             'analysis.totalScore': total_score
         })
-
-        
         
         # Update interview link status
         db.collection('interviewLinks').document(interview_id).update({
