@@ -636,7 +636,7 @@ def analyze_relevance(transcript, question):
         sentiment_alignment = max(0.3, 1.0 - abs(transcript_sentiment.score - question_sentiment.score) / 2)
         
         # Combine scores with higher baseline for transcript relevance
-        transcript_relevance = 0.5 * semantic_score + 0.3 * keyword_score + 0.2 * sentiment_alignment
+        transcript_relevance = 0.7 * semantic_score + 0.2 * keyword_score + 0.1 * sentiment_alignment
         
         # Audio component of relevance with higher base score
         audio_relevance = max(0.3, semantic_score * 0.6)  # Higher base score
@@ -696,17 +696,17 @@ def analyze_confidence(transcript, audio_features):
         
         # Calculate transcript confidence score with lower penalties
         word_count = max(1, len(transcript.split()))
-        hedging_ratio = min(0.7, hedging_count / word_count)  # Cap penalty
+        hedging_ratio = min(0.4, hedging_count / word_count)  # Cap penalty
         assertive_ratio = min(1.0, (assertive_count + 1) / max(1, word_count))  # Bonus point
         
         transcript_confidence = (
-            0.4 * (1.0 - hedging_ratio * 0.7) +  # Reduced hedging penalty
-            0.3 * assertive_ratio +  # More assertive words = more confident
-            0.3 * min(1.0, sentiment_magnitude + 0.2)  # Bonus for emotion
+            0.5 * (1.0 - hedging_ratio * 0.5) +  # Reduced hedging penalty
+            0.4 * assertive_ratio +  # More assertive words = more confident
+            0.1 * min(1.0, sentiment_magnitude + 0.3)  # Bonus for emotion
         )
         
         # Calculate audio confidence score with more tolerance
-        snr_factor = min(1.0, max(0.4, audio_features.get('snr', 0) / 15.0))  # Lower SNR threshold
+        snr_factor = min(1.0, max(0.6, audio_features.get('snr', 0) / 10.0))  # Higher SNR threshold
         volume_factor = max(0.5, audio_features.get('volume_consistency', 0.7))  # Minimum volume consistency
         pause_factor = max(0.4, 1.0 - abs(audio_features.get('pause_ratio', 0.2) - 0.2) / 0.3)  # More pause tolerance
         
@@ -747,7 +747,7 @@ def analyze_clarity(transcript, audio_features):
         
         # More tolerant sentence length factor (accepting 8-25 words as good)
         optimal_length = 15
-        tolerance = 10
+        tolerance = 15
         sentence_length_factor = max(0.5, 1.0 - abs(avg_sentence_length - optimal_length) / tolerance)
         
         # Check for repeated words/phrases indicating confusion
@@ -755,9 +755,13 @@ def analyze_clarity(transcript, audio_features):
                 if token.part_of_speech.tag != language_v1.PartOfSpeech.Tag.PUNCT]
         
         # Count filler words but with reduced penalty
-        filler_words = ['um', 'uh']  # Reduced list of filler words
+        filler_words = [
+            'um', 'uh', 'like', 'you know', 'sort of', 'kind of', 'basically', 
+            'actually', 'literally', 'just', 'so', 'well', 'I mean', 
+            'right', 'okay', 'mmm', 'err'
+        ]  # Reduced list of filler words
         filler_count = sum(words.count(filler) for filler in filler_words)
-        filler_ratio = min(0.7, filler_count / max(len(words), 1))  # Cap the penalty
+        filler_ratio = min(0.4, filler_count / max(len(words), 1))  # Cap the penalty
         
         # Calculate coherence using classification with bonus
         classification = nlp_client.classify_text(document=doc)
@@ -773,7 +777,7 @@ def analyze_clarity(transcript, audio_features):
         
         # Calculate audio clarity score with wider acceptable ranges
         speech_rate = audio_features.get('speech_rate', 150)
-        rate_factor = max(0.5, 1.0 - abs(speech_rate - 150) / 120)  # More tolerance for speed
+        rate_factor = max(0.6, 1.0 - abs(speech_rate - 150) / 150)  # More tolerance for speed
         
         pause_ratio = audio_features.get('pause_ratio', 0.2)
         pause_factor = max(0.5, 1.0 - abs(pause_ratio - 0.2) / 0.3)  # More tolerance for pauses
@@ -828,8 +832,8 @@ def analyze_engagement(transcript, audio_features):
         
         # Very forgiving audio engagement calculation
         audio_engagement = (
-            0.6 * volume_engagement +  # Dynamic volume indicates engagement
-            0.4 * min(1.0, max(0.4, 1.0 - abs(pause_ratio - 0.2) / pause_tolerance))  # Good pausing with higher floor
+            0.7 * volume_engagement +  # Dynamic volume indicates engagement
+            0.3 * min(1.0, max(0.5, 1.0 - abs(pause_ratio - 0.2) / pause_tolerance))  # Good pausing with higher floor
         )
         
         # Log engagement scores
