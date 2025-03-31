@@ -18,7 +18,7 @@ video {
     left: 0;
     z-index: -1;
     display: block; /* Ensure it displays as a block element */
-    object-position: 80% center; /* Moved further right from 70% to 80% */
+    object-position: 25% center; /* Moved further left from 65% to 55% */
 }
 
 .hero-overlay {
@@ -47,7 +47,7 @@ video {
     align-items: center;
     padding: 0 20px;
     gap: 30px; /* Add gap between left and right content */
-    margin-top: -20px; /* Adjust this value to move content down more */
+    margin-top: 0px; /* Adjust this value to move content down more */
 }
 
 .left-content {
@@ -165,6 +165,7 @@ video {
     visibility: visible;
     transform: translateX(-10%) rotateY(-15deg) scale(1); /* Move active slide more to the left */
     z-index: 2;
+    margin-top: 1rem;
 }
 
 /* Previous slide - showing exactly 20% at the left edge */
@@ -238,6 +239,7 @@ video {
     display: flex;
     justify-content: center;
     align-items: center;
+    margin-top: 60px; /* Increased from 40px */
 }
 
 .feature-card {
@@ -255,6 +257,7 @@ video {
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
     transform: perspective(1000px) rotateY(-15deg);
     transition: transform 0.5s ease;
+    margin-top: 80px; /* Increased from 60px to leave more room for title */
 }
 
 /* Adjust the hover effects to work with the new positioning */
@@ -276,6 +279,94 @@ video {
     font-size: 24px; /* Increased from 22px */
     line-height: 1.6;
     font-weight: 400;
+}
+
+/* Enhanced 3D Title styling with improved positioning and animation */
+.feature-title-3d {
+    position: absolute;
+    left: -4%;
+    top: -2%; /* Moved higher */
+    transform: perspective(1000px) translateZ(70px) rotateY(-9deg) rotateX(5deg); /* Added upward tilt */
+    font-family: 'Poppins-Black', sans-serif;
+    font-size: 1.65rem;
+    font-weight: 900;
+    margin-left: 5rem;
+    color: rgb(255, 146, 146);
+    line-height: 1;
+    z-index: 50;
+    pointer-events: none;
+    text-align: left;
+    width: 100%;
+    max-width: 90%;
+    white-space: pre-wrap;
+    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease;
+    opacity: 0;
+    visibility: hidden;
+    animation: titleFloat 4s ease-in-out infinite; /* Added floating animation */
+}
+
+/* Animation for the entire title to float up and down */
+@keyframes titleFloat {
+    0%, 100% {
+        transform: perspective(1000px) translateZ(70px) translateY(0) rotateY(-9deg) rotateX(5deg);
+    }
+    50% {
+        transform: perspective(1000px) translateZ(70px) translateY(-15px) rotateY(-9deg) rotateX(8deg); /* More pronounced upward movement */
+    }
+}
+
+/* Show title ONLY on active slide */
+.curve-slide.active .feature-title-3d {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Explicitly hide title on prev and next slides */
+.curve-slide.prev .feature-title-3d,
+.curve-slide.next .feature-title-3d {
+    opacity: 0;
+    visibility: hidden;
+}
+
+/* Add styling for line breaks in title with better spacing */
+.title-line {
+    display: block;
+    margin-bottom: 0.2em; /* Increased spacing between lines */
+    letter-spacing: 0.05em; /* Increased letter spacing for readability */
+}
+
+/* Enhanced character styling for individual floating */
+.title-char {
+    display: inline-block;
+    color: rgb(255, 132, 132);
+    filter: brightness(1.4);
+    animation: charFloat 4s ease-in-out infinite; /* Changed to separate animation */
+    animation-delay: calc(0.05s * var(--index, 0));
+    transition: all 0.3s ease;
+    margin: 0 0.01em;
+}
+
+/* Individual character floating with more pronounced movement */
+@keyframes charFloat {
+    0%, 100% {
+        transform: translateY(0) rotateY(0deg);
+    }
+    50% {
+        transform: translateY(-8px) rotateY(5deg); /* Increased vertical movement */
+    }
+}
+
+/* Enhanced the feature content for better 3D effect */
+.feature-content-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transform-style: preserve-3d;
+    perspective: 1200px; /* Added explicit perspective for better 3D positioning */
+    isolation: isolate; /* Add isolation to create a new stacking context */
 }
 
 /* Hide old slider components */
@@ -317,7 +408,12 @@ video {
     }
     
     .hero-content {
-        margin-top: -30px; /* Slightly less shift on smaller screens */
+        margin-top: -10px; /* Slightly less shift on smaller screens */
+    }
+    
+    .feature-title-3d {
+        font-size: 3.4rem;
+        top: -2%;
     }
 }
 
@@ -344,7 +440,7 @@ video {
     }
     
     video {
-        object-position: 80% center; /* Adjust for smaller screens */
+        object-position: 20% center; /* Adjusted for medium screens - moved left from 70% */
     }
     
     .curve-slider {
@@ -385,6 +481,12 @@ video {
     
     .hero-content {
         margin-top: -25px;
+    }
+    
+    .feature-title-3d {
+        font-size: 2.8rem;
+        top: -2%;
+        left: 5%;
     }
 }
 
@@ -449,6 +551,13 @@ video {
     .curve-slide.active {
         transform: translateX(0) rotateY(-15deg) scale(1);
     }
+    
+    .feature-title-3d {
+        font-size: 2.4rem;
+        top: -3%; /* Moved even higher on mobile */
+        left: 3%;
+        transform: perspective(1000px) translateZ(60px) rotateY(-5deg) rotateX(2deg);
+    }
 }
 
 @media screen and (max-width: 480px) {
@@ -462,7 +571,7 @@ video {
     }
     
     video {
-        object-position: 85% center; /* Further adjust for mobile */
+        object-position: 25% center; /* Adjusted for mobile - moved left from 75% */
     }
     
     .curve-slider {
@@ -493,5 +602,12 @@ video {
     .dot {
         width: 8px;
         height: 8px;
+    }
+    
+    .feature-title-3d {
+        font-size: 2rem;
+        top: -4%; /* Moved even higher on smaller mobile */
+        left: 3%;
+        transform: perspective(1000px) translateZ(50px) rotateY(-5deg) rotateX(2deg);
     }
 }
