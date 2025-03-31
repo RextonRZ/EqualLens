@@ -578,6 +578,7 @@ async def submit_interview_response(
                         audio_blob.upload_from_filename(temp_audio_file_path, content_type="audio/wav")
                         audio_blob.make_public()
                         audio_extract_url = audio_blob.public_url
+                        gcs_uri = f"gs://{storage_bucket.name}/{audio_storage_path}"
 
                         # Create temporary file for modified audio with voice effect
                         temp_modified_file = tempfile.NamedTemporaryFile(delete=False, suffix="_modified.wav")
@@ -599,7 +600,7 @@ async def submit_interview_response(
                         modified_audio_url = modified_audio_blob.public_url
 
                         # Transcribe audio using Google Cloud Speech-to-Text
-                        transcription_result = transcribe_audio_with_google_cloud(temp_audio_file_path)
+                        transcription_result = transcribe_audio_with_google_cloud(gcs_uri)
                 
                         transcript = transcription_result['transcript']
                         confidence = transcription_result['confidence']

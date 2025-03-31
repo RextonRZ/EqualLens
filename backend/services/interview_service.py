@@ -226,31 +226,32 @@ def validate_interview_link(interview_id: str, link_code: str):
     
     return interview_data
 
-def get_audio_length(file_path):
-    import wave
-    with wave.open(file_path, "rb") as audio_file:
-        return audio_file.getnframes() / audio_file.getframerate()
-
-def transcribe_audio_with_google_cloud(audio_file_path):
+def transcribe_audio_with_google_cloud(gcs_uri):
     """
-    Transcribe audio file using Google Cloud Speech-to-Text API
-    
+    Transcribe an audio file stored in Google Cloud Storage using Google Cloud Speech-to-Text API.
+
     Args:
-        audio_file_path (str): Path to the audio file to transcribe
-    
+        gcs_uri (str): GCS URI of the audio file (e.g., gs://your-bucket-name/path/to/audio.wav)
+
     Returns:
         dict: Transcription results with transcript and confidence
     """
     try:
+        # # Instantiate a client
+        # client = speech.SpeechClient()
+        
+        # # Read the audio file
+        # with io.open(audio_file_path, 'rb') as audio_file:
+        #     content = audio_file.read()
+        
+        # # Configure audio input
+        # audio = speech.RecognitionAudio(content=content)
+
         # Instantiate a client
         client = speech.SpeechClient()
-        
-        # Read the audio file
-        with io.open(audio_file_path, 'rb') as audio_file:
-            content = audio_file.read()
-        
-        # Configure audio input
-        audio = speech.RecognitionAudio(content=content)
+
+        # Configure audio input using the GCS URI
+        audio = speech.RecognitionAudio(uri=gcs_uri)
         
         # Configure recognition settings
         config = speech.RecognitionConfig(
@@ -268,17 +269,9 @@ def transcribe_audio_with_google_cloud(audio_file_path):
             ]
         )
 
-        # Get audio length for debugging
-        audio_length = get_audio_length(audio_file_path)
-        
-        # Perform the transcription request
-        response = None
-
-        if audio_length < 60:
-            response = client.recognize(config=config, audio=audio)
-        else:
-            response = client.long_running_recognize(config=config, audio=audio)
-            response.result(timeout=90)  # Wait for the long-running operation to complete
+        # Use long_running_recognize for all audio files
+        response = client.long_running_recognize(config=config, audio=audio)
+        response = response.result(timeout=90)  # Wait for the long-running operation to complete
 
         if not response.results:
             return {
