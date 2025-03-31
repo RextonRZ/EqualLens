@@ -708,6 +708,7 @@ function InterviewQuestions() {
                     interviewId,
                     linkCode,
                     questionId: getCurrentQuestion().questionId,
+                    question: getCurrentQuestion().question,
                     videoResponse: base64data // Send base64 string
                 };
 
@@ -797,7 +798,7 @@ function InterviewQuestions() {
         try {
             setLoading(true); // Show loading indicator
             setError(null);
-
+            
             const response = await fetch('http://localhost:8000/api/interviews/complete-interview', {
                 method: 'POST',
                 headers: {

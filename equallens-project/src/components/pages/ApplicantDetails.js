@@ -583,7 +583,7 @@ export default function ApplicantDetails() {
                                         }}
                                     ></div>
                                 </div>
-                                <p>{applicant.rank_score?.jobExp ? `${applicant.rank_score.jobExp}/10` : "N/A"}</p>
+                                <p>{applicant.rank_score?.jobExp ? `${applicant.rank_score.jobExp}/10` : "0/10"}</p>
 
                                 <h4 style={{ fontWeight: 'bold', marginTop: '1rem' }}>Reasoning: </h4>
                                 <div className="experience-card" style={{ marginTop: "0.5rem", backgroundColor: "#fff0fa", color: "#dd20c1" }}>
@@ -933,7 +933,7 @@ export default function ApplicantDetails() {
                                                                         }}
                                                                     ></div>
                                                                 </div>
-                                                                <p>{applicant.rank_score?.jobExp ? `${applicant.rank_score.jobExp}/10` : "N/A"}</p>
+                                                                <p>{applicant.rank_score?.jobExp ? `${applicant.rank_score.jobExp}/10` : "0/10"}</p>
                                                             </div>
 
                                                             <div className="score-card">
