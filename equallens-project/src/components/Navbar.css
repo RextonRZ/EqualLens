@@ -20,11 +20,28 @@
     width: 90%;
 }
 
+.navbar-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 80px; /* Match the navbar height */
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 80px;
+    padding: 5px;
+    box-sizing: border-box;
+}
+
 .navbar-logo-image {
     margin-top: 0.6rem;
     height: 180px;
     width: auto;
     transition: all 0.3s ease;
+    pointer-events: none; /* Prevents the image from receiving click events directly */
 }
 
 .navbar-logo:hover .navbar-logo-image {
@@ -178,6 +195,11 @@
         top: 0;
         left: 0;
         transform: translate(10%, 0%);
+        height: 60px; /* Smaller height for mobile */
+    }
+    
+    .logo-container {
+        height: 60px; /* Smaller height for mobile */
     }
     
     .navbar-logo-image {

@@ -3,52 +3,55 @@ import '../../App.css';
 import './Home.css';
 import Footer from '../Footer';
 import { Link } from 'react-router-dom';
+// Import Three.js related packages with compatible versions
+import { Color, LinearEncoding } from "three";
+import { useFont } from "@react-three/drei";
+import { degToRad } from "three/src/math/MathUtils";
+
+// Create a bloom color effect similar to Experience.jsx
+const bloomColor = new Color("#fff");
+bloomColor.multiplyScalar(1.5);
+
+// Preload font like in Experience.jsx - ensure the path matches your font location
+useFont.preload("/fonts/Poppins-Black.ttf");
 
 export default function Home() {
     const features = [
         {
-            title: "Bulk CV Upload & Management",
+            title: "BULK CV UPLOAD & MANAGEMENT",
             description: "Effortlessly upload and manage multiple CVs in a centralized system.",
             video: "bulkfileupload.mp4"
         },
         {
-            title: "Seamless Document Parsing",
+            title: "SEAMLESS DOCUMENT PARSING",
             description: "Instantly extract and organize key information from candidate documents.",
             video: "dashboardhighlights.mp4"
         },
         {
-            title: "AI-Driven Candidate Ranking",
+            title: "AI-DRIVEN CANDIDATE RANKING",
             description: "Objectively rank candidates based on merit and job-specific criteria.",
             video: "rankingHighlights.mp4"
         },
         {
-            title: "Anonymized Candidate Screening",
+            title: "ANONYMIZED CANDIDATE SCREENING",
             description: "Remove bias with anonymized profiles focusing solely on qualifications."
         },
         {
-            title: "AI Generate Interview Questions",
+            title: "AI-TAILORED INTERVIEW QUESTIONS", // Keep original for fallback
             description: "AI-tailored Interview Question with Manual Control",
-            image: "aigenerateinterviewquestion.png"
+            video: "aigenerateintquestion.mp4"
         },
         {
-            title: "Automated Interview System",
+            title: "AUTOMATED INTERVIEW SYSTEM",
             description: "Streamline the interview process with intelligent scheduling and management."
         },
         {
-            title: "AI-tailored Interview Questions",
-            description: "Generate relevant questions with full manual control and customization."
-        },
-        {
-            title: "Instant Interview Transcript & Review",
+            title: "INSTANT INTERVIEW TRANSCRIPT",
             description: "Get immediate transcripts and summaries of candidate interviews."
         },
         {
-            title: "AI-Powered Interview Analysis",
+            title: "AI-POWERED INTERVIEW ANALYSIS",
             description: "Gain valuable insights from comprehensive interview analytics."
-        },
-        {
-            title: "Automated Communication",
-            description: "Maintain consistent candidate engagement with automated updates."
         }
     ];
 
@@ -57,8 +60,9 @@ export default function Home() {
     const [prevIndex, setPrevIndex] = useState(features.length - 1);
     const [videoEnded, setVideoEnded] = useState(false);
     const [secondVideoEnded, setSecondVideoEnded] = useState(false);
-    const [thirdVideoEnded, setThirdVideoEnded] = useState(false); // Add state for third video
-    const videoRefs = useRef({}); // Use an object to store multiple video refs
+    const [thirdVideoEnded, setThirdVideoEnded] = useState(false);
+    const [fourthVideoEnded, setFourthVideoEnded] = useState(false);
+    const videoRefs = useRef({});
     const timerRef = useRef(null);
     const [isPageVisible, setIsPageVisible] = useState(true);
 
@@ -110,6 +114,8 @@ export default function Home() {
             setSecondVideoEnded(true);
         } else if (videoIndex === 2) {
             setThirdVideoEnded(true);
+        } else if (videoIndex === 4) {
+            setFourthVideoEnded(true);
         }
     };
 
@@ -130,6 +136,8 @@ export default function Home() {
                     setSecondVideoEnded(false);
                 } else if (parseInt(key) === 2) {
                     setThirdVideoEnded(false);
+                } else if (parseInt(key) === 4) {
+                    setFourthVideoEnded(false);
                 }
             }
         });
@@ -148,6 +156,8 @@ export default function Home() {
                 setSecondVideoEnded(false);
             } else if (index === 2) {
                 setThirdVideoEnded(false);
+            } else if (index === 4) {
+                setFourthVideoEnded(false);
             }
             
             if (timerRef.current) {
@@ -164,6 +174,8 @@ export default function Home() {
                 setSecondVideoEnded(false);
             } else if (index === 2) {
                 setThirdVideoEnded(false);
+            } else if (index === 4) {
+                setFourthVideoEnded(false);
             }
             
             if (timerRef.current) {
@@ -180,7 +192,8 @@ export default function Home() {
 
         if ((activeIndex === 0 && features[0].video && !videoEnded) || 
             (activeIndex === 1 && features[1].video && !secondVideoEnded) ||
-            (activeIndex === 2 && features[2].video && !thirdVideoEnded)) {
+            (activeIndex === 2 && features[2].video && !thirdVideoEnded) ||
+            (activeIndex === 4 && features[4].video && !fourthVideoEnded)) {
         } else {
             timerRef.current = setInterval(() => {
                 const newActiveIndex = (activeIndex + 1) % features.length;
@@ -194,6 +207,8 @@ export default function Home() {
                     setSecondVideoEnded(false);
                 } else if (newActiveIndex === 2) {
                     setThirdVideoEnded(false);
+                } else if (newActiveIndex === 4) {
+                    setFourthVideoEnded(false);
                 }
             }, 5000);
         }
@@ -203,19 +218,20 @@ export default function Home() {
                 clearInterval(timerRef.current);
             }
         };
-    }, [activeIndex, features.length, videoEnded, secondVideoEnded, thirdVideoEnded]);
+    }, [activeIndex, features.length, videoEnded, secondVideoEnded, thirdVideoEnded, fourthVideoEnded]);
 
     // When videos end, advance to next slide
     useEffect(() => {
         if ((videoEnded && activeIndex === 0) || 
             (secondVideoEnded && activeIndex === 1) || 
-            (thirdVideoEnded && activeIndex === 2)) {
+            (thirdVideoEnded && activeIndex === 2) ||
+            (fourthVideoEnded && activeIndex === 4)) {
             const newActiveIndex = (activeIndex + 1) % features.length;
             setActiveIndex(newActiveIndex);
             setNextIndex((newActiveIndex + 1) % features.length);
             setPrevIndex(activeIndex);
         }
-    }, [videoEnded, secondVideoEnded, thirdVideoEnded, activeIndex, features.length]);
+    }, [videoEnded, secondVideoEnded, thirdVideoEnded, fourthVideoEnded, activeIndex, features.length]);
 
     // Set video ref
     const setVideoRef = (element, index) => {
@@ -223,6 +239,47 @@ export default function Home() {
             videoRefs.current[index] = element;
         }
     };
+
+    // Apply floating animation effect to title characters - FIXED VERSION
+    useEffect(() => {
+        const titleChars = document.querySelectorAll('.title-char');
+        titleChars.forEach((char, index) => {
+            // Set custom property for staggered animation delays
+            char.style.setProperty('--index', index);
+            
+            // Reset any previous inline styles that might interfere with the CSS animations
+            char.style.animation = '';
+            char.style.transform = '';
+            char.style.opacity = '';
+            
+            // Force a reflow to ensure the animations restart
+            void char.offsetWidth;
+            
+            // Set the animation
+            char.style.animationName = 'charFloat';
+            char.style.animationDuration = '4s';
+            char.style.animationTimingFunction = 'ease-in-out';
+            char.style.animationIterationCount = 'infinite';
+            char.style.animationDelay = `${index * 0.05}s`;
+        });
+
+        // Also apply the floating animation to the title container
+        const titleContainers = document.querySelectorAll('.feature-title-3d');
+        titleContainers.forEach(container => {
+            // Reset any potentially conflicting inline styles
+            container.style.animation = '';
+            container.style.transform = '';
+            
+            // Force a reflow
+            void container.offsetWidth;
+            
+            // Apply the animation
+            container.style.animationName = 'titleFloat';
+            container.style.animationDuration = '4s';
+            container.style.animationTimingFunction = 'ease-in-out';
+            container.style.animationIterationCount = 'infinite';
+        });
+    }, [activeIndex]); // Re-run when active slide changes
 
     return (
         <>
@@ -264,29 +321,66 @@ export default function Home() {
                                         }`}
                                         onClick={() => handleSlideClick(index)}
                                     >
-                                        {feature.image ? (
-                                            <img 
-                                                src={feature.image} 
-                                                alt={feature.title} 
-                                                className="feature-image"
-                                            />
-                                        ) : feature.video ? (
-                                            <div className="video-container">
-                                                <video 
-                                                    ref={(el) => setVideoRef(el, index)}
-                                                    src={feature.video} 
-                                                    className="feature-video"
-                                                    muted
-                                                    playsInline
-                                                    onEnded={() => handleVideoEnd(index)}
+                                        <div className="feature-content-wrapper">
+                                            {/* Enhanced 3D Title with different size support */}
+                                            <h2 className="feature-title-3d">
+                                                {feature.titleParts ? (
+                                                    // Special handling for titles with different sizes
+                                                    feature.titleParts.map((part, partIndex) => (
+                                                        <div key={`part-${partIndex}`} className={`title-line ${part.className}`}>
+                                                            {part.text.split('').map((char, charIndex) => (
+                                                                <span 
+                                                                    key={`char-${partIndex}-${charIndex}`} 
+                                                                    className="title-char" 
+                                                                    style={{ color: '#fff' }}
+                                                                >
+                                                                    {char}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    // Regular title handling
+                                                    feature.title.split('\n').map((line, lineIndex) => (
+                                                        <div key={`line-${lineIndex}`} className="title-line">
+                                                            {line.split('').map((char, charIndex) => (
+                                                                <span 
+                                                                    key={`char-${lineIndex}-${charIndex}`} 
+                                                                    className="title-char" 
+                                                                    style={{ color: '#fff' }}
+                                                                >
+                                                                    {char}
+                                                                </span>
+                                                            ))
+                                                        }
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </h2>
+                                            
+                                            {feature.image ? (
+                                                <img 
+                                                    src={feature.image} 
+                                                    alt={feature.title} 
+                                                    className="feature-image"
                                                 />
-                                            </div>
-                                        ) : (
-                                            <div className="feature-card">
-                                                <h3>{feature.title}</h3>
-                                                <p>{feature.description}</p>
-                                            </div>
-                                        )}
+                                            ) : feature.video ? (
+                                                <div className="video-container">
+                                                    <video 
+                                                        ref={(el) => setVideoRef(el, index)}
+                                                        src={feature.video} 
+                                                        className="feature-video"
+                                                        muted
+                                                        playsInline
+                                                        onEnded={() => handleVideoEnd(index)}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className="feature-card">
+                                                    <p>{feature.description}</p>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
