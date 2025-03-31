@@ -276,6 +276,7 @@ const InterviewResponses = () => {
     const [processingAction, setProcessingAction] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [modalMessage, setModalMessage] = useState('');
+    const [expandedQuestions, setExpandedQuestions] = useState({});
 
     useEffect(() => {
         const fetchData = async () => {
@@ -346,6 +347,23 @@ const InterviewResponses = () => {
 
         fetchData();
     }, [jobId, candidateId]);
+
+    useEffect(() => {
+        if (responses && responses.questions && responses.questions.length > 0) {
+            const initialExpandedState = {};
+            responses.questions.forEach((_, index) => {
+                initialExpandedState[index] = true; // Start with all questions expanded
+            });
+            setExpandedQuestions(initialExpandedState);
+        }
+    }, [responses]);
+
+    const toggleQuestionExpansion = (index) => {
+        setExpandedQuestions(prev => ({
+            ...prev,
+            [index]: !prev[index]
+        }));
+    };
 
     const generateAIFeedback = async (responsesData, appId) => {
         try {
@@ -615,20 +633,15 @@ const InterviewResponses = () => {
             <div className="response-list">
                 {responses && responses.questions && responses.questions.length > 0 ? (
                     responses.questions.map((response, index) => (
-                        <div key={response.responseId} className="response-card" style={{
-                            backgroundColor: 'white',
-                            borderRadius: '0.75rem',
-                            padding: '1.5rem',
-                            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.06)',
-                            border: '1px solid #f1f1f1',
-                            margin: '1.5rem 0'
-                        }}>
-                            {/* Improved Question Display */}
-                            <div className="question-header" style={{
-                                marginBottom: '1.5rem',
-                                borderBottom: '1px solid #eee',
-                                paddingBottom: '1rem'
-                            }}>
+                        <div 
+                            key={response.responseId} 
+                            className={`response-card ${expandedQuestions[index] ? 'expanded' : 'collapsed'}`}
+                        >
+                            {/* Clickable Question Header for expanding/collapsing */}
+                            <div 
+                                className="question-header" 
+                                onClick={() => toggleQuestionExpansion(index)}
+                            >
                                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
                                     <div
                                         className="question-icon"
@@ -658,6 +671,27 @@ const InterviewResponses = () => {
                                     >
                                         {getQuestionText(response.questionId)}
                                     </h3>
+                                    
+                                    {/* Add expand/collapse indicator */}
+                                    <div className="toggle-indicator">
+                                        <svg 
+                                            xmlns="http://www.w3.org/2000/svg" 
+                                            width="20" 
+                                            height="20" 
+                                            viewBox="0 0 24 24" 
+                                            fill="none" 
+                                            stroke="currentColor" 
+                                            strokeWidth="2" 
+                                            strokeLinecap="round" 
+                                            strokeLinejoin="round"
+                                        >
+                                            {expandedQuestions[index] ? (
+                                                <polyline points="18 15 12 9 6 15"></polyline>
+                                            ) : (
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                            )}
+                                        </svg>
+                                    </div>
                                 </div>
                                 {response.wordCount > 0 && (
                                     <div style={{
@@ -678,169 +712,172 @@ const InterviewResponses = () => {
                                 )}
                             </div>
 
-                            {/* Audio Section */}
-                            {(response.modifiedAudioUrl || response.audioExtractUrl) && (
-                                <div className="audio-section" style={{ marginBottom: '1.5rem' }}>
-                                    <h4 style={{
-                                        color: '#4a5568',
-                                        marginBottom: '0.75rem',
-                                        fontSize: '1rem',
-                                        display: 'flex',
-                                        alignItems: 'center'
-                                    }}>
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
-                                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                                        </svg>
-                                        Candidate's Response:
-                                    </h4>
-                                    <AudioPlayer audioUrl={response.modifiedAudioUrl || response.audioExtractUrl} />
-
-                                    <div style={{
-                                        marginTop: '15px',
-                                        fontSize: '0.9rem',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center'
-                                    }}>
-                                        <div>
-                                            <strong>Having trouble playing the audio?</strong>
-                                        </div>
-                                        <div>
-                                            <a
-                                                href={response.modifiedAudioUrl || response.audioExtractUrl}
-                                                download={`response-${index + 1}.wav`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                style={{
-                                                    display: 'inline-block',
-                                                    backgroundColor: '#4caf50',
-                                                    color: 'white',
-                                                    padding: '6px 12px',
-                                                    borderRadius: '4px',
-                                                    textDecoration: 'none',
-                                                    fontSize: '0.9rem'
-                                                }}
-                                            >
-                                                <svg
-                                                    style={{ verticalAlign: 'middle', marginRight: '5px' }}
-                                                    width="16"
-                                                    height="16"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    strokeWidth="2"
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                >
-                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                                    <polyline points="7 10 12 15 17 10"></polyline>
-                                                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                                                </svg>
-                                                Download Audio
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Transcript Section */}
-                            {response.transcript && (
-                                <div className="transcript-section" style={{ marginBottom: '1.5rem' }}>
-                                    <h4 style={{
-                                        color: '#4a5568',
-                                        marginBottom: '0.75rem',
-                                        fontSize: '1rem',
-                                        display: 'flex',
-                                        alignItems: 'center'
-                                    }}>
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
-                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                            <polyline points="14 2 14 8 20 8"></polyline>
-                                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                                            <polyline points="10 9 9 9 8 9"></polyline>
-                                        </svg>
-                                        Transcript:
-                                    </h4>
-                                    <div className="transcript-text" style={{
-                                        backgroundColor: '#f8fafc',
-                                        borderRadius: '0.5rem',
-                                        padding: '1rem',
-                                        border: '1px solid #e2e8f0',
-                                        whiteSpace: 'pre-wrap',
-                                        lineHeight: '1.6',
-                                        color: '#4a5568'
-                                    }}>
-                                        {response.transcript}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Improved AI Feedback Display */}
-                            <div className="feedback-section" style={{ marginTop: '1.5rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.75rem' }}>
-                                    <div
-                                        style={{
-                                            backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                                            color: '#4caf50',
-                                            width: '32px',
-                                            height: '32px',
-                                            borderRadius: '50%',
+                            {/* Collapsible content area */}
+                            <div className="question-content">
+                                {/* Audio Section */}
+                                {(response.modifiedAudioUrl || response.audioExtractUrl) && (
+                                    <div className="audio-section" style={{ marginBottom: '1.5rem' }}>
+                                        <h4 style={{
+                                            color: '#4a5568',
+                                            marginBottom: '0.75rem',
+                                            fontSize: '1rem',
                                             display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            marginRight: '10px',
-                                            flexShrink: 0
-                                        }}
-                                    >
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                                            strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
-                                        </svg>
-                                    </div>
-                                    <h4 style={{ color: '#4a5568', margin: 0, fontSize: '1rem', fontWeight: '600' }}>
-                                        AI Feedback
-                                    </h4>
-                                </div>
-
-                                <div className="feedback-content" style={{
-                                    backgroundColor: 'rgba(76, 175, 80, 0.05)',
-                                    borderLeft: '3px solid #4caf50',
-                                    borderRadius: '0 4px 4px 0',
-                                    padding: '1.25rem',
-                                    marginLeft: '16px'
-                                }}>
-                                    {response.AIFeedback ? (
-                                        <div
-                                            className="ai-feedback-text"
-                                            style={{ color: '#333', lineHeight: '1.6' }}
-                                            dangerouslySetInnerHTML={{ __html: response.AIFeedback }}
-                                        />
-                                    ) : (
-                                        <div className="feedback-loading" style={{
-                                            display: 'flex',
-                                            justifyContent: 'center',
-                                            alignItems: 'center',
-                                            padding: '1rem',
-                                            color: '#718096',
-                                            fontStyle: 'italic'
+                                            alignItems: 'center'
                                         }}>
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                                                style={{ marginRight: '8px', animation: 'spin 2s linear infinite' }}>
-                                                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
+                                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
                                             </svg>
-                                            <p style={{ margin: 0 }}>Generating feedback...</p>
-                                            <style>{`
+                                            Candidate's Response:
+                                        </h4>
+                                        <AudioPlayer audioUrl={response.modifiedAudioUrl || response.audioExtractUrl} />
+
+                                        <div style={{
+                                            marginTop: '15px',
+                                            fontSize: '0.9rem',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}>
+                                            <div>
+                                                <strong>Having trouble playing the audio?</strong>
+                                            </div>
+                                            <div>
+                                                <a
+                                                    href={response.modifiedAudioUrl || response.audioExtractUrl}
+                                                    download={`response-${index + 1}.wav`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    style={{
+                                                        display: 'inline-block',
+                                                        backgroundColor: '#4caf50',
+                                                        color: 'white',
+                                                        padding: '6px 12px',
+                                                        borderRadius: '4px',
+                                                        textDecoration: 'none',
+                                                        fontSize: '0.9rem'
+                                                    }}
+                                                >
+                                                    <svg
+                                                        style={{ verticalAlign: 'middle', marginRight: '5px' }}
+                                                        width="16"
+                                                        height="16"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        strokeWidth="2"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                    >
+                                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                                        <polyline points="7 10 12 15 17 10"></polyline>
+                                                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                                                    </svg>
+                                                    Download Audio
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Transcript Section */}
+                                {response.transcript && (
+                                    <div className="transcript-section" style={{ marginBottom: '1.5rem' }}>
+                                        <h4 style={{
+                                            color: '#4a5568',
+                                            marginBottom: '0.75rem',
+                                            fontSize: '1rem',
+                                            display: 'flex',
+                                            alignItems: 'center'
+                                        }}>
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                                <polyline points="14 2 14 8 20 8"></polyline>
+                                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                                <polyline points="10 9 9 9 8 9"></polyline>
+                                            </svg>
+                                            Transcript:
+                                        </h4>
+                                        <div className="transcript-text" style={{
+                                            backgroundColor: '#f8fafc',
+                                            borderRadius: '0.5rem',
+                                            padding: '1rem',
+                                            border: '1px solid #e2e8f0',
+                                            whiteSpace: 'pre-wrap',
+                                            lineHeight: '1.6',
+                                            color: '#4a5568'
+                                        }}>
+                                            {response.transcript}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Improved AI Feedback Display */}
+                                <div className="feedback-section" style={{ marginTop: '1.5rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                        <div
+                                            style={{
+                                                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                                                color: '#4caf50',
+                                                width: '32px',
+                                                height: '32px',
+                                                borderRadius: '50%',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                marginRight: '10px',
+                                                flexShrink: 0
+                                            }}
+                                        >
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                                                strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+                                            </svg>
+                                        </div>
+                                        <h4 style={{ color: '#4a5568', margin: 0, fontSize: '1rem', fontWeight: '600' }}>
+                                            AI Feedback
+                                        </h4>
+                                    </div>
+
+                                    <div className="feedback-content" style={{
+                                        backgroundColor: 'rgba(76, 175, 80, 0.05)',
+                                        borderLeft: '3px solid #4caf50',
+                                        borderRadius: '0 4px 4px 0',
+                                        padding: '1.25rem',
+                                        marginLeft: '16px'
+                                    }}>
+                                        {response.AIFeedback ? (
+                                            <div
+                                                className="ai-feedback-text"
+                                                style={{ color: '#333', lineHeight: '1.6' }}
+                                                dangerouslySetInnerHTML={{ __html: response.AIFeedback }}
+                                            />
+                                        ) : (
+                                            <div className="feedback-loading" style={{
+                                                display: 'flex',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                                padding: '1rem',
+                                                color: '#718096',
+                                                fontStyle: 'italic'
+                                            }}>
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                                    style={{ marginRight: '8px', animation: 'spin 2s linear infinite' }}>
+                                                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                                                </svg>
+                                                <p style={{ margin: 0 }}>Generating feedback...</p>
+                                                <style>{`
                         @keyframes spin {
                             to { transform: rotate(360deg); }
                         }
                     `}</style>
-                                        </div>
-                                    )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
