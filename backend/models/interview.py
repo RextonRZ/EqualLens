@@ -40,6 +40,7 @@ class IdentityVerificationResponse(BaseModel):
 class InterviewResponseRequest(BaseModel):
     interviewId: str
     linkCode: str
+    question: str
     questionId: str
     videoResponse: str  # Base64 encoded video data or empty if directly uploading to storage
     

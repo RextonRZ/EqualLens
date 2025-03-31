@@ -25,7 +25,8 @@ from models.interview import (
 )
 from services.interview_service import (
     get_db, get_storage, validate_interview_link, 
-    send_interview_email, generate_link_code, send_rejection_email, transcribe_audio_with_google_cloud, extract_audio_with_ffmpeg, apply_voice_effect
+    send_interview_email, generate_link_code, send_rejection_email, transcribe_audio_with_google_cloud, extract_audio_with_ffmpeg, apply_voice_effect,
+    score_response
 )
 from services.face_verification import process_verification_image
 from firebase_admin import firestore
@@ -36,6 +37,9 @@ logger = logging.getLogger(__name__)
 
 # Initialize router
 router = APIRouter()
+
+# Disable parallelism for tokenizers to avoid issues with multiprocessing
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 # Constants
 LINK_EXPIRY_DAYS = 7  # Number of days the interview link remains valid
@@ -514,12 +518,18 @@ async def submit_interview_response(
         # Generate response ID for this question
         question_response_id = str(uuid.uuid4())
 
+        # Get question text
+        question = request.question
+
         # Default return values
         video_url = None
         audio_extract_url = None
         modified_audio_url = None
         transcript = None
         word_count = 0
+        clarity = 0.0
+        relevance = 0.0
+        engagement = 0.0
         confidence = 0.0
         
         # If video data is provided directly in the request
@@ -558,6 +568,8 @@ async def submit_interview_response(
 
                     # Use FFmpeg for audio extraction
                     extract_audio_with_ffmpeg(temp_video_file_path, temp_audio_file_path)
+
+                    logger.info(f"Extracted audio file path: {temp_audio_file_path}")
                     
                     if os.path.exists(temp_audio_file_path):
                         # Upload extracted audio to Firebase Storage
@@ -598,6 +610,32 @@ async def submit_interview_response(
                         logger.error("Audio extraction failed: File not found")
                         transcript = "Audio extraction failed"
 
+                    # Analyze scores only if we have all required data
+                    scores = {}
+                    if transcript and len(transcript.strip()) > 0 and modified_audio_url and question:
+                        # Analyze scores - call the score_response function
+                        scores = score_response(
+                            transcript=transcript,
+                            question_text=question,
+                            audio_url=modified_audio_url
+                        )
+                    else:
+                        logger.warning(f"Missing data for scoring: transcript={bool(transcript)}, audio_url={bool(modified_audio_url)}, question={bool(question)}")
+                        scores = {
+                            'clarity': 0,
+                            'confidence': 0,
+                            'relevance': 0,
+                            'engagement': 0
+                        }
+
+                    # Extract individual scores - these will be used when creating the response document
+                    clarity = scores.get('clarity', 0)
+                    confidence = scores.get('confidence', 0)
+                    relevance = scores.get('relevance', 0)
+                    engagement = scores.get('engagement', 0)
+
+                    logger.info(f"Response scores: clarity={clarity}, confidence={confidence}, relevance={relevance}, engagement={engagement}")
+
                 except Exception as transcription_error:
                     logger.error(f"Transcription error: {str(transcription_error)}")
                     transcript = f"Transcription failed: {str(transcription_error)}"
@@ -626,11 +664,11 @@ async def submit_interview_response(
             interview_response_data = {
                 'applicationId': application_id,
                 'analysis': {
-                    'clarity': None,
-                    'confidence': confidence,
-                    'relevance': None,
-                    'totalScore': None,
-                    'feedback': None
+                    'clarity': float(clarity),
+                    'confidence': float(confidence),
+                    'relevance': float(relevance),
+                    'engagement': float(engagement),
+                    'totalScore': 0,
                 },
                 'questions': [question_response],
                 'createdAt': datetime.utcnow(),
@@ -640,8 +678,33 @@ async def submit_interview_response(
             # Save new document to Firestore
             interview_doc_ref.set(interview_response_data)
         else:
-            # Update the existing document by appending the new question
+            # Update the existing document by appending the new question and adding new analysis
+
+            # Get the existing document data
+            existing_data = interview_doc.to_dict()
+            existing_analysis = existing_data.get('analysis', {})
+
+            # Get existing scores
+            existing_clarity = existing_analysis.get('clarity', 0)
+            existing_confidence = existing_analysis.get('confidence', 0)
+            existing_relevance = existing_analysis.get('relevance', 0)
+            existing_engagement = existing_analysis.get('engagement', 0)
+
+            # Add the new scores to existing scores
+            updated_clarity = existing_clarity + float(clarity)
+            updated_confidence = existing_confidence + float(confidence)
+            updated_relevance = existing_relevance + float(relevance)
+            updated_engagement = existing_engagement + float(engagement)
+
+            # Update the analysis scores
             interview_doc_ref.update({
+                'analysis': {
+                    'clarity': updated_clarity,
+                    'confidence': updated_confidence,
+                    'relevance': updated_relevance,
+                    'engagement': updated_engagement,
+                    'totalScore': 0
+                },
                 'questions': firestore.ArrayUnion([question_response]),
                 'updatedAt': datetime.utcnow()
             })
@@ -684,6 +747,37 @@ async def complete_interview(
         
         # Get application ID
         application_id = interview_data.get('applicationId')
+
+        # Fetch interview response clarity, confidence, relevance, and engagement scores
+        interview_response_doc = db.collection('interviewResponses').document(application_id).get()
+
+        if not interview_response_doc.exists:
+            raise HTTPException(status_code=404, detail="Interview responses not found")
+
+        interview_response_data = interview_response_doc.to_dict()
+
+        # Get the number of questions
+        num_questions = len(interview_response_data.get('questions', []))  # Default to empty list if 'questions' key is missing
+
+        if num_questions > 0:
+            total_score = (
+                (interview_response_data['analysis']['clarity'] / num_questions) +
+                (interview_response_data['analysis']['confidence'] / num_questions) +
+                (interview_response_data['analysis']['relevance'] / num_questions) +
+                (interview_response_data['analysis']['engagement'] / num_questions)
+            ) / 4  # Average of the four scores
+        else:
+            total_score = 0  # Avoid division by zero
+
+        # Ensure total_score is a standard float (avoid Firestore errors)
+        total_score = float(total_score)
+
+        # Update interview response total score in Firestore
+        db.collection('interviewResponses').document(application_id).update({
+            'analysis.totalScore': total_score
+        })
+
+        
         
         # Update interview link status
         db.collection('interviewLinks').document(interview_id).update({

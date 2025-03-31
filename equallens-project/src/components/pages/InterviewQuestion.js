@@ -679,6 +679,7 @@ function InterviewQuestions() {
                     interviewId,
                     linkCode,
                     questionId: getCurrentQuestion().questionId,
+                    question: getCurrentQuestion().question,
                     videoResponse: base64data // Send base64 string
                 };
 
@@ -768,6 +769,24 @@ function InterviewQuestions() {
         try {
             setLoading(true); // Show loading indicator
             setError(null);
+
+            // // Add the scores together in interviewResponse
+            // const interviewResponse = await fetch(`http://localhost:8000/api/interviews/responses/${application_id}`, {
+            //     method: 'GET',
+            //     headers: {
+            //         'Content-Type': 'application/json'
+            //     }
+            // });
+
+            // if (!interviewResponse.ok) {
+            //     const errorData = await interviewResponse.json().catch(() => ({ detail: 'Failed to parse error response' }));
+            //     throw new Error(errorData.detail || 'Failed to fetch interview responses');
+            // }
+
+            // const interviewData = await interviewResponse.json();
+
+
+                
 
             const response = await fetch('http://localhost:8000/api/interviews/complete-interview', {
                 method: 'POST',
