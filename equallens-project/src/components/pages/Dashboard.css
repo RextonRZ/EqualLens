@@ -845,12 +845,6 @@
   gap: 0.5rem; /* Space between elements */
 }
 
-/* Special styling for the description section - more subtle and clean */
-.description-group {
-  margin-top: 0.5rem;           /* More space above description */
-  border-top: 1px solid #eee; /* Solid light separator instead of dashed */
-  padding-top: 1rem;          /* Add padding after separator */
-}
 
 .description-group .info-label {
   color: #333;
