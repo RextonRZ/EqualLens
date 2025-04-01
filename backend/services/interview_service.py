@@ -560,61 +560,117 @@ def apply_voice_effect(input_audio_path, effect_type="helium", output_audio_path
             ffmpeg_path = 'ffmpeg'  # Fallback to PATH
     
     if not input_audio_path or not os.path.exists(input_audio_path):
-        raise ValueError(f"Invalid input audio path: {input_audio_path}")
-    
-    # If no output path specified, generate one
+        raise ValueError(f"Invalid or non-existent input audio path: {input_audio_path}")
+
+    # If no output path specified, generate one in the system's temp directory
     if output_audio_path is None:
-        temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix="_modified.wav")
-        output_audio_path = temp_audio_file.name
-        temp_audio_file.close()
-    
+        # Create a temporary file that persists after closing, get its name
+        fd, temp_output_path = tempfile.mkstemp(suffix="_modified.wav")
+        os.close(fd) # Close the file handle immediately
+        output_audio_path = temp_output_path
+        logging.info(f"Output path not specified, using temporary file: {output_audio_path}")
+    else:
+        # Ensure the directory for the output path exists
+        output_dir = os.path.dirname(output_audio_path)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+            logging.info(f"Created output directory: {output_dir}")
+
+    # Define base filter chain for clarity: Loudness normalization, band-pass filter
+    # Adjust frequencies as needed: highpass removes rumble, lowpass removes hiss/high noise
+    # Using EBU R128 standard for loudness normalization
+    clarity_filters = "loudnorm=I=-16:LRA=11:TP=-1.5,highpass=f=100,lowpass=f=7000"
+
+    # Define FFmpeg command based on effect type
+    command = [
+        ffmpeg_path,
+        '-i', input_audio_path,
+    ]
+
+    effect_type_lower = effect_type.lower()
+
+    if effect_type_lower == "disguise_up":
+        # Moderate pitch up (e.g., 15-25% higher pitch = 1.15 to 1.25 factor)
+        pitch_factor = 1.20
+        # Apply pitch shift first, then clarity filters
+        command.extend(['-af', f'rubberband=pitch={pitch_factor},{clarity_filters}'])
+        logging.info(f"Applying 'disguise_up' effect with pitch factor {pitch_factor}")
+    elif effect_type_lower == "disguise_down":
+        # Moderate pitch down (e.g., 15-25% lower pitch = 0.85 to 0.75 factor)
+        pitch_factor = 0.80
+        # Apply pitch shift first, then clarity filters
+        command.extend(['-af', f'rubberband=pitch={pitch_factor},{clarity_filters}'])
+        logging.info(f"Applying 'disguise_down' effect with pitch factor {pitch_factor}")
+    elif effect_type_lower == "helium":
+        # Original Helium effect (higher pitch shift)
+        pitch_factor = 1.5 # Example value for helium, adjust if needed
+        command.extend(['-af', f'rubberband=pitch={pitch_factor},{clarity_filters}'])
+        logging.info(f"Applying 'helium' effect with pitch factor {pitch_factor}")
+    else:
+        # No effect or unrecognized effect type, just copy (or apply clarity only)
+        # Option 1: Just copy
+        # command.extend(['-c', 'copy'])
+        # Option 2: Apply clarity filters without pitch shift
+        command.extend(['-af', clarity_filters])
+        logging.info(f"Effect type '{effect_type}' not recognized or 'none'. Applying only clarity filters.")
+        # If you truly want *no* changes for 'none', uncomment the '-c copy' line
+        # and comment out the '-af clarity_filters' line above.
+
+    # Common output settings for consistency and clarity
+    command.extend([
+        '-ar', '16000',  # Standard sample rate for speech processing
+        '-ac', '1',      # Convert to mono for focus
+        '-y',            # Overwrite output file without asking
+        output_audio_path
+    ])
+
     try:
-        if effect_type.lower() == "helium":
-            # Helium effect: increase pitch by 3 semitones without changing tempo
-            command = [
-                ffmpeg_path, 
-                '-i', input_audio_path,
-                '-af', 'rubberband=pitch=1.2,loudnorm=I=-16:LRA=11:TP=-1.5,highpass=f=200,lowpass=f=8000',
-                '-ar', '16000',  # Consistent sample rate
-                '-ac', '1',      # Mono channel for clarity
-                '-y',
-                output_audio_path
-            ]
-        else:
-            command = [
-                ffmpeg_path, 
-                '-i', input_audio_path,
-                '-c', 'copy',
-                '-y',
-                output_audio_path
-            ]
-        
+        logging.info(f"Running FFmpeg command: {' '.join(command)}")
         # Run FFmpeg command
         result = subprocess.run(
-            command, 
-            stdout=subprocess.PIPE,  
-            stderr=subprocess.PIPE,
-            check=True
+            command,
+            capture_output=True, # Capture stdout and stderr
+            text=True,           # Decode stdout/stderr as text
+            check=True           # Raise CalledProcessError on non-zero exit code
         )
-        
-        # Check for errors in subprocess
-        if result.returncode != 0:
-            logging.error(f"FFmpeg error: {result.stderr.decode()}")
-            raise RuntimeError(f"Voice effect application failed: {result.stderr.decode()}")
-        
-        # Verify output file was created
-        if not os.path.exists(output_audio_path):
-            raise RuntimeError("Voice effect application failed: No output file created")
-        
-        logging.info(f"Voice effect applied successfully: {output_audio_path}")
+
+        # FFmpeg often outputs info to stderr, so check returncode explicitly
+        # The check=True above already handles non-zero return codes by raising an error.
+        logging.info(f"FFmpeg stdout:\n{result.stdout}")
+        if result.stderr: # Log stderr as well, as FFmpeg often puts useful info here
+             logging.info(f"FFmpeg stderr:\n{result.stderr}")
+
+        # Verify output file was created and is not empty
+        if not os.path.exists(output_audio_path) or os.path.getsize(output_audio_path) == 0:
+            # This check might be redundant if check=True caught an error, but good for robustness
+            raise RuntimeError(f"Voice effect application failed: Output file not created or empty at {output_audio_path}")
+
+        logging.info(f"Voice effect '{effect_type}' applied successfully: {output_audio_path}")
         return output_audio_path
-    
+
     except subprocess.CalledProcessError as e:
-        logging.error(f"FFmpeg voice effect error: {e.stderr.decode() if e.stderr else str(e)}")
-        raise
+        # Log the error details from FFmpeg's stderr
+        logging.error(f"FFmpeg command failed with return code {e.returncode}")
+        logging.error(f"FFmpeg stderr:\n{e.stderr}")
+        logging.error(f"FFmpeg stdout:\n{e.stdout}") # Also log stdout for context
+        # Clean up temporary output file if it exists and was generated by this function
+        if output_audio_path == temp_output_path and os.path.exists(temp_output_path):
+             try:
+                 os.remove(temp_output_path)
+                 logging.info(f"Cleaned up temporary file: {temp_output_path}")
+             except OSError as rm_err:
+                 logging.error(f"Error removing temporary file {temp_output_path}: {rm_err}")
+        raise RuntimeError(f"FFmpeg execution failed: {e.stderr}") from e
     except Exception as e:
-        logging.error(f"Unexpected error in voice effect application: {str(e)}")
-        raise
+        logging.error(f"An unexpected error occurred during voice effect application: {str(e)}")
+        # Clean up temporary output file if it exists and was generated by this function
+        if output_audio_path == temp_output_path and os.path.exists(temp_output_path):
+             try:
+                 os.remove(temp_output_path)
+                 logging.info(f"Cleaned up temporary file: {temp_output_path}")
+             except OSError as rm_err:
+                 logging.error(f"Error removing temporary file {temp_output_path}: {rm_err}")
+        raise # Re-raise the original exception
 
 def score_response(transcript, audio_url, question_text):
     """

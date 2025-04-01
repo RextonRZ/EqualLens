@@ -959,8 +959,8 @@ async def generate_ai_feedback(
             
             Provide a CONCISE evaluation of the response with the following structure:
             
-            1. STRENGTHS (3-4 bullet points)
-            2. AREAS FOR IMPROVEMENT (3-4 bullet points)
+            1. STRENGTHS (Does not necessarily need to have, depends on the response, if applicable, present it in bullet points. Bullet points should never more than 4)
+            2. AREAS FOR IMPROVEMENT (Does not necessarily need to have, depends on the response, if applicable, present it in bullet points. Bullet points should never more than 4)
             3. ALIGNMENT WITH JOB REQUIREMENTS (1-2 short sentences)
             4. OVERALL ASSESSMENT (2-3 sentences maximum)
             
