@@ -17,6 +17,14 @@ const LoadingAnimation = () => {
 
 // New component for displaying performance metrics
 const PerformanceAnalysis = ({ analysis }) => {
+    // Define weights for each criterion based on how they contribute to overall score
+    const weights = {
+        relevance: 0.30,   // 30% of overall score (0.25 + 0.05)
+        clarity: 0.30,     // 30% of overall score (0.15 + 0.15)
+        confidence: 0.30,  // 30% of overall score (0.10 + 0.20)
+        engagement: 0.10   // 10% of overall score (0.0 + 0.10)
+    };
+
     // Function to determine color based on score value
     const getScoreColor = (score) => {
         if (score >= 0.7) return '#4caf50'; // Good - green
@@ -57,6 +65,31 @@ const PerformanceAnalysis = ({ analysis }) => {
         totalScore: analysis.totalScore || 0
     };
 
+    // Calculate each criterion's achievement percentage (relative to its maximum weight)
+    const achievementPercentages = {
+        clarity: analysisData.clarity / weights.clarity,
+        confidence: analysisData.confidence / weights.confidence,
+        engagement: analysisData.engagement / weights.engagement,
+        relevance: analysisData.relevance / weights.relevance
+    };
+
+    // Get the relative contributions to the total score
+    const totalScore = analysisData.totalScore;
+    const relativeContributions = {
+        clarity: analysisData.clarity / totalScore,
+        confidence: analysisData.confidence / totalScore,
+        engagement: analysisData.engagement / totalScore,
+        relevance: analysisData.relevance / totalScore
+    };
+
+    // Define criterion colors for consistency
+    const criterionColors = {
+        relevance: '#4285F4',  // Blue
+        clarity: '#34A853',    // Green
+        confidence: '#FBBC05', // Yellow
+        engagement: '#EA4335'  // Red
+    };
+
     return (
         <div className="performance-analysis">
             <div className="performance-header">
@@ -72,93 +105,263 @@ const PerformanceAnalysis = ({ analysis }) => {
                 </div>
             </div>
 
-            <div className="metrics-container">
-                <div className="metric-item">
-                    <div className="metric-header">
-                        <h4>Relevance</h4>
-                        <span className="metric-score">{formatScore(analysisData.relevance)}</span>
+            {/* Add stacked bar chart for overall score composition */}
+            <div className="overall-score-composition">
+                <h3>Overall Score Composition</h3>
+                <div className="score-composition-container">
+                    {/* This outer container represents 100% */}
+                    <div className="stacked-bar-outer">
+                        {/* This inner container represents the actual total score (e.g., 70.6%) */}
+                        <div 
+                            className="stacked-bar-chart" 
+                            style={{ width: `${analysisData.totalScore * 100}%` }}
+                        >
+                            {Object.entries(relativeContributions).map(([criterion, proportion]) => (
+                                <div
+                                    key={criterion}
+                                    className="stacked-segment"
+                                    style={{
+                                        width: `${proportion * 100}%`,
+                                        backgroundColor: criterionColors[criterion],
+                                    }}
+                                    title={`${criterion.charAt(0).toUpperCase() + criterion.slice(1)}: ${formatScore(analysisData[criterion])} (${(proportion * 100).toFixed(1)}% of total)`}
+                                ></div>
+                            ))}
+                        </div>
                     </div>
-                    <div className="metric-bar-container">
-                        <div
-                            className="metric-bar"
-                            style={{
-                                width: `${analysisData.relevance * 100}%`,
-                                backgroundColor: getScoreColor(analysisData.relevance)
-                            }}
-                        ></div>
+                    <div className="scale-markers">
+                        <span>0%</span>
+                        <span>25%</span>
+                        <span>50%</span>
+                        <span>75%</span>
+                        <span>100%</span>
                     </div>
-                    <p className="metric-description">How well responses address the questions asked</p>
                 </div>
+                <div className="chart-legend">
+                    {Object.entries(criterionColors).map(([criterion, color]) => (
+                        <div key={criterion} className="legend-item">
+                            <div className="legend-color" style={{ backgroundColor: color }}></div>
+                            <span className="legend-label">
+                                {criterion.charAt(0).toUpperCase() + criterion.slice(1)}: {formatScore(analysisData[criterion])} 
+                                {` (${weights[criterion] * 100}%)`}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            </div>
 
-                <div className="metric-item">
+            <div className="metrics-container">
+                {/* First row: Clarity and Confidence */}
+                <div key="clarity" className="metric-item">
                     <div className="metric-header">
                         <h4>Clarity</h4>
-                        <span className="metric-score">{formatScore(analysisData.clarity)}</span>
+                        <div className="metric-scores">
+                            <span className="achievement-score">
+                                {(achievementPercentages.clarity * 100).toFixed(1)}%
+                            </span>
+                            <span className="weighted-score">
+                                Score: {formatScore(analysisData.clarity)} / {formatScore(weights.clarity)}
+                            </span>
+                        </div>
                     </div>
-                    <div className="metric-bar-container">
-                        <div
-                            className="metric-bar"
-                            style={{
-                                width: `${analysisData.clarity * 100}%`,
-                                backgroundColor: getScoreColor(analysisData.clarity)
-                            }}
-                        ></div>
+                    
+                    {/* Add achievement percentage chart */}
+                    <div className="achievement-chart">
+                        <div className="achievement-bar-container">
+                            <div 
+                                className="achievement-bar" 
+                                style={{
+                                    width: `${achievementPercentages.clarity * 100}%`,
+                                    backgroundColor: criterionColors.clarity
+                                }}
+                            >
+                                <span className="achievement-bar-label">
+                                    {(achievementPercentages.clarity * 100).toFixed(1)}%
+                                </span>
+                            </div>
+                        </div>
+                        <div className="achievement-scale">
+                            <span>0%</span>
+                            <span>25%</span>
+                            <span>50%</span>
+                            <span>75%</span>
+                            <span>100%</span>
+                        </div>
                     </div>
-                    <p className="metric-description">How clearly ideas are communicated</p>
+                    
+                    <p className="metric-description">
+                        How clearly ideas are communicated
+                    </p>
                 </div>
 
-                <div className="metric-item">
+                <div key="confidence" className="metric-item">
                     <div className="metric-header">
                         <h4>Confidence</h4>
-                        <span className="metric-score">{formatScore(analysisData.confidence)}</span>
+                        <div className="metric-scores">
+                            <span className="achievement-score">
+                                {(achievementPercentages.confidence * 100).toFixed(1)}%
+                            </span>
+                            <span className="weighted-score">
+                                Score: {formatScore(analysisData.confidence)} / {formatScore(weights.confidence)}
+                            </span>
+                        </div>
                     </div>
-                    <div className="metric-bar-container">
-                        <div
-                            className="metric-bar"
-                            style={{
-                                width: `${analysisData.confidence * 100}%`,
-                                backgroundColor: getScoreColor(analysisData.confidence)
-                            }}
-                        ></div>
+                    
+                    {/* Add achievement percentage chart */}
+                    <div className="achievement-chart">
+                        <div className="achievement-bar-container">
+                            <div 
+                                className="achievement-bar" 
+                                style={{
+                                    width: `${achievementPercentages.confidence * 100}%`,
+                                    backgroundColor: criterionColors.confidence
+                                }}
+                            >
+                                <span className="achievement-bar-label">
+                                    {(achievementPercentages.confidence * 100).toFixed(1)}%
+                                </span>
+                            </div>
+                        </div>
+                        <div className="achievement-scale">
+                            <span>0%</span>
+                            <span>25%</span>
+                            <span>50%</span>
+                            <span>75%</span>
+                            <span>100%</span>
+                        </div>
                     </div>
-                    <p className="metric-description">Level of certainty and assertiveness shown</p>
+                    
+                    <p className="metric-description">
+                        Level of certainty and assertiveness shown
+                    </p>
                 </div>
 
-                <div className="metric-item">
+                <div key="engagement" className="metric-item">
                     <div className="metric-header">
                         <h4>Engagement</h4>
-                        <span className="metric-score">{formatScore(analysisData.engagement)}</span>
+                        <div className="metric-scores">
+                            <span className="achievement-score">
+                                {(achievementPercentages.engagement * 100).toFixed(1)}%
+                            </span>
+                            <span className="weighted-score">
+                                Score: {formatScore(analysisData.engagement)} / {formatScore(weights.engagement)}
+                            </span>
+                        </div>
                     </div>
-                    <div className="metric-bar-container">
-                        <div
-                            className="metric-bar"
-                            style={{
-                                width: `${analysisData.engagement * 100}%`,
-                                backgroundColor: getScoreColor(analysisData.engagement)
-                            }}
-                        ></div>
+                    
+                    {/* Add achievement percentage chart */}
+                    <div className="achievement-chart">
+                        <div className="achievement-bar-container">
+                            <div 
+                                className="achievement-bar" 
+                                style={{
+                                    width: `${achievementPercentages.engagement * 100}%`,
+                                    backgroundColor: criterionColors.engagement
+                                }}
+                            >
+                                <span className="achievement-bar-label">
+                                    {(achievementPercentages.engagement * 100).toFixed(1)}%
+                                </span>
+                            </div>
+                        </div>
+                        <div className="achievement-scale">
+                            <span>0%</span>
+                            <span>25%</span>
+                            <span>50%</span>
+                            <span>75%</span>
+                            <span>100%</span>
+                        </div>
                     </div>
-                    <p className="metric-description">Level of energy and enthusiasm in responses</p>
+                    
+                    <p className="metric-description">
+                        Level of energy and enthusiasm in responses
+                    </p>
+                </div>
+
+                {/* Second row: Relevance and Engagement */}
+                <div key="relevance" className="metric-item">
+                    <div className="metric-header">
+                        <h4>Relevance</h4>
+                        <div className="metric-scores">
+                            <span className="achievement-score">
+                                {(achievementPercentages.relevance * 100).toFixed(1)}%
+                            </span>
+                            <span className="weighted-score">
+                                Score: {formatScore(analysisData.relevance)} / {formatScore(weights.relevance)}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    {/* Add achievement percentage chart */}
+                    <div className="achievement-chart">
+                        <div className="achievement-bar-container">
+                            <div 
+                                className="achievement-bar" 
+                                style={{
+                                    width: `${achievementPercentages.relevance * 100}%`,
+                                    backgroundColor: criterionColors.relevance
+                                }}
+                            >
+                                <span className="achievement-bar-label">
+                                    {(achievementPercentages.relevance * 100).toFixed(1)}%
+                                </span>
+                            </div>
+                        </div>
+                        <div className="achievement-scale">
+                            <span>0%</span>
+                            <span>25%</span>
+                            <span>50%</span>
+                            <span>75%</span>
+                            <span>100%</span>
+                        </div>
+                    </div>
+                    
+                    <p className="metric-description">
+                        How well responses address the questions asked
+                    </p>
                 </div>
             </div>
 
             <div className="analysis-interpretation">
                 <h3>Analysis Interpretation</h3>
                 <ul>
-                    {analysisData.relevance < 0.4 && (
+                    {/* Update thresholds based on the backend scoring system in interview_service.py */}
+                    {achievementPercentages.relevance < 0.3 && (
                         <li>Candidate's responses need to more directly address the questions asked.</li>
                     )}
-                    {analysisData.clarity < 0.4 && (
+                    {achievementPercentages.clarity < 0.3 && (
                         <li>Candidate should work on expressing ideas more clearly and concisely.</li>
                     )}
-                    {analysisData.confidence < 0.4 && (
+                    {achievementPercentages.confidence < 0.3 && (
                         <li>Candidate could benefit from more confident delivery of responses.</li>
                     )}
-                    {analysisData.engagement < 0.4 && (
+                    {achievementPercentages.engagement < 0.3 && (
                         <li>Candidate's responses lack sufficient energy and enthusiasm.</li>
                     )}
-                    {Object.values(analysisData).filter(score => score < 0.4).length === 0 && (
-                        <li>No significant areas of concern identified.</li>
+                    {analysisData.totalScore < 0.5 && (
+                        <li>Overall performance is below expectations for this position.</li>
+                    )}
+                    {analysisData.totalScore >= 0.5 && analysisData.totalScore < 0.7 && (
+                        <li>Performance is satisfactory with no significant concerns.</li>
+                    )}
+                    {analysisData.totalScore >= 0.7 && analysisData.totalScore < 0.9 && (
+                        <li>Overall performance demonstrates strong interview skills.</li>
+                    )}
+                    {analysisData.totalScore >= 0.9 && (
+                        <li>Exceptional performance with excellent communication skills and job fit.</li>
+                    )}
+                    {/* Add comments for excellent individual metrics */}
+                    {achievementPercentages.relevance >= 0.9 && (
+                        <li>Candidate shows outstanding ability to provide highly relevant responses to questions.</li>
+                    )}
+                    {achievementPercentages.clarity >= 0.9 && (
+                        <li>Exceptional clarity in communication with well-structured and articulate responses.</li>
+                    )}
+                    {achievementPercentages.confidence >= 0.9 && (
+                        <li>Demonstrates remarkable confidence and assertiveness throughout the interview.</li>
+                    )}
+                    {achievementPercentages.engagement >= 0.9 && (
+                        <li>Shows excellent engagement and enthusiasm for the position and company.</li>
                     )}
                 </ul>
             </div>
@@ -417,9 +620,9 @@ const AudioPlayer = ({ audioUrl, transcript, wordTimings, onTimeUpdate }) => {
     );
 };
 
-// Add a new component for synchronized transcript
+// Update the SynchronizedTranscript component
 const SynchronizedTranscript = ({ transcript, wordTimings, currentTime }) => {
-    // If no word timings available, fallback to regular transcript display
+    // If no word timings available or they're not in the expected format, fallback to regular transcript display
     if (!wordTimings || wordTimings.length === 0) {
         return (
             <div className="transcript-text">
@@ -429,11 +632,14 @@ const SynchronizedTranscript = ({ transcript, wordTimings, currentTime }) => {
     }
 
     // Find words that should be highlighted based on current time
-    const highlightedWords = new Set();
+    const highlightedIndices = new Set();
     
-    wordTimings.forEach(wordInfo => {
-        if (currentTime >= wordInfo.startTime && currentTime <= wordInfo.endTime) {
-            highlightedWords.add(wordInfo.index);
+    wordTimings.forEach((wordInfo, idx) => {
+        const startTime = wordInfo.startTime || 0;
+        const endTime = wordInfo.endTime || 0;
+        
+        if (currentTime >= startTime && currentTime <= endTime) {
+            highlightedIndices.add(idx);
         }
     });
     
@@ -442,7 +648,9 @@ const SynchronizedTranscript = ({ transcript, wordTimings, currentTime }) => {
             {wordTimings.map((wordInfo, idx) => (
                 <span 
                     key={idx} 
-                    className={highlightedWords.has(wordInfo.index) ? "highlighted-word" : ""}
+                    className={highlightedIndices.has(idx) ? "highlighted-word" : ""}
+                    data-start={wordInfo.startTime}
+                    data-end={wordInfo.endTime}
                 >
                     {wordInfo.word}{' '}
                 </span>
@@ -700,6 +908,7 @@ const InterviewResponses = () => {
     };
 
     const handleAudioTimeUpdate = (responseId, time) => {
+        // Store current playback time for each response
         setPlaybackTimes(prev => ({
             ...prev,
             [responseId]: time
@@ -1043,7 +1252,7 @@ const InterviewResponses = () => {
                                         </h4>
                                         <SynchronizedTranscript 
                                             transcript={response.transcript}
-                                            wordTimings={response.wordTimings}
+                                            wordTimings={response.wordTimings || []}
                                             currentTime={playbackTimes[response.responseId] || 0}
                                         />
                                     </div>

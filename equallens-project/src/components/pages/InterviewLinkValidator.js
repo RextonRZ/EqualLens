@@ -18,7 +18,7 @@ const LoadingAnimation = () => {
 const InterviewHeader = () => {
     return (
         <div style={{
-            background: 'linear-gradient(90deg, rgb(249, 100, 95) 0%, rgb(249, 100, 95) 100%)',
+            background: 'linear-gradient(90deg, rgb(226, 83, 95) 0%, rgb(249, 100, 95) 100%)',
             height: '80px',
             display: 'flex',
             justifyContent: 'center',
@@ -26,7 +26,8 @@ const InterviewHeader = () => {
             position: 'sticky',
             top: 0,
             zIndex: 1000,
-            width: '100%'
+            width: '100%',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
         }}>
             <div style={{
                 display: 'flex',
@@ -41,9 +42,23 @@ const InterviewHeader = () => {
                     fontSize: '2rem',
                     display: 'flex',
                     alignItems: 'center',
-                    fontWeight: 'bold'
                 }}>
-                    EqualLens Interview
+                    <img 
+                      src="/equalLensLogoWhite.png" 
+                      alt="EqualLens Logo Light" 
+                      className="navbar-logo-image" 
+                    />
+                    <span style={{
+                        fontFamily: "'Nunito', 'Arial', sans-serif",
+                        fontWeight: '300', // Lighter weight to match logo
+                        letterSpacing: '1px', // More spacing between letters
+                        marginTop:'5px',
+                        marginLeft: '7px', // Add some space between logo and text
+                        fontSize: '2.1rem', // Slightly smaller to balance with logo
+                        opacity: '0.95' // Slightly less opaque to appear lighter
+                    }}>
+                        Interview
+                    </span>
                 </div>
             </div>
         </div>

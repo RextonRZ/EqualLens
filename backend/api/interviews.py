@@ -218,7 +218,6 @@ async def generate_interview_link(
         logger.error(f"Error generating interview link: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate interview link: {str(e)}")
     
-# Add this to your candidates.py router file
 @router.post("/reject")
 async def reject_candidate(request_data: Dict[Any, Any] = Body(...)):
     """Reject a candidate and send rejection email"""
@@ -437,7 +436,6 @@ async def verify_identity(
         logger.error(f"Error verifying identity: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to verify identity: {str(e)}")
 
-# In interviews.py, update the endpoint:
 @router.get("/questions/{interview_id}/{link_code}")
 async def get_interview_questions(
     interview_id: str = Path(...),
@@ -531,7 +529,7 @@ async def submit_interview_response(
         relevance = 0.0
         engagement = 0.0
         confidence = 0.0
-        total_score = 0.0  # Initialize total_score with a default value
+        total_score = 0.0
         word_timings = []  # Initialize word timings
 
         # If video data is provided directly in the request
@@ -606,7 +604,7 @@ async def submit_interview_response(
                 
                         transcript = transcription_result['transcript']
                         confidence = transcription_result['confidence']
-                        word_timings = transcription_result.get('word_timings', [])  # Get word-level timestamps
+                        word_timings = transcription_result.get('word_timings', [])  # Extract word timings
                         
                         if transcript:
                             word_count = len(word_tokenize(transcript))
@@ -639,22 +637,20 @@ async def submit_interview_response(
                             'engagement': 0,
                             'total_score': 0
                         }
-                        # Make sure to set total_score in this branch too
                         total_score = 0.0
 
                     logger.info(f"Response scores: clarity={clarity}, confidence={confidence}, relevance={relevance}, engagement={engagement}, total_score={total_score}")
+                    logger.info(f"Word timings count: {len(word_timings)}")
 
                 except Exception as transcription_error:
                     logger.error(f"Transcription error: {str(transcription_error)}")
                     transcript = f"Transcription failed: {str(transcription_error)}"
                     word_count = 0
                     confidence = 0.0
-                    # Make sure total_score is initialized in this error case too
                     total_score = 0.0
             except Exception as video_error:
                 logger.error(f"Video processing error: {str(video_error)}")
                 transcript = f"Video processing failed: {str(video_error)}"
-                # Make sure total_score is initialized in this error case too
                 total_score = 0.0
         
         # Create the question response object
@@ -681,7 +677,7 @@ async def submit_interview_response(
                     'confidence': float(confidence),
                     'relevance': float(relevance),
                     'engagement': float(engagement),
-                    'totalScore': float(total_score)  # Now total_score is guaranteed to be initialized
+                    'totalScore': float(total_score)
                 },
                 'questions': [question_response],
                 'createdAt': datetime.utcnow(),
@@ -709,7 +705,7 @@ async def submit_interview_response(
             updated_confidence = existing_confidence + float(confidence)
             updated_relevance = existing_relevance + float(relevance)
             updated_engagement = existing_engagement + float(engagement)
-            updated_total_score = existing_total_score + float(total_score)  # Now total_score is guaranteed to be initialized
+            updated_total_score = existing_total_score + float(total_score)
 
             # Update the analysis scores
             interview_doc_ref.update({

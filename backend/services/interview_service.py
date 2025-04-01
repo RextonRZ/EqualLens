@@ -397,19 +397,39 @@ def transcribe_audio_with_google_cloud(gcs_uri):
             return {
                 'transcript': "No transcription results (empty speech detected)",
                 'confidence': 0.0,
-                'raw_results': None
+                'raw_results': None,
+                'word_timings': []  # Return empty array for word timings
             }
         
         # IMPROVED: Better processing of results
         transcripts = []
         confidence_scores = []
         word_count = 0
+        word_timings = []  # List to store word timing information
+        word_index = 0  # Global index to track position in full transcript
         
         for result in response.results:
             # Use the highest confidence alternative
             best_alternative = result.alternatives[0]
             transcripts.append(best_alternative.transcript)
             confidence_scores.append(best_alternative.confidence)
+            
+            # Process word-level information
+            for word_info in best_alternative.words:
+                # Convert to seconds
+                start_time = word_info.start_time.total_seconds()
+                end_time = word_info.end_time.total_seconds()
+                
+                # Add to word timings array with necessary information
+                word_timings.append({
+                    'word': word_info.word,
+                    'startTime': start_time,
+                    'endTime': end_time,
+                    'confidence': word_info.confidence,
+                    'index': word_index
+                })
+                
+                word_index += 1
             
             # Count words for statistics
             words = best_alternative.transcript.split()
@@ -427,6 +447,7 @@ def transcribe_audio_with_google_cloud(gcs_uri):
             'transcript': processed_transcript,
             'confidence': avg_confidence,
             'word_count': word_count,
+            'word_timings': word_timings,  # Include word timings in the response
             'raw_results': response.results
         }
     
@@ -435,6 +456,7 @@ def transcribe_audio_with_google_cloud(gcs_uri):
         return {
             'transcript': f"Transcription error: {str(e) if e is not None else 'Unknown error'}",
             'confidence': 0.0,
+            'word_timings': [],  # Return empty array for word timings on error
             'raw_results': None
         }
 
