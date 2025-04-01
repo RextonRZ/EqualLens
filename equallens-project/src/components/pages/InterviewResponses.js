@@ -555,6 +555,36 @@ const InterviewResponses = () => {
         }));
     };
 
+    // Add a better back navigation function
+    const handleBackToCandidateProfile = () => {
+        // Set loading state before navigation to prevent flickering
+        setLoading(true);
+        
+        // Navigate directly to the candidate profile with state that indicates we want to directly show job details
+        navigate(`/dashboard/${jobId}/${candidateId}`, {
+            state: { 
+                directToJobDetails: true,
+                jobId: jobId
+            }
+        });
+    };
+
+    // Use for direct back to job details
+    const handleBackToJobDetails = () => {
+        // Set loading state before navigation to prevent flickering
+        setLoading(true);
+        
+        // Navigate to Dashboard with state that indicates we want to directly show job details
+        navigate(`/dashboard`, {
+            state: { 
+                directToJobDetails: true, 
+                jobId: jobId,
+                skipJobList: true // Additional flag to bypass job list entirely
+            },
+            replace: true // Use replace to prevent back button issues
+        });
+    };
+
     const SuccessModal = () => (
         <div className="status-modal-overlay">
             <div className="status-modal">
@@ -653,11 +683,11 @@ const InterviewResponses = () => {
             {showSuccessModal && <SuccessModal />}
             {showConfirmModal && <ConfirmModal />}
 
-            <button className="back-button" onClick={() => navigate(-1)}>
+            <button className="back-button" onClick={handleBackToJobDetails}>
                 <svg className="back-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
                 </svg>
-                Back
+                Back to Job Details
             </button>
 
             <div className="responses-header">
