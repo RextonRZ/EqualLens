@@ -175,6 +175,12 @@ circle {
     text-align: center; /* Center the text */
 }
 
+.reject-button:hover {
+    background-color: #e84e48;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(249, 100, 95, 0.3);
+}
+
 .accept-button {
     background-color: #37d03f;
     color: white;
@@ -185,10 +191,16 @@ circle {
     font-size: 0.875rem;
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 2px 4px rgba(249, 100, 95, 0.2);
+    box-shadow: 0 2px 4px rgba(55, 208, 63, 0.2);
     min-width: 120px; /* Add fixed minimum width */
     text-align: center; /* Center the text */
-    /* Remove the margin-right that was causing the difference */
+}
+
+/* Add matching hover effect for accept button to match reject button */
+.accept-button:hover {
+    background-color: #2bb732; /* Darker shade of green */
+    transform: translateY(-2px); /* Same floating effect as reject button */
+    box-shadow: 0 4px 8px rgba(55, 208, 63, 0.3); /* Enhanced shadow for hover */
 }
 
 /* Update the container for the buttons to use gap instead of margins */
