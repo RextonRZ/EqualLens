@@ -81,6 +81,8 @@ video {
     display: flex;
     gap: 20px;
     justify-content: flex-start; /* Changed from center to flex-start for left alignment */
+    position: relative; /* Add position relative */
+    z-index: 20; /* Add a higher z-index to ensure buttons are clickable */
 }
 
 .btn--large {
@@ -109,13 +111,15 @@ video {
     background-color: transparent;
     color: white; /* Changed from rgb(210, 45, 60) to white */
     border: 2px solid white; /* Changed from rgb(210, 45, 60) to white */
+    position: relative; /* Ensure the button has position context */
+    z-index: 25; /* Give the outline button specifically a higher z-index */
 }
 
 .btn--outline:hover {
     background-color: rgba(255, 255, 255, 0.2); /* Changed for a subtle hover effect */
     color: white; /* Keep white on hover */
     transform: translateY(-3px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); /* Adjusted shadow color */
+    box-shadow: 0 6px 12px rgba(255, 255, 255, 0.2); /* Adjusted shadow color */
 }
 
 .right-content {
