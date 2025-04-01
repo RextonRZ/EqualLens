@@ -11,7 +11,7 @@ This repository hosts the code and documentation for the EqualLens Project, an A
 
 EqualLens is a comprehensive recruitment platform that leverages Google's AI technologies to create a fairer, more efficient hiring process. The platform automates resume analysis, candidate ranking, and interviewing, while ensuring bias reduction through anonymized screening.
 
-![EqualLens Logo](./equallens-project/public/equallens.png)
+<img src="./equallens-project/public/equallens.png" alt="EqualLens Logo" width="200">
 
 ## 📋 Table of Contents
 
@@ -226,8 +226,17 @@ npm start
 4. Send automated emails for interview invitations or rejections
 
 ## 📸 Screenshots
+Bulk CV Upload and Management
+![Bulk File Upload Demo](./equallens-project/public/bulkfileupload.gif)
 
-*[Insert screenshots of key interfaces here]*
+Seamless Document Parsing
+![Document Parsing Demo](./equallens-project/public/dashboardhighlights.gif)
+
+AI-Driven Candidate Ranking
+![AI-Driven Candidate Ranking Demo](./equallens-project/public/rankingHighlights.gif)
+
+AI-Tailored Interview Questions with Manual Control
+![AI-Tailored Interview Questions](./equallens-project/public/aigenerateintquestion.gif)
 
 ## 🔮 Future Roadmap
 
