@@ -11,7 +11,7 @@ This repository hosts the code and documentation for the EqualLens Project, an A
 
 EqualLens is a comprehensive recruitment platform that leverages Google's AI technologies to create a fairer, more efficient hiring process. The platform automates resume analysis, candidate ranking, and interviewing, while ensuring bias reduction through anonymized screening.
 
-![EqualLens Logo](https://placeholder-image.com/equallens-logo.png)
+![EqualLens Logo](public/equallens.png)
 
 ## 📋 Table of Contents
 
