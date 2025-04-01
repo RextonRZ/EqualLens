@@ -15,6 +15,157 @@ const LoadingAnimation = () => {
     );
 };
 
+// New component for displaying performance metrics
+const PerformanceAnalysis = ({ analysis }) => {
+    // Function to determine color based on score value
+    const getScoreColor = (score) => {
+        if (score >= 0.7) return '#4caf50'; // Good - green
+        if (score >= 0.4) return '#ff9800'; // Average - orange
+        return '#f44336';                   // Poor - red
+    };
+
+    // Function to convert decimal to percentage and format
+    const formatScore = (score) => {
+        return `${(score * 100).toFixed(1)}%`;
+    };
+
+    // Check if analysis data exists
+    if (!analysis) {
+        return (
+            <div className="performance-analysis empty-analysis">
+                <p>No performance analysis data available.</p>
+            </div>
+        );
+    }
+
+    // Calculate a grade based on total score
+    const getGrade = (score) => {
+        if (score >= 0.8) return 'A';
+        if (score >= 0.7) return 'B';
+        if (score >= 0.6) return 'C';
+        if (score >= 0.5) return 'D';
+        if (score >= 0.4) return 'E';
+        return 'F';
+    };
+
+    // Convert to proper format for display
+    const analysisData = {
+        clarity: analysis.clarity || 0,
+        confidence: analysis.confidence || 0,
+        engagement: analysis.engagement || 0,
+        relevance: analysis.relevance || 0,
+        totalScore: analysis.totalScore || 0
+    };
+
+    return (
+        <div className="performance-analysis">
+            <div className="performance-header">
+                <h2>Interview Performance Analysis</h2>
+                <div className="overall-score">
+                    <div className="score-badge" style={{ backgroundColor: getScoreColor(analysisData.totalScore) }}>
+                        {getGrade(analysisData.totalScore)}
+                    </div>
+                    <div className="score-details">
+                        <h3>Overall Score</h3>
+                        <p>{formatScore(analysisData.totalScore)}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="metrics-container">
+                <div className="metric-item">
+                    <div className="metric-header">
+                        <h4>Relevance</h4>
+                        <span className="metric-score">{formatScore(analysisData.relevance)}</span>
+                    </div>
+                    <div className="metric-bar-container">
+                        <div
+                            className="metric-bar"
+                            style={{
+                                width: `${analysisData.relevance * 100}%`,
+                                backgroundColor: getScoreColor(analysisData.relevance)
+                            }}
+                        ></div>
+                    </div>
+                    <p className="metric-description">How well responses address the questions asked</p>
+                </div>
+
+                <div className="metric-item">
+                    <div className="metric-header">
+                        <h4>Clarity</h4>
+                        <span className="metric-score">{formatScore(analysisData.clarity)}</span>
+                    </div>
+                    <div className="metric-bar-container">
+                        <div
+                            className="metric-bar"
+                            style={{
+                                width: `${analysisData.clarity * 100}%`,
+                                backgroundColor: getScoreColor(analysisData.clarity)
+                            }}
+                        ></div>
+                    </div>
+                    <p className="metric-description">How clearly ideas are communicated</p>
+                </div>
+
+                <div className="metric-item">
+                    <div className="metric-header">
+                        <h4>Confidence</h4>
+                        <span className="metric-score">{formatScore(analysisData.confidence)}</span>
+                    </div>
+                    <div className="metric-bar-container">
+                        <div
+                            className="metric-bar"
+                            style={{
+                                width: `${analysisData.confidence * 100}%`,
+                                backgroundColor: getScoreColor(analysisData.confidence)
+                            }}
+                        ></div>
+                    </div>
+                    <p className="metric-description">Level of certainty and assertiveness shown</p>
+                </div>
+
+                <div className="metric-item">
+                    <div className="metric-header">
+                        <h4>Engagement</h4>
+                        <span className="metric-score">{formatScore(analysisData.engagement)}</span>
+                    </div>
+                    <div className="metric-bar-container">
+                        <div
+                            className="metric-bar"
+                            style={{
+                                width: `${analysisData.engagement * 100}%`,
+                                backgroundColor: getScoreColor(analysisData.engagement)
+                            }}
+                        ></div>
+                    </div>
+                    <p className="metric-description">Level of energy and enthusiasm in responses</p>
+                </div>
+            </div>
+
+            <div className="analysis-interpretation">
+                <h3>Analysis Interpretation</h3>
+                <ul>
+                    {analysisData.relevance < 0.4 && (
+                        <li>Candidate's responses need to more directly address the questions asked.</li>
+                    )}
+                    {analysisData.clarity < 0.4 && (
+                        <li>Candidate should work on expressing ideas more clearly and concisely.</li>
+                    )}
+                    {analysisData.confidence < 0.4 && (
+                        <li>Candidate could benefit from more confident delivery of responses.</li>
+                    )}
+                    {analysisData.engagement < 0.4 && (
+                        <li>Candidate's responses lack sufficient energy and enthusiasm.</li>
+                    )}
+                    {Object.values(analysisData).filter(score => score < 0.4).length === 0 && (
+                        <li>No significant areas of concern identified.</li>
+                    )}
+                </ul>
+            </div>
+        </div>
+    );
+};
+
 const AudioPlayer = ({ audioUrl, transcript, wordTimings, onTimeUpdate }) => {
     const audioRef = useRef(null);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -698,6 +849,11 @@ const InterviewResponses = () => {
                 </div>
             </div>
 
+            {/* Add Performance Analysis component here */}
+            {responses && responses.analysis && (
+                <PerformanceAnalysis analysis={responses.analysis} />
+            )}
+
             {generatingFeedback && (
                 <div className="generating-feedback-banner">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -712,13 +868,13 @@ const InterviewResponses = () => {
             <div className="response-list">
                 {responses && responses.questions && responses.questions.length > 0 ? (
                     responses.questions.map((response, index) => (
-                        <div 
-                            key={response.responseId} 
+                        <div
+                            key={response.responseId}
                             className={`response-card ${expandedQuestions[index] ? 'expanded' : 'collapsed'}`}
                         >
                             {/* Clickable Question Header for expanding/collapsing */}
-                            <div 
-                                className="question-header" 
+                            <div
+                                className="question-header"
                                 onClick={() => toggleQuestionExpansion(index)}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
@@ -750,18 +906,18 @@ const InterviewResponses = () => {
                                     >
                                         {getQuestionText(response.questionId)}
                                     </h3>
-                                    
+
                                     {/* Add expand/collapse indicator */}
                                     <div className="toggle-indicator">
-                                        <svg 
-                                            xmlns="http://www.w3.org/2000/svg" 
-                                            width="20" 
-                                            height="20" 
-                                            viewBox="0 0 24 24" 
-                                            fill="none" 
-                                            stroke="currentColor" 
-                                            strokeWidth="2" 
-                                            strokeLinecap="round" 
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            width="20"
+                                            height="20"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
                                             strokeLinejoin="round"
                                         >
                                             {expandedQuestions[index] ? (

@@ -226,101 +226,11 @@ def validate_interview_link(interview_id: str, link_code: str):
     
     return interview_data
 
-def transcribe_audio_with_google_cloud(gcs_uri):
-    """
-    Transcribe an audio file stored in Google Cloud Storage using Google Cloud Speech-to-Text API.
-
-    Args:
-        gcs_uri (str): GCS URI of the audio file (e.g., gs://your-bucket-name/path/to/audio.wav)
-
-    Returns:
-        dict: Transcription results with transcript, confidence, and word-level timestamps
-    """
-    try:
-        # Instantiate a client
-        client = speech.SpeechClient()
-
-        # Configure audio input using the GCS URI
-        audio = speech.RecognitionAudio(uri=gcs_uri)
-        
-        # Configure recognition settings with word timestamps enabled
-        config = speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,  # WAV format
-            sample_rate_hertz=8000,  # Match FFmpeg output
-            language_code='en-US',
-            enable_automatic_punctuation=True,
-            enable_word_time_offsets=True,  # Enable word-level timestamps
-            model='default',
-            profanity_filter=False,
-            speech_contexts=[
-                speech.SpeechContext(
-                    phrases=['interview', 'job', 'experience', 'skills', 'role'],
-                    boost=20.0  # Increase likelihood of these context words
-                )
-            ]
-        )
-
-        # Use long_running_recognize for all audio files
-        response = client.long_running_recognize(config=config, audio=audio)
-        response = response.result(timeout=90)  # Wait for the long-running operation to complete
-
-        if not response.results:
-            return {
-                'transcript': "No transcription results (empty speech detected)",
-                'confidence': 0.0,
-                'raw_results': None,
-                'word_timings': []  # Empty word timings array
-            }
-        
-        # Process results
-        transcripts = []
-        confidence_scores = []
-        
-        # Extract word-level timing information
-        word_timings = []
-        word_index = 0
-        
-        for result in response.results:
-            alternative = result.alternatives[0]
-            transcripts.append(alternative.transcript)
-            confidence_scores.append(alternative.confidence)
-            
-            # Extract word time information
-            for word_info in alternative.words:
-                word = word_info.word
-                start_time = word_info.start_time.total_seconds()
-                end_time = word_info.end_time.total_seconds()
-                
-                word_timings.append({
-                    "word": word,
-                    "startTime": start_time,
-                    "endTime": end_time,
-                    "index": word_index
-                })
-                word_index += 1
-        
-        # Combine multiple transcripts if multiple results
-        full_transcript = ' '.join(transcripts)
-        
-        return {
-            'transcript': full_transcript,
-            'confidence': sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.0,
-            'raw_results': response.results,
-            'word_timings': word_timings  # Add word timings to the response
-        }
-    
-    except Exception as e:
-        logging.error(f"Google Cloud Speech-to-Text error: {str(e) if e is not None else 'Unknown error'}")
-        return {
-            'transcript': f"Transcription error: {str(e) if e is not None else 'Unknown error'}",
-            'confidence': 0.0,
-            'raw_results': None,
-            'word_timings': []  # Empty word timings array
-        }
+# Update these functions in interview_service.py
 
 def extract_audio_with_ffmpeg(input_video_path, output_audio_path=None):
     """
-    Extract audio from video using FFmpeg with robust error handling
+    Extract audio from video using FFmpeg with improved quality settings
     
     Args:
         input_video_path (str): Path to input video file
@@ -329,16 +239,14 @@ def extract_audio_with_ffmpeg(input_video_path, output_audio_path=None):
     Returns:
         str: Path to extracted audio file
     """
-
     ffmpeg_path = None
 
     # Determine ffmpeg path based on platform
     if platform.system() == "Darwin":  # macOS
-        # Try homebrew path first, fallback to others
         potential_paths = [
-            '/opt/homebrew/Cellar/ffmpeg@6/6.1.2_8/bin/ffmpeg',  # Your current path
-            '/opt/homebrew/bin/ffmpeg',                          # Common Homebrew location
-            '/usr/local/bin/ffmpeg'                              # Alternative location
+            '/opt/homebrew/Cellar/ffmpeg@6/6.1.2_8/bin/ffmpeg',
+            '/opt/homebrew/bin/ffmpeg',
+            '/usr/local/bin/ffmpeg'
         ]
         
         for path in potential_paths:
@@ -373,44 +281,201 @@ def extract_audio_with_ffmpeg(input_video_path, output_audio_path=None):
         temp_audio_file.close()
     
     try:
-        # FFmpeg command to extract high-quality audio
+        # IMPROVED: Better audio extraction settings
         command = [
             ffmpeg_path, 
             '-i', input_video_path,   # Input video file
             '-vn',                    # Ignore video stream
-            '-acodec', 'pcm_s16le',   
-            '-ar', '8000',            # Lower sample rate might help
+            '-acodec', 'pcm_s16le',   # PCM 16-bit format
+            '-ar', '16000',           # IMPROVED: Higher sample rate (16kHz) for better quality
             '-ac', '1',               # Mono channel
-            '-y',                     # Force WAV format
+            # IMPROVED: Add audio filtering for better voice clarity
+            '-af', 'highpass=f=80,lowpass=f=7500,dynaudnorm=f=150:g=15',  
+            '-y',                     # Overwrite output file
             output_audio_path         # Output audio file
         ]
         
         # Run FFmpeg command
         result = subprocess.run(
             command, 
-            stdout=subprocess.DEVNULL,  
-            stderr=subprocess.DEVNULL,  
+            stdout=subprocess.PIPE,  
+            stderr=subprocess.PIPE,
             check=True
         )
-        
-        # Check for errors in subprocess
-        if result.returncode != 0:
-            logging.error(f"FFmpeg error: {result.stderr}")
-            raise RuntimeError(f"Audio extraction failed: {result.stderr}")
         
         # Verify output file was created
         if not os.path.exists(output_audio_path):
             raise RuntimeError("Audio extraction failed: No output file created")
         
-        logging.info(f"Audio extracted successfully: {output_audio_path}")
+        logging.info(f"Audio extracted successfully with improved quality: {output_audio_path}")
         return output_audio_path
     
     except subprocess.CalledProcessError as e:
-        logging.error(f"FFmpeg audio extraction error: {e}")
+        logging.error(f"FFmpeg error: {e.stderr.decode() if e.stderr else str(e)}")
+        
+        # Fallback to simpler settings if enhanced version fails
+        try:
+            logging.warning("Trying fallback audio extraction with basic settings")
+            fallback_command = [
+                ffmpeg_path, 
+                '-i', input_video_path,
+                '-vn',
+                '-acodec', 'pcm_s16le',
+                '-ar', '16000',  # Still use 16kHz but without filters
+                '-ac', '1',
+                '-y',
+                output_audio_path
+            ]
+            
+            subprocess.run(fallback_command, check=True)
+            
+            if os.path.exists(output_audio_path):
+                logging.info(f"Fallback audio extraction succeeded: {output_audio_path}")
+                return output_audio_path
+        except Exception as fallback_error:
+            logging.error(f"Fallback audio extraction also failed: {str(fallback_error)}")
         raise
     except Exception as e:
         logging.error(f"Unexpected error in audio extraction: {str(e)}")
         raise
+
+def transcribe_audio_with_google_cloud(gcs_uri):
+    """
+    Improved transcription function using Google Cloud Speech-to-Text API
+    
+    Args:
+        gcs_uri (str): GCS URI of the audio file
+
+    Returns:
+        dict: Enhanced transcription results with transcript and confidence
+    """
+    try:
+        # Instantiate a client
+        client = speech.SpeechClient()
+
+        # Configure audio input using the GCS URI
+        audio = speech.RecognitionAudio(uri=gcs_uri)
+        
+        # IMPROVED: Add more domain-specific phrases for better recognition
+        interview_phrases = [
+            "interview", "job", "experience", "skills", "role", "position",
+            "team", "project", "management", "development", "challenges",
+            "achievements", "responsibilities", "education", "degree",
+            "certificate", "training", "leadership", "communication",
+            "problem-solving", "technical", "professional", "background", 
+            "opportunity", "career", "goals", "objectives", "salary",
+            "work", "employment", "remote", "hybrid", "flexible"
+        ]
+        
+        # IMPROVED: Enhanced configuration for better transcription
+        config = speech.RecognitionConfig(
+            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+            sample_rate_hertz=16000,  # IMPROVED: Match the new extraction sample rate
+            language_code='en-US',
+            enable_automatic_punctuation=True,
+            model='video',  # IMPROVED: Use video model which is better for recorded speech
+            use_enhanced=True,  # IMPROVED: Use enhanced model
+            profanity_filter=False,
+            speech_contexts=[
+                speech.SpeechContext(
+                    phrases=interview_phrases,
+                    boost=15.0  # Boost recognition of these phrases
+                )
+            ],
+            # IMPROVED: Get word-level timestamps and confidence
+            enable_word_time_offsets=True,
+            enable_word_confidence=True,
+            # IMPROVED: Get alternative transcriptions
+            max_alternatives=2
+        )
+
+        # Use long_running_recognize for all audio files
+        operation = client.long_running_recognize(config=config, audio=audio)
+        response = operation.result(timeout=180)  # Longer timeout for processing
+
+        if not response.results:
+            return {
+                'transcript': "No transcription results (empty speech detected)",
+                'confidence': 0.0,
+                'raw_results': None
+            }
+        
+        # IMPROVED: Better processing of results
+        transcripts = []
+        confidence_scores = []
+        word_count = 0
+        
+        for result in response.results:
+            # Use the highest confidence alternative
+            best_alternative = result.alternatives[0]
+            transcripts.append(best_alternative.transcript)
+            confidence_scores.append(best_alternative.confidence)
+            
+            # Count words for statistics
+            words = best_alternative.transcript.split()
+            word_count += len(words)
+        
+        # IMPROVED: Post-process transcript for better readability
+        full_transcript = ' '.join(transcripts)
+        
+        # Normalize the transcript
+        processed_transcript = post_process_transcript(full_transcript)
+        
+        avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.0
+        
+        return {
+            'transcript': processed_transcript,
+            'confidence': avg_confidence,
+            'word_count': word_count,
+            'raw_results': response.results
+        }
+    
+    except Exception as e:
+        logging.error(f"Google Cloud Speech-to-Text error: {str(e) if e is not None else 'Unknown error'}")
+        return {
+            'transcript': f"Transcription error: {str(e) if e is not None else 'Unknown error'}",
+            'confidence': 0.0,
+            'raw_results': None
+        }
+
+# ADDED: New helper function for transcript post-processing
+def post_process_transcript(transcript):
+    """
+    Post-process transcript to improve readability and correctness
+    
+    Args:
+        transcript: Raw transcript text
+        
+    Returns:
+        str: Improved transcript
+    """
+    # Remove extra spaces
+    cleaned = ' '.join(transcript.split())
+    
+    # Remove repeated words (common in speech-to-text output)
+    words = cleaned.split()
+    deduped_words = []
+    for i, word in enumerate(words):
+        if i == 0 or word.lower() != words[i-1].lower():
+            deduped_words.append(word)
+    
+    cleaned = ' '.join(deduped_words)
+    
+    # Fix capitalization
+    if cleaned and len(cleaned) > 0:
+        # Capitalize first letter
+        cleaned = cleaned[0].upper() + cleaned[1:]
+        
+        # Capitalize after periods, question marks, and exclamation points
+        for i in range(1, len(cleaned)-1):
+            if cleaned[i-1] in ['.', '!', '?'] and cleaned[i] == ' ':
+                cleaned = cleaned[:i+1] + cleaned[i+1].upper() + cleaned[i+2:]
+    
+    # Ensure transcript ends with punctuation
+    if cleaned and not cleaned[-1] in ['.', '!', '?']:
+        cleaned += '.'
+    
+    return cleaned
 
 def parallel_audio_extraction(video_paths):
     """
