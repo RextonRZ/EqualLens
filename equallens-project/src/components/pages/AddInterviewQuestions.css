@@ -1679,6 +1679,16 @@
     animation: errorShake 0.4s ease-in-out;
 }
 
+.success-modal{
+    background-color: #91ffb9;
+}
+
+/* Add success icon styling to match other components */
+.success-icon {
+    background-color: rgba(76, 175, 80, 0.3); /* Increased opacity for a more visible light green */
+    color: #4caf50;
+}
+
 @keyframes errorShake {
     0%, 100% { transform: translateX(0); }
     25% { transform: translateX(-5px); }

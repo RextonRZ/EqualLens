@@ -1,7 +1,29 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext, createContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import './InterviewResponses.css';
 import '../pageloading.css';
+
+// Create a context for managing audio players
+const AudioPlayerContext = createContext();
+
+// Provider component to manage audio players
+const AudioPlayerProvider = ({ children }) => {
+    const [currentlyPlaying, setCurrentlyPlaying] = useState(null);
+
+    const pauseOthers = (id) => {
+        if (currentlyPlaying && currentlyPlaying !== id) {
+            setCurrentlyPlaying(id);
+        } else {
+            setCurrentlyPlaying(id);
+        }
+    };
+
+    return (
+        <AudioPlayerContext.Provider value={{ currentlyPlaying, pauseOthers }}>
+            {children}
+        </AudioPlayerContext.Provider>
+    );
+};
 
 // LoadingAnimation component 
 const LoadingAnimation = () => {
@@ -17,27 +39,23 @@ const LoadingAnimation = () => {
 
 // New component for displaying performance metrics
 const PerformanceAnalysis = ({ analysis }) => {
-    // Define weights for each criterion based on how they contribute to overall score
     const weights = {
-        relevance: 0.30,   // 30% of overall score (0.25 + 0.05)
-        clarity: 0.30,     // 30% of overall score (0.15 + 0.15)
-        confidence: 0.30,  // 30% of overall score (0.10 + 0.20)
-        engagement: 0.10   // 10% of overall score (0.0 + 0.10)
+        relevance: 0.30,
+        clarity: 0.30,
+        confidence: 0.30,
+        engagement: 0.10
     };
 
-    // Function to determine color based on score value
     const getScoreColor = (score) => {
-        if (score >= 0.7) return '#4caf50'; // Good - green
-        if (score >= 0.4) return '#ff9800'; // Average - orange
-        return '#f44336';                   // Poor - red
+        if (score >= 0.7) return '#4caf50';
+        if (score >= 0.4) return '#ff9800';
+        return '#f44336';
     };
 
-    // Function to convert decimal to percentage and format
     const formatScore = (score) => {
         return `${(score * 100).toFixed(1)}%`;
     };
 
-    // Check if analysis data exists
     if (!analysis) {
         return (
             <div className="performance-analysis empty-analysis">
@@ -46,7 +64,6 @@ const PerformanceAnalysis = ({ analysis }) => {
         );
     }
 
-    // Calculate a grade based on total score
     const getGrade = (score) => {
         if (score >= 0.8) return 'A';
         if (score >= 0.7) return 'B';
@@ -56,7 +73,6 @@ const PerformanceAnalysis = ({ analysis }) => {
         return 'F';
     };
 
-    // Convert to proper format for display
     const analysisData = {
         clarity: analysis.clarity || 0,
         confidence: analysis.confidence || 0,
@@ -65,7 +81,6 @@ const PerformanceAnalysis = ({ analysis }) => {
         totalScore: analysis.totalScore || 0
     };
 
-    // Calculate each criterion's achievement percentage (relative to its maximum weight)
     const achievementPercentages = {
         clarity: analysisData.clarity / weights.clarity,
         confidence: analysisData.confidence / weights.confidence,
@@ -73,7 +88,6 @@ const PerformanceAnalysis = ({ analysis }) => {
         relevance: analysisData.relevance / weights.relevance
     };
 
-    // Get the relative contributions to the total score
     const totalScore = analysisData.totalScore;
     const relativeContributions = {
         clarity: analysisData.clarity / totalScore,
@@ -82,12 +96,11 @@ const PerformanceAnalysis = ({ analysis }) => {
         relevance: analysisData.relevance / totalScore
     };
 
-    // Define criterion colors for consistency
     const criterionColors = {
-        relevance: '#4285F4',  // Blue
-        clarity: '#34A853',    // Green
-        confidence: '#FBBC05', // Yellow
-        engagement: '#EA4335'  // Red
+        relevance: '#f5b7b1',
+        clarity: '#48c9b0',
+        confidence: '#85c1e9',
+        engagement: '#bb8fce'
     };
 
     return (
@@ -105,16 +118,16 @@ const PerformanceAnalysis = ({ analysis }) => {
                 </div>
             </div>
 
-            {/* Add stacked bar chart for overall score composition */}
             <div className="overall-score-composition">
                 <h3>Overall Score Composition</h3>
                 <div className="score-composition-container">
-                    {/* This outer container represents 100% */}
                     <div className="stacked-bar-outer">
-                        {/* This inner container represents the actual total score (e.g., 70.6%) */}
                         <div 
                             className="stacked-bar-chart" 
-                            style={{ width: `${analysisData.totalScore * 100}%` }}
+                            style={{ 
+                                width: `${analysisData.totalScore * 100}%`,
+                                '--final-width': `${analysisData.totalScore * 100}%` 
+                            }}
                         >
                             {Object.entries(relativeContributions).map(([criterion, proportion]) => (
                                 <div
@@ -151,7 +164,6 @@ const PerformanceAnalysis = ({ analysis }) => {
             </div>
 
             <div className="metrics-container">
-                {/* First row: Clarity and Confidence */}
                 <div key="clarity" className="metric-item">
                     <div className="metric-header">
                         <h4>Clarity</h4>
@@ -165,14 +177,14 @@ const PerformanceAnalysis = ({ analysis }) => {
                         </div>
                     </div>
                     
-                    {/* Add achievement percentage chart */}
                     <div className="achievement-chart">
                         <div className="achievement-bar-container">
                             <div 
                                 className="achievement-bar" 
                                 style={{
                                     width: `${achievementPercentages.clarity * 100}%`,
-                                    backgroundColor: criterionColors.clarity
+                                    backgroundColor: criterionColors.clarity,
+                                    '--final-width': `${achievementPercentages.clarity * 100}%`
                                 }}
                             >
                                 <span className="achievement-bar-label">
@@ -207,14 +219,14 @@ const PerformanceAnalysis = ({ analysis }) => {
                         </div>
                     </div>
                     
-                    {/* Add achievement percentage chart */}
                     <div className="achievement-chart">
                         <div className="achievement-bar-container">
                             <div 
                                 className="achievement-bar" 
                                 style={{
                                     width: `${achievementPercentages.confidence * 100}%`,
-                                    backgroundColor: criterionColors.confidence
+                                    backgroundColor: criterionColors.confidence,
+                                    '--final-width': `${achievementPercentages.confidence * 100}%`
                                 }}
                             >
                                 <span className="achievement-bar-label">
@@ -249,14 +261,14 @@ const PerformanceAnalysis = ({ analysis }) => {
                         </div>
                     </div>
                     
-                    {/* Add achievement percentage chart */}
                     <div className="achievement-chart">
                         <div className="achievement-bar-container">
                             <div 
                                 className="achievement-bar" 
                                 style={{
                                     width: `${achievementPercentages.engagement * 100}%`,
-                                    backgroundColor: criterionColors.engagement
+                                    backgroundColor: criterionColors.engagement,
+                                    '--final-width': `${achievementPercentages.engagement * 100}%`
                                 }}
                             >
                                 <span className="achievement-bar-label">
@@ -278,7 +290,6 @@ const PerformanceAnalysis = ({ analysis }) => {
                     </p>
                 </div>
 
-                {/* Second row: Relevance and Engagement */}
                 <div key="relevance" className="metric-item">
                     <div className="metric-header">
                         <h4>Relevance</h4>
@@ -292,14 +303,14 @@ const PerformanceAnalysis = ({ analysis }) => {
                         </div>
                     </div>
                     
-                    {/* Add achievement percentage chart */}
                     <div className="achievement-chart">
                         <div className="achievement-bar-container">
                             <div 
                                 className="achievement-bar" 
                                 style={{
                                     width: `${achievementPercentages.relevance * 100}%`,
-                                    backgroundColor: criterionColors.relevance
+                                    backgroundColor: criterionColors.relevance,
+                                    '--final-width': `${achievementPercentages.relevance * 100}%`
                                 }}
                             >
                                 <span className="achievement-bar-label">
@@ -325,7 +336,6 @@ const PerformanceAnalysis = ({ analysis }) => {
             <div className="analysis-interpretation">
                 <h3>Analysis Interpretation</h3>
                 <ul>
-                    {/* Update thresholds based on the backend scoring system in interview_service.py */}
                     {achievementPercentages.relevance < 0.3 && (
                         <li>Candidate's responses need to more directly address the questions asked.</li>
                     )}
@@ -350,7 +360,6 @@ const PerformanceAnalysis = ({ analysis }) => {
                     {analysisData.totalScore >= 0.9 && (
                         <li>Exceptional performance with excellent communication skills and job fit.</li>
                     )}
-                    {/* Add comments for excellent individual metrics */}
                     {achievementPercentages.relevance >= 0.9 && (
                         <li>Candidate shows outstanding ability to provide highly relevant responses to questions.</li>
                     )}
@@ -369,14 +378,23 @@ const PerformanceAnalysis = ({ analysis }) => {
     );
 };
 
-const AudioPlayer = ({ audioUrl, transcript, wordTimings, onTimeUpdate }) => {
+const AudioPlayer = ({ audioUrl, transcript, wordTimings, onTimeUpdate, playerId }) => {
     const audioRef = useRef(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [duration, setDuration] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [audioStatus, setAudioStatus] = useState("initial"); // "initial", "loading", "ready", "error"
+    const [audioStatus, setAudioStatus] = useState("initial");
+
+    const { currentlyPlaying, pauseOthers } = useContext(AudioPlayerContext);
+
+    useEffect(() => {
+        if (audioRef.current && isPlaying && currentlyPlaying !== playerId) {
+            audioRef.current.pause();
+            setIsPlaying(false);
+        }
+    }, [currentlyPlaying, playerId, isPlaying]);
 
     useEffect(() => {
         if (!audioUrl) {
@@ -386,7 +404,6 @@ const AudioPlayer = ({ audioUrl, transcript, wordTimings, onTimeUpdate }) => {
             return;
         }
 
-        // Reset states when URL changes
         setLoading(true);
         setError(null);
         setDuration(0);
@@ -394,38 +411,29 @@ const AudioPlayer = ({ audioUrl, transcript, wordTimings, onTimeUpdate }) => {
         setIsPlaying(false);
         setAudioStatus("loading");
 
-        // Debug the audio URL
-        console.log("Attempting to load audio from:", audioUrl);
-
-        // Create a new Audio element to test if the file is accessible
         const testAudio = new Audio();
 
-        // Add event listeners to the test audio
         const handleTestCanPlay = () => {
-            console.log("Audio file is accessible and can be played");
             setAudioStatus("ready");
             setLoading(false);
-            // Clean up test audio
             testAudio.removeEventListener('canplay', handleTestCanPlay);
             testAudio.removeEventListener('error', handleTestError);
         };
 
         const handleTestError = (e) => {
-            console.error("Error testing audio accessibility:", e);
-            // Try to get more specific error information
             let errorMessage = "Audio file could not be loaded";
             if (e.target.error) {
                 switch (e.target.error.code) {
-                    case 1: // MEDIA_ERR_ABORTED
+                    case 1:
                         errorMessage = "Audio loading aborted";
                         break;
-                    case 2: // MEDIA_ERR_NETWORK
+                    case 2:
                         errorMessage = "Network error while loading audio";
                         break;
-                    case 3: // MEDIA_ERR_DECODE
+                    case 3:
                         errorMessage = "Audio decoding error - file might be corrupted or unsupported format";
                         break;
-                    case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
+                    case 4:
                         errorMessage = "Audio format not supported by your browser";
                         break;
                     default:
@@ -435,7 +443,6 @@ const AudioPlayer = ({ audioUrl, transcript, wordTimings, onTimeUpdate }) => {
             setError(errorMessage);
             setLoading(false);
             setAudioStatus("error");
-            // Clean up test audio
             testAudio.removeEventListener('canplay', handleTestCanPlay);
             testAudio.removeEventListener('error', handleTestError);
         };
@@ -443,11 +450,9 @@ const AudioPlayer = ({ audioUrl, transcript, wordTimings, onTimeUpdate }) => {
         testAudio.addEventListener('canplay', handleTestCanPlay);
         testAudio.addEventListener('error', handleTestError);
 
-        // Set the source and start loading
         testAudio.src = audioUrl;
         testAudio.load();
 
-        // Clean up function
         return () => {
             testAudio.removeEventListener('canplay', handleTestCanPlay);
             testAudio.removeEventListener('error', handleTestError);
@@ -455,19 +460,16 @@ const AudioPlayer = ({ audioUrl, transcript, wordTimings, onTimeUpdate }) => {
         };
     }, [audioUrl]);
 
-    // Set up audio player once we know the file is accessible
     useEffect(() => {
         if (audioStatus === "ready" && audioRef.current) {
             const audio = audioRef.current;
 
             const handleLoadedMetadata = () => {
-                console.log("Audio metadata loaded, duration:", audio.duration);
                 setDuration(audio.duration);
             };
 
             const handleTimeUpdate = () => {
                 setCurrentTime(audio.currentTime);
-                // Call the onTimeUpdate prop to inform parent component about current playback time
                 if (onTimeUpdate) {
                     onTimeUpdate(audio.currentTime);
                 }
@@ -481,7 +483,6 @@ const AudioPlayer = ({ audioUrl, transcript, wordTimings, onTimeUpdate }) => {
                 }
             };
 
-            // Add event listeners
             audio.addEventListener('loadedmetadata', handleLoadedMetadata);
             audio.addEventListener('timeupdate', handleTimeUpdate);
             audio.addEventListener('ended', handleEnded);
@@ -498,27 +499,27 @@ const AudioPlayer = ({ audioUrl, transcript, wordTimings, onTimeUpdate }) => {
         if (audioRef.current) {
             if (isPlaying) {
                 audioRef.current.pause();
+                setIsPlaying(false);
             } else {
-                // Play with error handling
+                pauseOthers(playerId);
                 const playPromise = audioRef.current.play();
                 if (playPromise !== undefined) {
                     playPromise.catch(error => {
-                        console.error("Error playing audio:", error);
                         setError("Playback failed - try using the direct download link");
                     });
                 }
+                setIsPlaying(true);
             }
-            setIsPlaying(!isPlaying);
         }
     };
 
     const resetPlay = () => {
         if (audioRef.current) {
+            pauseOthers(playerId);
             audioRef.current.currentTime = 0;
             const playPromise = audioRef.current.play();
             if (playPromise !== undefined) {
                 playPromise.catch(error => {
-                    console.error("Error playing audio:", error);
                     setError("Playback failed - try using the direct download link");
                     setIsPlaying(false);
                 });
@@ -620,9 +621,7 @@ const AudioPlayer = ({ audioUrl, transcript, wordTimings, onTimeUpdate }) => {
     );
 };
 
-// Update the SynchronizedTranscript component
 const SynchronizedTranscript = ({ transcript, wordTimings, currentTime }) => {
-    // If no word timings available or they're not in the expected format, fallback to regular transcript display
     if (!wordTimings || wordTimings.length === 0) {
         return (
             <div className="transcript-text">
@@ -631,7 +630,6 @@ const SynchronizedTranscript = ({ transcript, wordTimings, currentTime }) => {
         );
     }
 
-    // Find words that should be highlighted based on current time
     const highlightedIndices = new Set();
     
     wordTimings.forEach((wordInfo, idx) => {
@@ -684,7 +682,6 @@ const InterviewResponses = () => {
             try {
                 setLoading(true);
 
-                // First, fetch the candidate and job info
                 const candidateRes = await fetch(`http://localhost:8000/api/candidates/candidate/${candidateId}`);
                 if (!candidateRes.ok) throw new Error("Failed to fetch candidate information");
                 const candidateData = await candidateRes.json();
@@ -695,7 +692,6 @@ const InterviewResponses = () => {
                 const jobData = await jobRes.json();
                 setJob(jobData);
 
-                // We need to get the applicationId based on the candidateId and jobId
                 const applicationsRes = await fetch(`http://localhost:8000/api/candidates/applicants?jobId=${jobId}`);
                 if (!applicationsRes.ok) throw new Error("Failed to fetch applications");
                 const applications = await applicationsRes.json();
@@ -705,10 +701,8 @@ const InterviewResponses = () => {
 
                 setApplicationId(application.applicationId);
 
-                // Now fetch the interview responses using the applicationId
                 const responsesRes = await fetch(`http://localhost:8000/api/interviews/responses/${application.applicationId}`);
                 if (!responsesRes.ok) {
-                    // If 404, it means no responses yet
                     if (responsesRes.status === 404) {
                         setResponses(null);
                         setError("No interview responses found for this candidate");
@@ -721,14 +715,12 @@ const InterviewResponses = () => {
                 const responsesData = await responsesRes.json();
                 setResponses(responsesData);
 
-                // Fetch the actual interview questions to get the question text
                 const questionsRes = await fetch(`http://localhost:8000/api/interview-questions/actual-questions/${application.applicationId}`);
                 if (questionsRes.ok) {
                     const questionsData = await questionsRes.json();
                     setQuestions(questionsData.questions || []);
                 }
 
-                // Generate AI feedback for responses that don't have it
                 if (responsesData && responsesData.questions && responsesData.questions.length > 0) {
                     const needsFeedback = responsesData.questions.some(q => !q.AIFeedback);
 
@@ -740,7 +732,6 @@ const InterviewResponses = () => {
 
                 setLoading(false);
             } catch (error) {
-                console.error("Error fetching data:", error);
                 setError(error.message || "An error occurred while fetching data");
                 setLoading(false);
             }
@@ -753,7 +744,7 @@ const InterviewResponses = () => {
         if (responses && responses.questions && responses.questions.length > 0) {
             const initialExpandedState = {};
             responses.questions.forEach((_, index) => {
-                initialExpandedState[index] = true; // Start with all questions expanded
+                initialExpandedState[index] = true;
             });
             setExpandedQuestions(initialExpandedState);
         }
@@ -768,7 +759,6 @@ const InterviewResponses = () => {
 
     const generateAIFeedback = async (responsesData, appId) => {
         try {
-            // Create array of responses that need feedback
             const responsesNeedingFeedback = responsesData.questions
                 .filter(q => !q.AIFeedback)
                 .map(q => ({
@@ -782,9 +772,7 @@ const InterviewResponses = () => {
                 return;
             }
 
-            // Get the question text for each response
             const questionsWithText = responsesNeedingFeedback.map(response => {
-                // Find the corresponding question text from questions array
                 const questionText = questions.find(q => q.questionId === response.questionId)?.text || 'Unknown question';
                 return {
                     ...response,
@@ -792,7 +780,6 @@ const InterviewResponses = () => {
                 };
             });
 
-            // Call API to generate feedback for each response
             const feedbackRes = await fetch('http://localhost:8000/api/interviews/generate-feedback', {
                 method: 'POST',
                 headers: {
@@ -811,7 +798,6 @@ const InterviewResponses = () => {
 
             const feedbackData = await feedbackRes.json();
 
-            // Update responses with new feedback
             const updatedResponses = {
                 ...responsesData,
                 questions: responsesData.questions.map(q => {
@@ -822,7 +808,6 @@ const InterviewResponses = () => {
 
             setResponses(updatedResponses);
 
-            // Update the responses in the database
             await fetch(`http://localhost:8000/api/interviews/update-responses/${appId}`, {
                 method: 'PUT',
                 headers: {
@@ -880,7 +865,6 @@ const InterviewResponses = () => {
             );
             setShowSuccessModal(true);
 
-            // Update application status
             const newStatus = confirmActionType === 'approve' ? 'approved' : 'rejected';
             await fetch(`http://localhost:8000/api/candidates/update-status/${applicationId}`, {
                 method: 'PUT',
@@ -892,7 +876,7 @@ const InterviewResponses = () => {
 
         } catch (error) {
             setModalMessage(`Error: ${error.message}`);
-            setShowSuccessModal(true); // Reuse success modal for errors too
+            setShowSuccessModal(true);
         } finally {
             setProcessingAction(false);
         }
@@ -908,19 +892,14 @@ const InterviewResponses = () => {
     };
 
     const handleAudioTimeUpdate = (responseId, time) => {
-        // Store current playback time for each response
         setPlaybackTimes(prev => ({
             ...prev,
             [responseId]: time
         }));
     };
 
-    // Add a better back navigation function
     const handleBackToCandidateProfile = () => {
-        // Set loading state before navigation to prevent flickering
         setLoading(true);
-        
-        // Navigate directly to the candidate profile with state that indicates we want to directly show job details
         navigate(`/dashboard/${jobId}/${candidateId}`, {
             state: { 
                 directToJobDetails: true,
@@ -929,19 +908,15 @@ const InterviewResponses = () => {
         });
     };
 
-    // Use for direct back to job details
     const handleBackToJobDetails = () => {
-        // Set loading state before navigation to prevent flickering
         setLoading(true);
-        
-        // Navigate to Dashboard with state that indicates we want to directly show job details
         navigate(`/dashboard`, {
             state: { 
                 directToJobDetails: true, 
                 jobId: jobId,
-                skipJobList: true // Additional flag to bypass job list entirely
+                skipJobList: true
             },
-            replace: true // Use replace to prevent back button issues
+            replace: true
         });
     };
 
@@ -1039,314 +1014,310 @@ const InterviewResponses = () => {
     }
 
     return (
-        <div className="interview-responses-container">
-            {showSuccessModal && <SuccessModal />}
-            {showConfirmModal && <ConfirmModal />}
+        <AudioPlayerProvider>
+            <div className="interview-responses-container">
+                {showSuccessModal && <SuccessModal />}
+                {showConfirmModal && <ConfirmModal />}
 
-            <button className="back-button" onClick={handleBackToJobDetails}>
-                <svg className="back-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
-                </svg>
-                Back to Job Details
-            </button>
-
-            <div className="responses-header">
-                <h1>Interview Responses</h1>
-                <div className="candidate-info">
-                    <span className="candidate-id">Candidate ID: {candidateId}</span>
-                    {job && <span className="job-title">Position: {job.jobTitle}</span>}
-                </div>
-            </div>
-
-            {/* Add Performance Analysis component here */}
-            {responses && responses.analysis && (
-                <PerformanceAnalysis analysis={responses.analysis} />
-            )}
-
-            {generatingFeedback && (
-                <div className="generating-feedback-banner">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="17 8 12 3 7 8"></polyline>
-                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                <button className="back-button" onClick={handleBackToJobDetails}>
+                    <svg className="back-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
                     </svg>
-                    <span>Generating AI feedback on responses...</span>
+                    Back to Job Details
+                </button>
+
+                <div className="responses-header">
+                    <h1>Interview Responses</h1>
+                    <div className="candidate-info">
+                        <span className="candidate-id">Candidate ID: {candidateId}</span>
+                        {job && <span className="job-title">Position: {job.jobTitle}</span>}
+                    </div>
                 </div>
-            )}
 
-            <div className="response-list">
-                {responses && responses.questions && responses.questions.length > 0 ? (
-                    responses.questions.map((response, index) => (
-                        <div
-                            key={response.responseId}
-                            className={`response-card ${expandedQuestions[index] ? 'expanded' : 'collapsed'}`}
-                        >
-                            {/* Clickable Question Header for expanding/collapsing */}
+                {responses && responses.analysis && (
+                    <PerformanceAnalysis analysis={responses.analysis} />
+                )}
+
+                {generatingFeedback && (
+                    <div className="generating-feedback-banner">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <span>Generating AI feedback on responses...</span>
+                    </div>
+                )}
+
+                <div className="response-list">
+                    {responses && responses.questions && responses.questions.length > 0 ? (
+                        responses.questions.map((response, index) => (
                             <div
-                                className="question-header"
-                                onClick={() => toggleQuestionExpansion(index)}
+                                key={response.responseId}
+                                className={`response-card ${expandedQuestions[index] ? 'expanded' : 'collapsed'}`}
                             >
-                                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                    <div
-                                        className="question-icon"
-                                        style={{
-                                            backgroundColor: '#4caf50',
-                                            color: 'white',
-                                            width: '36px',
-                                            height: '36px',
-                                            borderRadius: '50%',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            marginRight: '12px',
-                                            flexShrink: 0
-                                        }}
-                                    >
-                                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>Q{index + 1}</span>
-                                    </div>
-                                    <h3
-                                        style={{
-                                            color: '#333',
-                                            fontSize: '1.2rem',
-                                            lineHeight: '1.5',
-                                            margin: 0,
-                                            fontWeight: '600'
-                                        }}
-                                    >
-                                        {getQuestionText(response.questionId)}
-                                    </h3>
-
-                                    {/* Add expand/collapse indicator */}
-                                    <div className="toggle-indicator">
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            width="20"
-                                            height="20"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth="2"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        >
-                                            {expandedQuestions[index] ? (
-                                                <polyline points="18 15 12 9 6 15"></polyline>
-                                            ) : (
-                                                <polyline points="6 9 12 15 18 9"></polyline>
-                                            )}
-                                        </svg>
-                                    </div>
-                                </div>
-                                {response.wordCount > 0 && (
-                                    <div style={{
-                                        fontSize: '0.85rem',
-                                        color: '#666',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        marginLeft: '48px'
-                                    }}>
-                                        <span style={{ display: 'flex', alignItems: 'center' }}>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                                                strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
-                                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                                            </svg>
-                                            Response length: {response.wordCount} words
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Collapsible content area */}
-                            <div className="question-content">
-                                {/* Audio Section */}
-                                {(response.modifiedAudioUrl || response.audioExtractUrl) && (
-                                    <div className="audio-section" style={{ marginBottom: '1.5rem' }}>
-                                        <h4 style={{
-                                            color: '#4a5568',
-                                            marginBottom: '0.75rem',
-                                            fontSize: '1rem',
-                                            display: 'flex',
-                                            alignItems: 'center'
-                                        }}>
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
-                                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                                            </svg>
-                                            Candidate's Response:
-                                        </h4>
-                                        <AudioPlayer 
-                                            audioUrl={response.modifiedAudioUrl || response.audioExtractUrl} 
-                                            transcript={response.transcript}
-                                            wordTimings={response.wordTimings}
-                                            onTimeUpdate={(time) => handleAudioTimeUpdate(response.responseId, time)}
-                                        />
-
-                                        <div style={{
-                                            marginTop: '15px',
-                                            fontSize: '0.9rem',
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center'
-                                        }}>
-                                            <div>
-                                                <strong>Having trouble playing the audio?</strong>
-                                            </div>
-                                            <div>
-                                                <a
-                                                    href={response.modifiedAudioUrl || response.audioExtractUrl}
-                                                    download={`response-${index + 1}.wav`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    style={{
-                                                        display: 'inline-block',
-                                                        backgroundColor: '#4caf50',
-                                                        color: 'white',
-                                                        padding: '6px 12px',
-                                                        borderRadius: '4px',
-                                                        textDecoration: 'none',
-                                                        fontSize: '0.9rem'
-                                                    }}
-                                                >
-                                                    <svg
-                                                        style={{ verticalAlign: 'middle', marginRight: '5px' }}
-                                                        width="16"
-                                                        height="16"
-                                                        viewBox="0 0 24 24"
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        strokeWidth="2"
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                    >
-                                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                                        <polyline points="7 10 12 15 17 10"></polyline>
-                                                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                                                    </svg>
-                                                    Download Audio
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Transcript Section */}
-                                {response.transcript && (
-                                    <div className="transcript-section" style={{ marginBottom: '1.5rem' }}>
-                                        <h4 style={{
-                                            color: '#4a5568',
-                                            marginBottom: '0.75rem',
-                                            fontSize: '1rem',
-                                            display: 'flex',
-                                            alignItems: 'center'
-                                        }}>
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
-                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                                <polyline points="14 2 14 8 20 8"></polyline>
-                                                <line x1="16" y1="13" x2="8" y2="13"></line>
-                                                <line x1="16" y1="17" x2="8" y2="17"></line>
-                                                <polyline points="10 9 9 9 8 9"></polyline>
-                                            </svg>
-                                            Transcript:
-                                        </h4>
-                                        <SynchronizedTranscript 
-                                            transcript={response.transcript}
-                                            wordTimings={response.wordTimings || []}
-                                            currentTime={playbackTimes[response.responseId] || 0}
-                                        />
-                                    </div>
-                                )}
-
-                                {/* Improved AI Feedback Display */}
-                                <div className="feedback-section" style={{ marginTop: '1.5rem' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                <div
+                                    className="question-header"
+                                    onClick={() => toggleQuestionExpansion(index)}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
                                         <div
+                                            className="question-icon"
                                             style={{
-                                                backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                                                color: '#4caf50',
-                                                width: '32px',
-                                                height: '32px',
+                                                backgroundColor: '#4caf50',
+                                                color: 'white',
+                                                width: '36px',
+                                                height: '36px',
                                                 borderRadius: '50%',
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                marginRight: '10px',
+                                                marginRight: '12px',
                                                 flexShrink: 0
                                             }}
                                         >
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                                                strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+                                            <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>Q{index + 1}</span>
+                                        </div>
+                                        <h3
+                                            style={{
+                                                color: '#333',
+                                                fontSize: '1.2rem',
+                                                lineHeight: '1.5',
+                                                margin: 0,
+                                                fontWeight: '600'
+                                            }}
+                                        >
+                                            {getQuestionText(response.questionId)}
+                                        </h3>
+
+                                        <div className="toggle-indicator">
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width="20"
+                                                height="20"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            >
+                                                {expandedQuestions[index] ? (
+                                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                                ) : (
+                                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                                )}
                                             </svg>
                                         </div>
-                                        <h4 style={{ color: '#4a5568', margin: 0, fontSize: '1rem', fontWeight: '600' }}>
-                                            AI Feedback
-                                        </h4>
                                     </div>
-
-                                    <div className="feedback-content" style={{
-                                        backgroundColor: 'rgba(76, 175, 80, 0.05)',
-                                        borderLeft: '3px solid #4caf50',
-                                        borderRadius: '0 4px 4px 0',
-                                        padding: '1.25rem',
-                                        marginLeft: '16px'
-                                    }}>
-                                        {response.AIFeedback ? (
-                                            <div
-                                                className="ai-feedback-text"
-                                                style={{ color: '#333', lineHeight: '1.6' }}
-                                                dangerouslySetInnerHTML={{ __html: response.AIFeedback }}
-                                            />
-                                        ) : (
-                                            <div className="feedback-loading" style={{
-                                                display: 'flex',
-                                                justifyContent: 'center',
-                                                alignItems: 'center',
-                                                padding: '1rem',
-                                                color: '#718096',
-                                                fontStyle: 'italic'
-                                            }}>
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                                                    style={{ marginRight: '8px', animation: 'spin 2s linear infinite' }}>
-                                                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                                    {response.wordCount > 0 && (
+                                        <div style={{
+                                            fontSize: '0.85rem',
+                                            color: '#666',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            marginLeft: '48px'
+                                        }}>
+                                            <span style={{ display: 'flex', alignItems: 'center' }}>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                                                    strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
+                                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                                                 </svg>
-                                                <p style={{ margin: 0 }}>Generating feedback...</p>
-                                                <style>{`
-                        @keyframes spin {
-                            to { transform: rotate(360deg); }
-                        }
-                    `}</style>
+                                                Response length: {response.wordCount} words
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="question-content">
+                                    {(response.modifiedAudioUrl || response.audioExtractUrl) && (
+                                        <div className="audio-section" style={{ marginBottom: '1.5rem' }}>
+                                            <h4 style={{
+                                                color: '#4a5568',
+                                                marginBottom: '0.75rem',
+                                                fontSize: '1rem',
+                                                display: 'flex',
+                                                alignItems: 'center'
+                                            }}>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
+                                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                                                </svg>
+                                                Candidate's Response:
+                                            </h4>
+                                            <AudioPlayer 
+                                                audioUrl={response.modifiedAudioUrl || response.audioExtractUrl} 
+                                                transcript={response.transcript}
+                                                wordTimings={response.wordTimings}
+                                                onTimeUpdate={(time) => handleAudioTimeUpdate(response.responseId, time)}
+                                                playerId={response.responseId}
+                                            />
+
+                                            <div style={{
+                                                marginTop: '15px',
+                                                fontSize: '0.9rem',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center'
+                                            }}>
+                                                <div>
+                                                    <strong>Having trouble playing the audio?</strong>
+                                                </div>
+                                                <div>
+                                                    <a
+                                                        href={response.modifiedAudioUrl || response.audioExtractUrl}
+                                                        download={`response-${index + 1}.wav`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{
+                                                            display: 'inline-block',
+                                                            backgroundColor: '#4caf50',
+                                                            color: 'white',
+                                                            padding: '6px 12px',
+                                                            borderRadius: '4px',
+                                                            textDecoration: 'none',
+                                                            fontSize: '0.9rem'
+                                                        }}
+                                                    >
+                                                        <svg
+                                                            style={{ verticalAlign: 'middle', marginRight: '5px' }}
+                                                            width="16"
+                                                            height="16"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                        >
+                                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                                            <polyline points="7 10 12 15 17 10"></polyline>
+                                                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                                                        </svg>
+                                                        Download Audio
+                                                    </a>
+                                                </div>
                                             </div>
-                                        )}
+                                        </div>
+                                    )}
+
+                                    {response.transcript && (
+                                        <div className="transcript-section" style={{ marginBottom: '1.5rem' }}>
+                                            <h4 style={{
+                                                color: '#4a5568',
+                                                marginBottom: '0.75rem',
+                                                fontSize: '1rem',
+                                                display: 'flex',
+                                                alignItems: 'center'
+                                            }}>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
+                                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                                                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                                                    <polyline points="10 9 9 9 8 9"></polyline>
+                                                </svg>
+                                                Transcript:
+                                            </h4>
+                                            <SynchronizedTranscript 
+                                                transcript={response.transcript}
+                                                wordTimings={response.wordTimings || []}
+                                                currentTime={playbackTimes[response.responseId] || 0}
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="feedback-section" style={{ marginTop: '1.5rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                            <div
+                                                style={{
+                                                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                                                    color: '#4caf50',
+                                                    width: '32px',
+                                                    height: '32px',
+                                                    borderRadius: '50%',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    marginRight: '10px',
+                                                    flexShrink: 0
+                                                }}
+                                            >
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                                                    strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+                                                </svg>
+                                            </div>
+                                            <h4 style={{ color: '#4a5568', margin: 0, fontSize: '1rem', fontWeight: '600' }}>
+                                                AI Feedback
+                                            </h4>
+                                        </div>
+
+                                        <div className="feedback-content" style={{
+                                            backgroundColor: 'rgba(76, 175, 80, 0.05)',
+                                            borderLeft: '3px solid #4caf50',
+                                            borderRadius: '0 4px 4px 0',
+                                            padding: '1.25rem',
+                                            marginLeft: '16px'
+                                        }}>
+                                            {response.AIFeedback ? (
+                                                <div
+                                                    className="ai-feedback-text"
+                                                    style={{ color: '#333', lineHeight: '1.6' }}
+                                                    dangerouslySetInnerHTML={{ __html: response.AIFeedback }}
+                                                />
+                                            ) : (
+                                                <div className="feedback-loading" style={{
+                                                    display: 'flex',
+                                                    justifyContent: 'center',
+                                                    alignItems: 'center',
+                                                    padding: '1rem',
+                                                    color: '#718096',
+                                                    fontStyle: 'italic'
+                                                }}>
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                                        style={{ marginRight: '8px', animation: 'spin 2s linear infinite' }}>
+                                                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                                                    </svg>
+                                                    <p style={{ margin: 0 }}>Generating feedback...</p>
+                                                    <style>{`
+                                                        @keyframes spin {
+                                                            to { transform: rotate(360deg); }
+                                                        }
+                                                    `}</style>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+                        ))
+                    ) : (
+                        <div className="no-responses">
+                            <p>No interview responses found for this candidate.</p>
                         </div>
-                    ))
-                ) : (
-                    <div className="no-responses">
-                        <p>No interview responses found for this candidate.</p>
-                    </div>
-                )}
-            </div>
+                    )}
+                </div>
 
-            <div className="action-buttons">
-                <button
-                    className="reject-button"
-                    onClick={() => handleSendEmail('reject')}
-                >
-                    Send Rejection Email
-                </button>
-                <button
-                    className="approve-button"
-                    onClick={() => handleSendEmail('approve')}
-                >
-                    Send Job Offer Email
-                </button>
+                <div className="action-buttons">
+                    <button
+                        className="reject-button"
+                        onClick={() => handleSendEmail('reject')}
+                    >
+                        Send Rejection Email
+                    </button>
+                    <button
+                        className="approve-button"
+                        onClick={() => handleSendEmail('approve')}
+                    >
+                        Send Job Offer Email
+                    </button>
+                </div>
             </div>
-        </div>
+        </AudioPlayerProvider>
     );
 };
 

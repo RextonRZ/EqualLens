@@ -203,6 +203,8 @@ export default function Dashboard() {
                     return status === 'approved';
                 case 'interview-completed':
                     return status === 'interview completed';
+                case 'interview-scheduled':
+                    return status === 'interview scheduled'; // Added new filter option
                 case 'accepted':
                     return status === 'accepted';
                 case 'new':
@@ -1483,6 +1485,7 @@ export default function Dashboard() {
                                                 <option value="all">All Applicants</option>
                                                 <option value="approved">Approved Applicants</option>
                                                 <option value="interview-completed">Completed Interviews</option>
+                                                <option value="interview-scheduled">Interview Scheduled</option>
                                                 <option value="accepted">Accepted Applicants</option>
                                                 <option value="new">New Applicants</option>
                                                 <option value="rejected">Rejected Applicants</option>

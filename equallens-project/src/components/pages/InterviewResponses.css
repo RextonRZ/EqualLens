@@ -496,7 +496,7 @@
 }
 
 .success-icon {
-    background-color: rgba(76, 175, 80, 0.1);
+    background-color: rgba(76, 175, 80, 0.3);
     color: #4caf50;
 }
 
@@ -583,6 +583,8 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     margin-bottom: 30px;
     border: 1px solid #eaeaea;
+    animation: fadeInUp 0.8s ease;
+    transform-origin: center;
 }
 
 .performance-header {
@@ -616,6 +618,14 @@
     color: white;
     font-size: 2rem;
     font-weight: bold;
+    animation: badgePulse 2s ease-in-out infinite alternate;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.3) 0%, transparent 80%);
+}
+
+@keyframes badgePulse {
+    0% { transform: scale(1); box-shadow: 0 0 15px rgba(0, 0, 0, 0.1); }
+    100% { transform: scale(1.05); box-shadow: 0 0 20px rgba(0, 0, 0, 0.2); }
 }
 
 .score-details {
@@ -657,12 +667,23 @@
     border-radius: 6px;
     border: 1px solid #eee;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
+    animation: fadeInMetric 0.5s ease backwards;
+}
+
+.metric-item:nth-child(1) { animation-delay: 0.2s; }
+.metric-item:nth-child(2) { animation-delay: 0.4s; }
+.metric-item:nth-child(3) { animation-delay: 0.6s; }
+.metric-item:nth-child(4) { animation-delay: 0.8s; }
+
+@keyframes fadeInMetric {
+    0% { opacity: 0; transform: translateY(15px); }
+    100% { opacity: 1; transform: translateY(0); }
 }
 
 .metric-item:hover {
-    box-shadow: 0 3px 8px rgba(0,0,0,0.08);
-    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+    transform: translateY(-4px);
 }
 
 .metric-header {
@@ -757,26 +778,48 @@
     height: 100%;
     display: flex;
     position: relative;
-    transition: width 0.5s ease;
+    transition: width 1.2s cubic-bezier(0.12, 0.89, 0.32, 1.27);
     border-radius: 6px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    animation: expandBar 1.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+    animation-fill-mode: backwards; /* Ensures animation starts at 0% */
+    animation-delay: 0.3s; /* Small delay to ensure data is loaded */
+    will-change: width; /* Performance optimization */
 }
 
-.achievement-score {
-    font-weight: bold;
-    font-size: 0.9rem;
-    color: #333;
+@keyframes expandBar {
+    0% { 
+        width: 0% !important; 
+        visibility: visible;
+    }
+    100% { 
+        width: var(--final-width); 
+        visibility: visible;
+    }
 }
 
 .stacked-segment {
     height: 100%;
-    transition: width 0.5s ease;
+    transition: width 1.2s cubic-bezier(0.12, 0.89, 0.32, 1.27);
     position: relative;
     overflow: hidden;
+    animation: fadeInSegment 1.8s ease forwards;
+    animation-delay: 0.3s; /* Match parent delay */
+    animation-fill-mode: backwards; /* Start from initial state */
+}
+
+@keyframes fadeInSegment {
+    0% { opacity: 0; transform: scale(0.9); }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; transform: scale(1); }
 }
 
 .stacked-segment:hover {
-    filter: brightness(1.1);
+    filter: brightness(1.15);
     cursor: help;
+    transform: scaleY(1.05);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    z-index: 5;
 }
 
 .stacked-segment:hover::after {
@@ -785,22 +828,111 @@
     bottom: 100%;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.75);
+    background: rgba(0, 0, 0, 0.85);
     color: white;
-    padding: 5px 10px;
+    padding: 6px 12px;
     border-radius: 4px;
     font-size: 0.8rem;
     white-space: nowrap;
     z-index: 10;
-    margin-bottom: 5px;
+    margin-bottom: 8px;
+    animation: fadeInTooltip 0.2s ease;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+@keyframes fadeInTooltip {
+    from { opacity: 0; transform: translate(-50%, 10px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
 }
 
 .scale-markers {
     display: flex;
     justify-content: space-between;
-    margin-top: 5px;
+    margin-top: 8px;
     font-size: 0.75rem;
     color: #666;
+    width: 100%;
+    padding: 0 2px;
+    position: relative;
+}
+
+.scale-markers span {
+    position: relative;
+    display: inline-block;
+    text-align: center;
+    width: 20px;
+    margin-left: -10px; /* Center the text relative to its position */
+}
+
+.scale-markers span:first-child {
+    margin-left: 0;
+    text-align: left;
+}
+
+.scale-markers span:last-child {
+    margin-right: 0;
+    text-align: right;
+}
+
+/* Add subtle tick marks to indicate scale points */
+.scale-markers span::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    width: 1px;
+    height: 4px;
+    background-color: #999;
+    transform: translateX(-50%);
+}
+
+/* Achievement chart scale markers */
+.achievement-scale {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: #777;
+    padding: 0 2px;
+    position: relative;
+    width: 100%;
+    margin-top: 2px;
+}
+
+.achievement-scale span {
+    position: relative;
+    display: inline-block;
+    text-align: center;
+    width: 20px;
+    margin-left: -10px;
+}
+
+.achievement-scale span:first-child {
+    margin-left: 0;
+    text-align: left;
+}
+
+.achievement-scale span:last-child {
+    margin-right: 0;
+    text-align: right;
+}
+
+/* Add subtle tick marks for achievement scale */
+.achievement-scale span::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    width: 1px;
+    height: 3px;
+    background-color: #999;
+    transform: translateX(-50%);
+}
+
+.scale-markers span {
+    position: relative;
+    display: inline-block;
+    width: auto;
+    text-align: center;
 }
 
 .chart-legend {
@@ -815,6 +947,22 @@
     display: flex;
     align-items: center;
     font-size: 0.85rem;
+    animation: fadeInLegend 0.5s ease backwards;
+    transition: all 0.2s ease;
+}
+
+.legend-item:nth-child(1) { animation-delay: 1.0s; }
+.legend-item:nth-child(2) { animation-delay: 1.2s; }
+.legend-item:nth-child(3) { animation-delay: 1.4s; }
+.legend-item:nth-child(4) { animation-delay: 1.6s; }
+
+@keyframes fadeInLegend {
+    0% { opacity: 0; transform: translateX(-10px); }
+    100% { opacity: 1; transform: translateX(0); }
+}
+
+.legend-item:hover {
+    transform: translateX(3px);
 }
 
 .legend-color {
@@ -822,6 +970,12 @@
     height: 15px;
     border-radius: 3px;
     margin-right: 6px;
+    transition: all 0.2s ease;
+}
+
+.legend-item:hover .legend-color {
+    transform: scale(1.2);
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
 }
 
 .metric-visualizations {
@@ -980,27 +1134,48 @@
 .achievement-bar {
     height: 100%;
     border-radius: 5px;
-    transition: width 0.5s ease;
+    transition: width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     display: flex;
     align-items: center;
     justify-content: flex-end;
     padding-right: 8px;
-    min-width: 30px; /* Ensure there's enough room for the percentage text */
+    min-width: 30px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    animation: achievementBarExpand 1.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+    animation-fill-mode: backwards; /* Ensures animation starts at 0% */
+    animation-delay: 0.5s; /* Slightly longer delay for staggered effect */
+    will-change: width; /* Performance optimization */
+}
+
+@keyframes achievementBarExpand {
+    0% { 
+        width: 0% !important; 
+        visibility: visible;
+    }
+    100% { 
+        width: var(--final-width); 
+        visibility: visible;
+    }
+}
+
+.achievement-bar:hover {
+    filter: brightness(1.1);
+    transform: scaleY(1.1);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
 }
 
 .achievement-bar-label {
     color: white;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     font-weight: 600;
-    text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    animation: labelFadeIn 2.3s ease forwards; /* Longer delay to ensure bar animation completes first */
 }
 
-.achievement-scale {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.7rem;
-    color: #777;
-    padding: 0 2px;
+@keyframes labelFadeIn {
+    0%, 50% { opacity: 0; }
+    100% { opacity: 1; }
 }
 
 /* Make sure the metric header has enough margin to separate from the chart */
