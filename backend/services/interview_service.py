@@ -234,32 +234,23 @@ def transcribe_audio_with_google_cloud(gcs_uri):
         gcs_uri (str): GCS URI of the audio file (e.g., gs://your-bucket-name/path/to/audio.wav)
 
     Returns:
-        dict: Transcription results with transcript and confidence
+        dict: Transcription results with transcript, confidence, and word-level timestamps
     """
     try:
-        # # Instantiate a client
-        # client = speech.SpeechClient()
-        
-        # # Read the audio file
-        # with io.open(audio_file_path, 'rb') as audio_file:
-        #     content = audio_file.read()
-        
-        # # Configure audio input
-        # audio = speech.RecognitionAudio(content=content)
-
         # Instantiate a client
         client = speech.SpeechClient()
 
         # Configure audio input using the GCS URI
         audio = speech.RecognitionAudio(uri=gcs_uri)
         
-        # Configure recognition settings
+        # Configure recognition settings with word timestamps enabled
         config = speech.RecognitionConfig(
             encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,  # WAV format
             sample_rate_hertz=8000,  # Match FFmpeg output
             language_code='en-US',
             enable_automatic_punctuation=True,
-            model='default',  # You can use 'video' model for better video audio
+            enable_word_time_offsets=True,  # Enable word-level timestamps
+            model='default',
             profanity_filter=False,
             speech_contexts=[
                 speech.SpeechContext(
@@ -277,17 +268,36 @@ def transcribe_audio_with_google_cloud(gcs_uri):
             return {
                 'transcript': "No transcription results (empty speech detected)",
                 'confidence': 0.0,
-                'raw_results': None
+                'raw_results': None,
+                'word_timings': []  # Empty word timings array
             }
         
         # Process results
         transcripts = []
         confidence_scores = []
         
+        # Extract word-level timing information
+        word_timings = []
+        word_index = 0
+        
         for result in response.results:
             alternative = result.alternatives[0]
             transcripts.append(alternative.transcript)
             confidence_scores.append(alternative.confidence)
+            
+            # Extract word time information
+            for word_info in alternative.words:
+                word = word_info.word
+                start_time = word_info.start_time.total_seconds()
+                end_time = word_info.end_time.total_seconds()
+                
+                word_timings.append({
+                    "word": word,
+                    "startTime": start_time,
+                    "endTime": end_time,
+                    "index": word_index
+                })
+                word_index += 1
         
         # Combine multiple transcripts if multiple results
         full_transcript = ' '.join(transcripts)
@@ -295,7 +305,8 @@ def transcribe_audio_with_google_cloud(gcs_uri):
         return {
             'transcript': full_transcript,
             'confidence': sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.0,
-            'raw_results': response.results
+            'raw_results': response.results,
+            'word_timings': word_timings  # Add word timings to the response
         }
     
     except Exception as e:
@@ -303,9 +314,10 @@ def transcribe_audio_with_google_cloud(gcs_uri):
         return {
             'transcript': f"Transcription error: {str(e) if e is not None else 'Unknown error'}",
             'confidence': 0.0,
-            'raw_results': None
+            'raw_results': None,
+            'word_timings': []  # Empty word timings array
         }
-        
+
 def extract_audio_with_ffmpeg(input_video_path, output_audio_path=None):
     """
     Extract audio from video using FFmpeg with robust error handling
@@ -337,10 +349,21 @@ def extract_audio_with_ffmpeg(input_video_path, output_audio_path=None):
         if not ffmpeg_path:
             raise RuntimeError("FFmpeg not found. Please install it with 'brew install ffmpeg'")
     else:
-        # For Windows and others, rely on PATH
-        ffmpeg_path = r'C:\Users\hongy\Downloads\ffmpeg-n6.1-latest-win64-gpl-6.1\bin\ffmpeg.exe'
+        # For Windows and others, try multiple paths
+        potential_windows_paths = [
+            r'C:\Users\ooiru\Downloads\ffmpeg-2025-03-31-git-35c091f4b7-full_build\ffmpeg-2025-03-31-git-35c091f4b7-full_build\bin\ffmpeg.exe',
+            r'C:\Users\hongy\Downloads\ffmpeg-n6.1-latest-win64-gpl-6.1\bin\ffmpeg.exe'
+        ]
+        
+        for path in potential_windows_paths:
+            if os.path.exists(path):
+                ffmpeg_path = path
+                break
+                
+        if not ffmpeg_path:
+            ffmpeg_path = 'ffmpeg'  # Fallback to PATH
     
-    if not input_video_path or not os.path.exists(ffmpeg_path):
+    if not input_video_path or not os.path.exists(input_video_path):
         raise ValueError(f"Invalid input video path: {input_video_path}")
     
     # If no output path specified, generate one
@@ -434,10 +457,22 @@ def apply_voice_effect(input_audio_path, effect_type="helium", output_audio_path
         if not ffmpeg_path:
             raise RuntimeError("FFmpeg not found. Please install it with 'brew install ffmpeg'")
     else:
-        # For Windows and others, rely on PATH
-        ffmpeg_path = r'C:\Users\hongy\Downloads\ffmpeg-n6.1-latest-win64-gpl-6.1\bin\ffmpeg.exe'
+        # For Windows and others, try multiple paths
+        potential_windows_paths = [
+            r'C:\Users\ooiru\Downloads\ffmpeg-2025-03-31-git-35c091f4b7-full_build\ffmpeg-2025-03-31-git-35c091f4b7-full_build\bin\ffmpeg.exe',
+            r'C:\Users\hongy\Downloads\ffmpeg-n6.1-latest-win64-gpl-6.1\bin\ffmpeg.exe'
+        ]
+        
+        ffmpeg_path = None
+        for path in potential_windows_paths:
+            if os.path.exists(path):
+                ffmpeg_path = path
+                break
+                
+        if not ffmpeg_path:
+            ffmpeg_path = 'ffmpeg'  # Fallback to PATH
     
-    if not input_audio_path or not os.path.exists(ffmpeg_path):
+    if not input_audio_path or not os.path.exists(input_audio_path):
         raise ValueError(f"Invalid input audio path: {input_audio_path}")
     
     # If no output path specified, generate one

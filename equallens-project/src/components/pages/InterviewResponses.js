@@ -15,7 +15,7 @@ const LoadingAnimation = () => {
     );
 };
 
-const AudioPlayer = ({ audioUrl }) => {
+const AudioPlayer = ({ audioUrl, transcript, wordTimings, onTimeUpdate }) => {
     const audioRef = useRef(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [duration, setDuration] = useState(0);
@@ -113,11 +113,18 @@ const AudioPlayer = ({ audioUrl }) => {
 
             const handleTimeUpdate = () => {
                 setCurrentTime(audio.currentTime);
+                // Call the onTimeUpdate prop to inform parent component about current playback time
+                if (onTimeUpdate) {
+                    onTimeUpdate(audio.currentTime);
+                }
             };
 
             const handleEnded = () => {
                 setIsPlaying(false);
                 setCurrentTime(0);
+                if (onTimeUpdate) {
+                    onTimeUpdate(0);
+                }
             };
 
             // Add event listeners
@@ -131,7 +138,7 @@ const AudioPlayer = ({ audioUrl }) => {
                 audio.removeEventListener('ended', handleEnded);
             };
         }
-    }, [audioStatus]);
+    }, [audioStatus, onTimeUpdate]);
 
     const togglePlay = () => {
         if (audioRef.current) {
@@ -259,6 +266,40 @@ const AudioPlayer = ({ audioUrl }) => {
     );
 };
 
+// Add a new component for synchronized transcript
+const SynchronizedTranscript = ({ transcript, wordTimings, currentTime }) => {
+    // If no word timings available, fallback to regular transcript display
+    if (!wordTimings || wordTimings.length === 0) {
+        return (
+            <div className="transcript-text">
+                {transcript}
+            </div>
+        );
+    }
+
+    // Find words that should be highlighted based on current time
+    const highlightedWords = new Set();
+    
+    wordTimings.forEach(wordInfo => {
+        if (currentTime >= wordInfo.startTime && currentTime <= wordInfo.endTime) {
+            highlightedWords.add(wordInfo.index);
+        }
+    });
+    
+    return (
+        <div className="transcript-text synchronized">
+            {wordTimings.map((wordInfo, idx) => (
+                <span 
+                    key={idx} 
+                    className={highlightedWords.has(wordInfo.index) ? "highlighted-word" : ""}
+                >
+                    {wordInfo.word}{' '}
+                </span>
+            ))}
+        </div>
+    );
+};
+
 const InterviewResponses = () => {
     const { jobId, candidateId } = useParams();
     const navigate = useNavigate();
@@ -277,6 +318,7 @@ const InterviewResponses = () => {
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [modalMessage, setModalMessage] = useState('');
     const [expandedQuestions, setExpandedQuestions] = useState({});
+    const [playbackTimes, setPlaybackTimes] = useState({});
 
     useEffect(() => {
         const fetchData = async () => {
@@ -506,6 +548,13 @@ const InterviewResponses = () => {
         return question ? question.text : 'Unknown question';
     };
 
+    const handleAudioTimeUpdate = (responseId, time) => {
+        setPlaybackTimes(prev => ({
+            ...prev,
+            [responseId]: time
+        }));
+    };
+
     const SuccessModal = () => (
         <div className="status-modal-overlay">
             <div className="status-modal">
@@ -731,7 +780,12 @@ const InterviewResponses = () => {
                                             </svg>
                                             Candidate's Response:
                                         </h4>
-                                        <AudioPlayer audioUrl={response.modifiedAudioUrl || response.audioExtractUrl} />
+                                        <AudioPlayer 
+                                            audioUrl={response.modifiedAudioUrl || response.audioExtractUrl} 
+                                            transcript={response.transcript}
+                                            wordTimings={response.wordTimings}
+                                            onTimeUpdate={(time) => handleAudioTimeUpdate(response.responseId, time)}
+                                        />
 
                                         <div style={{
                                             marginTop: '15px',
@@ -801,17 +855,11 @@ const InterviewResponses = () => {
                                             </svg>
                                             Transcript:
                                         </h4>
-                                        <div className="transcript-text" style={{
-                                            backgroundColor: '#f8fafc',
-                                            borderRadius: '0.5rem',
-                                            padding: '1rem',
-                                            border: '1px solid #e2e8f0',
-                                            whiteSpace: 'pre-wrap',
-                                            lineHeight: '1.6',
-                                            color: '#4a5568'
-                                        }}>
-                                            {response.transcript}
-                                        </div>
+                                        <SynchronizedTranscript 
+                                            transcript={response.transcript}
+                                            wordTimings={response.wordTimings}
+                                            currentTime={playbackTimes[response.responseId] || 0}
+                                        />
                                     </div>
                                 )}
 

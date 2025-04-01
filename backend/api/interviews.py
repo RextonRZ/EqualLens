@@ -531,7 +531,9 @@ async def submit_interview_response(
         relevance = 0.0
         engagement = 0.0
         confidence = 0.0
-        
+        total_score = 0.0  # Initialize total_score with a default value
+        word_timings = []  # Initialize word timings
+
         # If video data is provided directly in the request
         if request.videoResponse:
             try:
@@ -604,6 +606,7 @@ async def submit_interview_response(
                 
                         transcript = transcription_result['transcript']
                         confidence = transcription_result['confidence']
+                        word_timings = transcription_result.get('word_timings', [])  # Get word-level timestamps
                         
                         if transcript:
                             word_count = len(word_tokenize(transcript))
@@ -620,32 +623,39 @@ async def submit_interview_response(
                             question_text=question,
                             audio_url=modified_audio_url
                         )
+                        
+                        # Extract individual scores - these will be used when creating the response document
+                        clarity = scores.get('clarity', 0)
+                        confidence = scores.get('confidence', 0)
+                        relevance = scores.get('relevance', 0)
+                        engagement = scores.get('engagement', 0)
+                        total_score = scores.get('total_score', 0)
                     else:
                         logger.warning(f"Missing data for scoring: transcript={bool(transcript)}, audio_url={bool(modified_audio_url)}, question={bool(question)}")
                         scores = {
                             'clarity': 0,
                             'confidence': 0,
                             'relevance': 0,
-                            'engagement': 0
+                            'engagement': 0,
+                            'total_score': 0
                         }
+                        # Make sure to set total_score in this branch too
+                        total_score = 0.0
 
-                    # Extract individual scores - these will be used when creating the response document
-                    clarity = scores.get('clarity', 0)
-                    confidence = scores.get('confidence', 0)
-                    relevance = scores.get('relevance', 0)
-                    engagement = scores.get('engagement', 0)
-                    total_score = scores.get('total_score', 0)
-
-                    logger.info(f"Response scores: clarity={clarity}, confidence={confidence}, relevance={relevance}, engagement={engagement}")
+                    logger.info(f"Response scores: clarity={clarity}, confidence={confidence}, relevance={relevance}, engagement={engagement}, total_score={total_score}")
 
                 except Exception as transcription_error:
                     logger.error(f"Transcription error: {str(transcription_error)}")
                     transcript = f"Transcription failed: {str(transcription_error)}"
                     word_count = 0
                     confidence = 0.0
+                    # Make sure total_score is initialized in this error case too
+                    total_score = 0.0
             except Exception as video_error:
                 logger.error(f"Video processing error: {str(video_error)}")
                 transcript = f"Video processing failed: {str(video_error)}"
+                # Make sure total_score is initialized in this error case too
+                total_score = 0.0
         
         # Create the question response object
         question_response = {
@@ -657,6 +667,7 @@ async def submit_interview_response(
             'videoResponseUrl': video_url,
             'audioExtractUrl': audio_extract_url,
             'modifiedAudioUrl': modified_audio_url,
+            'wordTimings': word_timings,  # Add word timings to the response
             'AIFeedback': None
         }
         
@@ -670,7 +681,7 @@ async def submit_interview_response(
                     'confidence': float(confidence),
                     'relevance': float(relevance),
                     'engagement': float(engagement),
-                    'totalScore': float(total_score)
+                    'totalScore': float(total_score)  # Now total_score is guaranteed to be initialized
                 },
                 'questions': [question_response],
                 'createdAt': datetime.utcnow(),
@@ -698,7 +709,7 @@ async def submit_interview_response(
             updated_confidence = existing_confidence + float(confidence)
             updated_relevance = existing_relevance + float(relevance)
             updated_engagement = existing_engagement + float(engagement)
-            updated_total_score = existing_total_score + float(total_score)
+            updated_total_score = existing_total_score + float(total_score)  # Now total_score is guaranteed to be initialized
 
             # Update the analysis scores
             interview_doc_ref.update({
@@ -720,6 +731,7 @@ async def submit_interview_response(
             message="Response recorded successfully",
             transcript=transcript,
             word_count=word_count,
+            word_timings=word_timings  # Include word timings in the response
         )
     
     except HTTPException:

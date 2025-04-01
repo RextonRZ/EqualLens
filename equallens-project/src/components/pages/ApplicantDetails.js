@@ -452,8 +452,10 @@ export default function ApplicantDetails() {
                 <div className="status-icon warning-icon" aria-hidden="true">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ff9800" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" y1="8" x2="12" y2="12"></line>
-                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                        <path d="M15 6l3 3"></path>
+                        <circle cx="18" cy="6" r="1"></circle>
                     </svg>
                 </div>
                 <h3 className="status-title">Create Interview Questions</h3>

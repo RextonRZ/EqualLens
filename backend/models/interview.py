@@ -1,5 +1,5 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 class InterviewQuestionBase(BaseModel):
@@ -50,3 +50,4 @@ class InterviewResponseResponse(BaseModel):
     message: str = "Response recorded successfully"
     transcript: Optional[str] = None
     word_count: Optional[int] = 0
+    word_timings: Optional[List[Dict[str, Any]]] = []  # Add word timings to the response model

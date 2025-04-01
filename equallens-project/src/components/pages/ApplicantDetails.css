@@ -171,13 +171,8 @@ circle {
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: 0 2px 4px rgba(249, 100, 95, 0.2);
-    align-items: center;
-}
-
-.reject-button:hover {
-    background-color: #ef402d;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(249, 100, 95, 0.3);
+    min-width: 120px; /* Add fixed minimum width */
+    text-align: center; /* Center the text */
 }
 
 .accept-button {
@@ -191,14 +186,15 @@ circle {
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: 0 2px 4px rgba(249, 100, 95, 0.2);
-    align-items: center;
-    margin-right: 1.5rem;
+    min-width: 120px; /* Add fixed minimum width */
+    text-align: center; /* Center the text */
+    /* Remove the margin-right that was causing the difference */
 }
 
-.accept-button:hover {
-    background-color: #2e7d32;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(50, 133, 55, 0.3);
+/* Update the container for the buttons to use gap instead of margins */
+.applicant-action-buttons {
+    display: flex;
+    gap: 1.5rem; /* Use gap instead of margin for consistent spacing */
 }
 
 /* Single column applicant list */
@@ -641,7 +637,7 @@ circle {
 /* Warning icon for confirmation modal */
 .warning-icon {
     background-color: rgba(255, 193, 7, 0.1);
-    color: #ff9800;
+    color: #df2121;
     animation: pulse 2s infinite;
     width: 80px;
     height: 80px;
