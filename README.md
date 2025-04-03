@@ -82,7 +82,6 @@ EqualLens leverages multiple Google Cloud services for its AI capabilities:
 - **Firebase Firestore**: Unstructured database for storing candidate, job, and application data
 - **Firebase Cloud Storage**: Stores resumes, videos, and processed audio
 - **Gmail API**: Automates email communication with candidates
-- **Google Calendar API**: Manages interview scheduling
 
 ## 🏗️ System Architecture
 
