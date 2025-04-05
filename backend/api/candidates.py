@@ -238,10 +238,12 @@ async def generate_interview_question(request: Dict[str, Any]):
         if not section_title:
             raise HTTPException(status_code=400, detail="sectionTitle is required")
         
-        # Check if candidate exists
-        candidate = CandidateService.get_candidate(candidate_id)
-        if not candidate:
-            raise HTTPException(status_code=404, detail=f"Candidate {candidate_id} not found")
+        # Skip candidate validation for "all" or "generic" candidate IDs
+        if candidate_id not in ["all", "generic"]:
+            # Check if candidate exists
+            candidate = CandidateService.get_candidate(candidate_id)
+            if not candidate:
+                raise HTTPException(status_code=404, detail=f"Candidate {candidate_id} not found")
         
         # Check if job exists
         job = JobService.get_job(job_id)

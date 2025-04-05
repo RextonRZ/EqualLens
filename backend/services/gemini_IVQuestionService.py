@@ -102,21 +102,39 @@ class GeminiIVQuestionService:
     async def generate_interview_question(self, candidate_id: str, job_id: str, section_title: str) -> Dict[str, Any]:
         """Generate a single interview question by creating a pool of questions and randomly picking one."""
         try:
-            # Fetch candidate and job data
-            candidate_data = self._get_candidate_data(candidate_id)
-            job_data = self._get_job_data(job_id)
-            
-            if not candidate_data or not job_data:
-                raise ValueError("Could not retrieve candidate or job data")
-            
-            # Create the prompt for Gemini
-            prompt = self._create_single_question_prompt(candidate_data, job_data, section_title)
-            
-            # Generate response from Gemini
-            response = await self._generate_gemini_response(prompt)
-            
-            # Process the response to extract a single question
-            return self._process_single_gemini_response(response)
+            # First check if this is a generic request (Apply to All mode)
+            if candidate_id == "all" or candidate_id == "generic":
+                # Only fetch job data for generic questions
+                job_data = self._get_job_data(job_id)
+                
+                if not job_data:
+                    raise ValueError("Could not retrieve job data")
+                
+                # Create the prompt for Gemini without candidate data
+                prompt = self._create_single_question_prompt_apply_to_all(job_data, section_title)
+                
+                # Generate response from Gemini
+                response = await self._generate_gemini_response(prompt)
+                
+                # Process the response to extract a single question
+                return self._process_single_gemini_response(response)
+            else:
+                # Regular flow with candidate-specific questions
+                # Fetch candidate and job data
+                candidate_data = self._get_candidate_data(candidate_id)
+                job_data = self._get_job_data(job_id)
+                
+                if not candidate_data or not job_data:
+                    raise ValueError("Could not retrieve candidate or job data")
+                
+                # Create the prompt for Gemini
+                prompt = self._create_single_question_prompt(candidate_data, job_data, section_title)
+                
+                # Generate response from Gemini
+                response = await self._generate_gemini_response(prompt)
+                
+                # Process the response to extract a single question
+                return self._process_single_gemini_response(response)
         except json.JSONDecodeError as e:
             logger.error(f"Error parsing Gemini response as JSON: {e}. Raw response: {response}")
             return self._create_fallback_question()  # Return fallback instead of raising
@@ -183,7 +201,7 @@ class GeminiIVQuestionService:
         - Ask about strengths and weaknesses relevant to the job
         - Reference specific details from the candidate's resume but don't clash with section 3
         - Make all these questions compulsory with appropriate time limits
-        - 3 compulsory questions and 0 optional question
+        - compulsory questions with no optional questions
 
         SECTION 2: JOB-SPECIFIC QUESTIONS
         - Ask why they applied for this specific position
@@ -303,11 +321,63 @@ class GeminiIVQuestionService:
         Description: {job_description}
 
         IMPORTANT GUIDELINES:
+        - Focus on creating questions that directly relate to the "{section_title}" theme/topic
+        - Questions should thoroughly explore different aspects and dimensions of the "{section_title}" area
         - Each question must be tailored to the candidate's experience and the job requirements.
         - Ensure all questions are relevant to the "{section_title}" section.
         - Use varied sentence structures to ensure diversity in generated questions.
         - Keep each question concise (maximum 60 words).
         - Assign a reasonable time limit (30-150 seconds) for each question.
+
+        FORMATTING REQUIREMENTS:
+        - Return a JSON object with the following structure, and nothing else:
+        {{
+          "questions": [
+            {{
+              "text": "Question text",
+              "timeLimit": 45,
+              "isCompulsory": true
+            }},
+            ...
+          ]
+        }}
+
+        Do not include any code block markers, comments, or any additional text in your response. Only provide the valid JSON.
+        """
+        return prompt
+        
+    def _create_single_question_prompt_apply_to_all(self, job_data: Dict[str, Any], section_title: str) -> str:
+        """Create a prompt for Gemini to generate a generic interview question that doesn't require candidate data."""
+        # Extract job details
+        job_title = job_data.get('jobTitle', 'Unknown Position')
+        job_description = job_data.get('jobDescription', '')
+        required_skills = job_data.get('requiredSkills', [])
+        departments = job_data.get('departments', [])
+        
+        # Create the structured prompt for Gemini to generate a pool of questions for "Apply to All" mode
+        prompt = f"""
+        As an expert interviewer, generate a pool of 30 generic high-quality interview questions for the "{section_title}" section.
+
+        JOB DETAILS:
+        Title: {job_title}
+        Department(s): {', '.join(departments)}
+        Required Skills: {', '.join(required_skills)}
+        Description: {job_description}
+
+        IMPORTANT GUIDELINES:
+        - Focus on creating questions that directly relate to the "{section_title}" theme/topic
+        - Questions should thoroughly explore different aspects and dimensions of the "{section_title}" area
+        - Use the job details below only as supplementary context if the "{section_title}" is related to it
+        - Ensure questions are general enough to be applicable to all candidates
+        - Vary question formats (situational, behavioral, technical, theoretical, etc.)
+        - Keep each question concise (maximum 80 words)
+        - Assign a reasonable time limit (30-150 seconds) for each question
+
+        JOB REFERENCE CONTEXT:
+        Title: {job_title}
+        Department(s): {', '.join(departments)}
+        Required Skills: {', '.join(required_skills)}
+        Description: {job_description}
 
         FORMATTING REQUIREMENTS:
         - Return a JSON object with the following structure, and nothing else:
@@ -418,8 +488,68 @@ class GeminiIVQuestionService:
                     # Add isAIModified flag (initially false)
                     question["isAIModified"] = False
                 
+                # Special handling for SECTION 1: enforce all questions are compulsory
+                if "general questions" in section["title"].lower() or "section 1" in section["title"].lower():
+                    # Force all questions in Section 1 to be compulsory
+                    for question in section.get("questions", []):
+                        question["isCompulsory"] = True
+                        question["originalCompulsory"] = True
+                    
+                    # Ensure Section 1 has exactly 4 questions
+                    current_count = len(section["questions"])
+                    if current_count > 4:
+                        # If more than 4 questions, keep only the first 4
+                        logger.info(f"Trimming Section 1 from {current_count} to 4 questions")
+                        section["questions"] = section["questions"][:4]
+                    elif current_count < 4:
+                        # If fewer than 4 questions, add generic questions to make it 4
+                        logger.info(f"Adding {4 - current_count} questions to Section 1 to ensure 4 questions")
+                        default_questions = [
+                            "Please introduce yourself and tell us about your professional background.",
+                            "What are your key strengths as they relate to this position?",
+                            "What areas of improvement are you currently working on?",
+                            "Why are you interested in this role and what do you know about our company?"
+                        ]
+                        
+                        # Add necessary questions to reach 4 total
+                        for i in range(4 - current_count):
+                            index = min(i, len(default_questions) - 1)  # Avoid index out of range
+                            new_question = {
+                                "text": default_questions[index],
+                                "timeLimit": 60,
+                                "isCompulsory": True,
+                                "questionId": f"ques-{uuid.uuid4()}",
+                                "isAIGenerated": True,
+                                "originalText": default_questions[index],
+                                "originalTimeLimit": 60,
+                                "originalCompulsory": True,
+                                "isAIModified": False
+                            }
+                            section["questions"].append(new_question)
+                    
+                    # Also disable random selection for Section 1 as all questions are compulsory
+                    section["randomSettings"]["enabled"] = False
+                    section["randomSettings"]["count"] = 0
+                
+                # Special handling for Section 5 (Future Outlook and Career Aspirations)
+                elif "future outlook" in section["title"].lower() or "career aspirations" in section["title"].lower() or "section 5" in section["title"].lower():
+                    # Count non-compulsory questions
+                    non_compulsory_count = sum(1 for q in section["questions"] if not q.get("isCompulsory", True))
+                    
+                    # Ensure random selection is enabled if there are at least 2 non-compulsory questions
+                    if non_compulsory_count >= 2:
+                        section["randomSettings"]["enabled"] = True
+                        
+                        # Calculate appropriate random count (around 50% of non-compulsory questions)
+                        max_count = non_compulsory_count - 1
+                        target_count = max(1, min(max_count, round(non_compulsory_count * 0.5)))
+                        section["randomSettings"]["count"] = target_count
+                    else:
+                        section["randomSettings"]["enabled"] = False
+                        section["randomSettings"]["count"] = 0
+                
                 # Special handling for Section 7 (Closing Questions)
-                if "closing" in section["title"].lower() or "candidate questions" in section["title"].lower():
+                elif "closing" in section["title"].lower() or "candidate questions" in section["title"].lower():
                     # Make all questions non-compulsory
                     for question in section.get("questions", []):
                         question["isCompulsory"] = False
@@ -437,15 +567,19 @@ class GeminiIVQuestionService:
                         section["randomSettings"]["enabled"] = False
                         section["randomSettings"]["count"] = 0
                     elif section["randomSettings"].get("enabled", False):
-                        # Ensure count is at least 2 but less than the number of non-compulsory questions
-                        max_count = non_compulsory_count - 1
-                        current_count = section["randomSettings"].get("count", 0)
-                        
-                        # Set the count to be at least 2, but not more than the max allowed
-                        if current_count < 2 or current_count > max_count:
-                            # Target around 50% of non-compulsory questions, but minimum 2
-                            target_count = max(2, min(max_count, round(non_compulsory_count * 0.5)))
-                            section["randomSettings"]["count"] = 2
+                        # For exactly 2 non-compulsory questions, always set count to 1
+                        if non_compulsory_count == 2:
+                            section["randomSettings"]["count"] = 1
+                        else:
+                            # For more than 2 questions, ensure count is at least 1 but less than the number of non-compulsory questions
+                            max_count = non_compulsory_count - 1
+                            current_count = section["randomSettings"].get("count", 0)
+                            
+                            # Set the count to be at least 1, but not more than the max allowed
+                            if current_count < 1 or current_count > max_count:
+                                # Target around 50% of non-compulsory questions, but minimum 1
+                                target_count = max(1, min(max_count, round(non_compulsory_count * 0.5)))
+                                section["randomSettings"]["count"] = target_count
             
             # Add metadata for tracking
             question_data["aiGenerationUsed"] = True

@@ -547,9 +547,14 @@ const AddInterviewQuestions = () => {
         updatedSections[sectionIndex].randomSettings.enabled = enabled;
         
         if (enabled) {
-            const maxAllowed = Math.max(1, nonCompulsoryCount - 1);
-            const defaultCount = Math.min(Math.floor(nonCompulsoryCount / 2), maxAllowed);
-            updatedSections[sectionIndex].randomSettings.count = Math.max(1, defaultCount);
+            // Special case for exactly 2 non-compulsory questions - always set count to 1
+            if (nonCompulsoryCount === 2) {
+                updatedSections[sectionIndex].randomSettings.count = 1;
+            } else {
+                const maxAllowed = Math.max(1, nonCompulsoryCount - 1);
+                const defaultCount = Math.min(Math.floor(nonCompulsoryCount / 2), maxAllowed);
+                updatedSections[sectionIndex].randomSettings.count = Math.max(1, defaultCount);
+            }
         } else {
             updatedSections[sectionIndex].questions = updatedSections[sectionIndex].questions.map(question => {
                 const updatedQuestion = { ...question };
@@ -606,8 +611,8 @@ const AddInterviewQuestions = () => {
     };
 
     const handleViewProfile = () => {
-        if (!selectedApplicant || selectedApplicant === "all") {
-            setErrorMessage("Please select a specific applicant to view their profile.");
+        if (!selectedApplicant) {
+            setErrorMessage("Please select an applicant or 'Apply to All' to generate questions for.");
             setShowErrorModal(true);
             return;
         }
@@ -775,6 +780,7 @@ const AddInterviewQuestions = () => {
         if (totalMinutes < 5) {
             setErrorMessage(
                 `Your total interview time is less than 5 minutes (currently ${totalInterviewTime.minutes} minute${totalInterviewTime.minutes !== 1 ? 's' : ''} ${totalInterviewTime.seconds > 0 ? `and ${totalInterviewTime.seconds} second${totalInterviewTime.seconds !== 1 ? 's' : ''}` : ''}).
+
                 Please add more questions or increase the time limits to ensure a thorough interview.`
             );
             setShowErrorModal(true);
@@ -1673,8 +1679,8 @@ const AddInterviewQuestions = () => {
     };
 
     const handleAIGenerateQuestion = async (sectionIndex) => {
-        if (!selectedApplicant || selectedApplicant === "all") {
-            setErrorMessage("Please select a specific applicant to generate questions for.");
+        if (!selectedApplicant) {
+            setErrorMessage("Please select an applicant or 'Apply to All' to generate questions for.");
             setShowErrorModal(true);
             return;
         }
@@ -1683,16 +1689,25 @@ const AddInterviewQuestions = () => {
         
         try {
             const jobId = queryParams.get('jobId');
+            if (!jobId) {
+                throw new Error("Job ID is required to generate questions");
+            }
+            
             const sectionTitle = sections[sectionIndex].title;
             
-            const response = await axios.post(
-                `http://localhost:8000/api/candidates/generate-interview-question`,
-                {
-                    candidateId: selectedApplicant,
-                    jobId: jobId,
-                    sectionTitle: sectionTitle
-                }
-            );
+            // Always use the same endpoint, but modify the payload based on mode
+            const endpoint = `http://localhost:8000/api/candidates/generate-interview-question`;
+            
+            // Different payload based on whether we're in "Apply to All" mode
+            const payload = {
+                jobId: jobId,
+                sectionTitle: sectionTitle,
+                // For "Apply to All", use "generic" as the candidateId and add a mode flag
+                candidateId: selectedApplicant === "all" ? "generic" : selectedApplicant,
+                mode: selectedApplicant === "all" ? "generic" : "specific"
+            };
+            
+            const response = await axios.post(endpoint, payload);
             
             if (response.status === 200) {
                 const generatedQuestion = response.data.question;
@@ -2259,9 +2274,8 @@ const AddInterviewQuestions = () => {
                                         <button
                                             className="ai-generate-question-button"
                                             onClick={() => handleAIGenerateQuestion(sectionIndex)}
-                                            disabled={!selectedApplicant || selectedApplicant === "all"}
+                                            disabled={!selectedApplicant}
                                             title={!selectedApplicant ? "Select an applicant first" : 
-                                                selectedApplicant === "all" ? "Not available for 'Apply to All'" :
                                                 "Generate a question with AI for this section"}
                                         >
                                             <svg className="ai-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
