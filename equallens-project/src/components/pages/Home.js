@@ -33,7 +33,8 @@ export default function Home() {
         },
         {
             title: "ANONYMIZED CANDIDATE SCREENING",
-            description: "Remove bias with anonymized profiles focusing solely on qualifications."
+            description: "Remove bias with anonymized profiles focusing solely on qualifications.",
+            video: "anonymizedCandidate.mp4"
         },
         {
             title: "AI-TAILORED INTERVIEW QUESTIONS", // Keep original for fallback
@@ -42,7 +43,8 @@ export default function Home() {
         },
         {
             title: "AUTOMATED INTERVIEW SYSTEM",
-            description: "Streamline the interview process with intelligent scheduling and management."
+            description: "Streamline the interview process with intelligent scheduling and management.",
+            video: "instantTranscript.mp4"
         },
         {
             title: "INSTANT INTERVIEW TRANSCRIPT",
@@ -50,17 +52,16 @@ export default function Home() {
         },
         {
             title: "AI-POWERED INTERVIEW ANALYSIS",
-            description: "Gain valuable insights from comprehensive interview analytics."
+            description: "Gain valuable insights from comprehensive interview analytics.",
+            video: "intAnalysis.mp4"
         }
     ];
 
     const [activeIndex, setActiveIndex] = useState(0);
     const [nextIndex, setNextIndex] = useState(1);
     const [prevIndex, setPrevIndex] = useState(features.length - 1);
-    const [videoEnded, setVideoEnded] = useState(false);
-    const [secondVideoEnded, setSecondVideoEnded] = useState(false);
-    const [thirdVideoEnded, setThirdVideoEnded] = useState(false);
-    const [fourthVideoEnded, setFourthVideoEnded] = useState(false);
+    // Replace individual video end states with a single array
+    const [videosEnded, setVideosEnded] = useState(Array(features.length).fill(false));
     const videoRefs = useRef({});
     const timerRef = useRef(null);
     const [isPageVisible, setIsPageVisible] = useState(true);
@@ -105,16 +106,29 @@ export default function Home() {
         }
     }, [isPageVisible, activeIndex, features]);
 
-    // Handle video end events
+    // Handle video end events for any video index
     const handleVideoEnd = (videoIndex) => {
-        if (videoIndex === 0) {
-            setVideoEnded(true);
-        } else if (videoIndex === 1) {
-            setSecondVideoEnded(true);
-        } else if (videoIndex === 2) {
-            setThirdVideoEnded(true);
-        } else if (videoIndex === 4) {
-            setFourthVideoEnded(true);
+        // Only process if this is the active slide
+        if (videoIndex === activeIndex) {
+            // Immediately advance to next slide when video ends
+            const newActiveIndex = (activeIndex + 1) % features.length;
+            setActiveIndex(newActiveIndex);
+            setNextIndex((newActiveIndex + 1) % features.length);
+            setPrevIndex(activeIndex);
+            
+            // Also mark the video as ended in state
+            setVideosEnded(prev => {
+                const newState = [...prev];
+                newState[videoIndex] = true;
+                return newState;
+            });
+        } else {
+            // Just mark as ended if it's not the active slide
+            setVideosEnded(prev => {
+                const newState = [...prev];
+                newState[videoIndex] = true;
+                return newState;
+            });
         }
     };
 
@@ -129,15 +143,12 @@ export default function Home() {
                 videoElement.currentTime = 0;
                 videoElement.play().catch(e => console.log("Video play prevented:", e));
                 
-                if (parseInt(key) === 0) {
-                    setVideoEnded(false);
-                } else if (parseInt(key) === 1) {
-                    setSecondVideoEnded(false);
-                } else if (parseInt(key) === 2) {
-                    setThirdVideoEnded(false);
-                } else if (parseInt(key) === 4) {
-                    setFourthVideoEnded(false);
-                }
+                // Reset the video ended state for the active slide
+                setVideosEnded(prev => {
+                    const newState = [...prev];
+                    newState[activeIndex] = false;
+                    return newState;
+                });
             }
         });
     }, [activeIndex, isPageVisible]);
@@ -149,15 +160,12 @@ export default function Home() {
             setNextIndex((index + 1) % features.length);
             setPrevIndex(activeIndex);
             
-            if (index === 0) {
-                setVideoEnded(false);
-            } else if (index === 1) {
-                setSecondVideoEnded(false);
-            } else if (index === 2) {
-                setThirdVideoEnded(false);
-            } else if (index === 4) {
-                setFourthVideoEnded(false);
-            }
+            // Reset the video ended state for the newly active slide
+            setVideosEnded(prev => {
+                const newState = [...prev];
+                newState[index] = false;
+                return newState;
+            });
             
             if (timerRef.current) {
                 clearInterval(timerRef.current);
@@ -167,15 +175,12 @@ export default function Home() {
             setNextIndex((index + 1) % features.length);
             setPrevIndex((index - 1 + features.length) % features.length);
             
-            if (index === 0) {
-                setVideoEnded(false);
-            } else if (index === 1) {
-                setSecondVideoEnded(false);
-            } else if (index === 2) {
-                setThirdVideoEnded(false);
-            } else if (index === 4) {
-                setFourthVideoEnded(false);
-            }
+            // Reset the video ended state for the newly active slide
+            setVideosEnded(prev => {
+                const newState = [...prev];
+                newState[index] = false;
+                return newState;
+            });
             
             if (timerRef.current) {
                 clearInterval(timerRef.current);
@@ -183,32 +188,29 @@ export default function Home() {
         }
     };
 
-    // Auto advance slides, but only after videos have played or for non-video slides
+    // Auto advance slides, but only for non-video slides or after videos have already ended
     useEffect(() => {
         if (timerRef.current) {
             clearInterval(timerRef.current);
         }
 
-        if ((activeIndex === 0 && features[0].video && !videoEnded) || 
-            (activeIndex === 1 && features[1].video && !secondVideoEnded) ||
-            (activeIndex === 2 && features[2].video && !thirdVideoEnded) ||
-            (activeIndex === 4 && features[4].video && !fourthVideoEnded)) {
-        } else {
+        const hasVideo = features[activeIndex]?.video;
+        const videoHasEnded = videosEnded[activeIndex];
+
+        // Only set auto-advance timer if there's no video or if video has ended
+        if (!hasVideo || videoHasEnded) {
             timerRef.current = setInterval(() => {
                 const newActiveIndex = (activeIndex + 1) % features.length;
                 setActiveIndex(newActiveIndex);
                 setNextIndex((newActiveIndex + 1) % features.length);
                 setPrevIndex(activeIndex);
                 
-                if (newActiveIndex === 0) {
-                    setVideoEnded(false);
-                } else if (newActiveIndex === 1) {
-                    setSecondVideoEnded(false);
-                } else if (newActiveIndex === 2) {
-                    setThirdVideoEnded(false);
-                } else if (newActiveIndex === 4) {
-                    setFourthVideoEnded(false);
-                }
+                // Reset the video ended state for the new active slide
+                setVideosEnded(prev => {
+                    const newState = [...prev];
+                    newState[newActiveIndex] = false;
+                    return newState;
+                });
             }, 5000);
         }
         
@@ -217,20 +219,7 @@ export default function Home() {
                 clearInterval(timerRef.current);
             }
         };
-    }, [activeIndex, features.length, videoEnded, secondVideoEnded, thirdVideoEnded, fourthVideoEnded]);
-
-    // When videos end, advance to next slide
-    useEffect(() => {
-        if ((videoEnded && activeIndex === 0) || 
-            (secondVideoEnded && activeIndex === 1) || 
-            (thirdVideoEnded && activeIndex === 2) ||
-            (fourthVideoEnded && activeIndex === 4)) {
-            const newActiveIndex = (activeIndex + 1) % features.length;
-            setActiveIndex(newActiveIndex);
-            setNextIndex((newActiveIndex + 1) % features.length);
-            setPrevIndex(activeIndex);
-        }
-    }, [videoEnded, secondVideoEnded, thirdVideoEnded, fourthVideoEnded, activeIndex, features.length]);
+    }, [activeIndex, features.length, videosEnded]);
 
     // Set video ref
     const setVideoRef = (element, index) => {
