@@ -1031,7 +1031,7 @@ async def generate_ai_feedback(
                - Identify gaps between the answer and job requirements
                - Suggest how the answer could better align with the position
             
-            3. RESUME ALIGNMENT
+            3. RESUME ALIGNMENT(Does not necessarily need to have, 1-2 short sentences))
                - Assess how well the answer reflects skills and experiences mentioned in the resume
                - Note any discrepancies or missed opportunities to highlight relevant background
             
