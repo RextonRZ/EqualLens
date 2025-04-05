@@ -898,6 +898,7 @@ async def generate_ai_feedback(
         responses = request.get("responses", [])
         job_title = request.get("jobTitle", "Unknown position")
         job_id = request.get("jobId")
+        candidate_id = request.get("candidateId")
         
         if not application_id or not responses:
             raise HTTPException(status_code=400, detail="applicationId and responses are required")
@@ -909,6 +910,15 @@ async def generate_ai_feedback(
             if job_doc.exists:
                 job_data = job_doc.to_dict()
                 job_title = job_data.get('jobTitle', job_title)
+        
+        # Fetch candidate resume data if candidateId is provided
+        candidate_data = {}
+        resume_text = {}
+        if candidate_id:
+            candidate_doc = db.collection('candidates').document(candidate_id).get()
+            if candidate_doc.exists:
+                candidate_data = candidate_doc.to_dict()
+                resume_text = candidate_data.get('extractedText', {})
         
         # Initialize Gemini API
         from services.gemini_service import GeminiService
@@ -933,7 +943,7 @@ async def generate_ai_feedback(
                 })
                 continue
             
-            # Prepare job-specific context
+            # Prepare detailed job context
             job_context = ""
             if job_data:
                 required_skills = ", ".join(job_data.get('requiredSkills', []))
@@ -946,23 +956,90 @@ async def generate_ai_feedback(
                 Key Responsibilities: {job_description}
                 """
             
-            # Generate feedback using Gemini with improved prompt
+            # Prepare candidate resume context
+            resume_context = ""
+            if resume_text:
+                # Extract key information from resume
+                candidate_name = resume_text.get('applicant_name', 'Unknown')
+                skills = resume_text.get('skills', [])
+                experience = resume_text.get('experience', [])
+                education = resume_text.get('education', [])
+                
+                # Format resume information
+                skills_text = "\n- ".join(skills) if isinstance(skills, list) else skills
+                
+                # Format experience as a list if it's a list, otherwise use as is
+                if isinstance(experience, list):
+                    exp_text = ""
+                    for exp in experience:
+                        if isinstance(exp, dict):
+                            company = exp.get('company', '')
+                            position = exp.get('position', '')
+                            duration = exp.get('duration', '')
+                            exp_text += f"\n- {position} at {company}, {duration}"
+                        else:
+                            exp_text += f"\n- {exp}"
+                else:
+                    exp_text = experience
+                
+                # Format education as a list if it's a list, otherwise use as is
+                if isinstance(education, list):
+                    edu_text = ""
+                    for edu in education:
+                        if isinstance(edu, dict):
+                            institution = edu.get('institution', '')
+                            degree = edu.get('degree', '')
+                            year = edu.get('year', '')
+                            edu_text += f"\n- {degree} from {institution}, {year}"
+                        else:
+                            edu_text += f"\n- {edu}"
+                else:
+                    edu_text = education
+                
+                resume_context = f"""
+                Candidate Name: {candidate_name}
+                
+                Skills:
+                - {skills_text}
+                
+                Experience: {exp_text}
+                
+                Education: {edu_text}
+                """
+            
+            # Generate feedback using Gemini with enhanced prompt
             prompt = f"""
-            As an HR interview evaluator for a {job_title} position, analyze the following response:
+            As an HR interview evaluator for a {job_title} position, analyze the following candidate response:
             
             QUESTION: {question_text}
             
             CANDIDATE'S ANSWER: {transcript}
             
-            JOB CONTEXT:
+            JOB DETAILS:
             {job_context}
             
-            Provide a CONCISE evaluation of the response with the following structure:
+            CANDIDATE RESUME INFORMATION:
+            {resume_context}
+            
+            Provide a COMPREHENSIVE evaluation that specifically addresses:
             
             1. STRENGTHS (Does not necessarily need to have, depends on the response, if applicable, present it in bullet points. Bullet points should never more than 4)
+               - Highlight specific points where the answer demonstrates qualifications for the role
+               - Note any alignment with required skills or job responsibilities
+            
             2. AREAS FOR IMPROVEMENT (Does not necessarily need to have, depends on the response, if applicable, present it in bullet points. Bullet points should never more than 4)
-            3. ALIGNMENT WITH JOB REQUIREMENTS (1-2 short sentences)
-            4. OVERALL ASSESSMENT (2-3 sentences maximum)
+               - Identify gaps between the answer and job requirements
+               - Suggest how the answer could better align with the position
+            
+            3. RESUME ALIGNMENT
+               - Assess how well the answer reflects skills and experiences mentioned in the resume
+               - Note any discrepancies or missed opportunities to highlight relevant background
+            
+            4. JOB FIT ASSESSMENT (1-2 short sentences)
+               - Evaluate specifically how well the response indicates fit for this particular position
+            
+            5. OVERALL ASSESSMENT (2-3 sentences maximum)
+               - Provide a final evaluation considering both job requirements and resume background
             
             FORMAT GUIDELINES:
             - Use HTML formatting with <p>, <ul>, and <li> tags
