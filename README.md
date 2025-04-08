@@ -1,7 +1,7 @@
 # EqualLens - AI-Powered Recruitment Platform
 
 ## Overview
-This repository hosts the code and documentation for the EqualLens Project, an AI-powered hiring platform designed to promote fair and unbiased recruitment by anonymizing candidate information and evaluating applicants based on merit. Built with React and FastAPI, the platform integrates Google Cloud AI services, including Vision API, Document AI, Natural Language API, and Vertex AI, to extract, analyze, and rank candidate resumes objectively. The platform also automates email notifications, schedules interviews, and conducts AI-driven interviews with facial verification, speech-to-text transcription, and voice anonymization.
+This repository hosts the code and documentation for the EqualLens Project, an AI-powered hiring platform designed to promote fair and unbiased recruitment by anonymizing candidate information and evaluating applicants based on merit. Built with React and FastAPI, the platform integrates Google Cloud AI services, including Vision API, Document AI, Natural Language API, and Gemini API, to extract, analyze, and rank candidate resumes objectively. The platform also automates email notifications, schedules interviews, and conducts AI-driven interviews with facial verification, speech-to-text transcription, and voice anonymization.
 
 ## Team Members
 1. Lim Hong Yu
@@ -15,7 +15,7 @@ EqualLens is a comprehensive recruitment platform that leverages Google's AI tec
 
 ## 📋 Table of Contents
 
-- [Overview](#overview)
+- [Introduction](#introduction)
 - [Key Features](#key-features)
 - [Google Technologies Used](#google-technologies-used)
 - [System Architecture](#system-architecture)
@@ -26,9 +26,8 @@ EqualLens is a comprehensive recruitment platform that leverages Google's AI tec
 - [Contributing](#contributing)
 - [License](#license)
 
-## 🔍 Overview
-
-EqualLens is designed to streamline the recruitment process by automating candidate screening, evaluation, and interviewing. The platform emphasizes fairness by anonymizing candidates during initial screening phases and applies AI-powered ranking based on customizable criteria. The end-to-end solution covers everything from resume ingestion to final interview reviews.
+## 🔍 Introduction
+EqualLens is an AI-powered hiring platform designed to eliminate bias and discrimination in recruitment processes. Leveraging Google Cloud AI services and enforcing anonymity, our platform facilitates fair and objective evaluation of candidates based solely on merit. The system addresses employment discrimination issues prevalent in many workplaces, particularly in countries like Malaysia where racial, religious, gender, and age biases can significantly impact hiring decisions.
 
 ## ✨ Key Features
 
@@ -69,19 +68,18 @@ EqualLens leverages multiple Google Cloud services for its AI capabilities:
 
 ### Candidate Analysis
 - **Google Generative AI (Gemini)**: Powers the customizable ranking system and interview question generation
-- **Vertex AI**: Calculates the interview response scoring and provides AI feedback
+- **Natural Language API**: Performs linguistic analysis of interview responses based on confidence, clarity, relevance, and engagement
 
 ### Identity Verification
 - **Google Cloud Vision API**: Performs face detection and verification when comparing ID photos with video
-- **Google Video Intelligence API**: Processes video data for identity verification
 
 ### Speech & Audio Processing
-- **Google Cloud Speech-to-Text API**: Transcribes interview responses for text-based analysis
+- **Google Cloud Speech-to-Text API**: Transcribes interview responses with domain-specific boosts and automatic punctuation
 
 ### Infrastructure & Integration
 - **Firebase Firestore**: Unstructured database for storing candidate, job, and application data
-- **Firebase Cloud Storage**: Stores resumes, videos, and processed audio
-- **Gmail API**: Automates email communication with candidates
+- **Firebase Cloud Storage**: Stores resumes, videos, and processed audio with CDN for global performance
+
 
 ## 🏗️ System Architecture
 
@@ -90,10 +88,13 @@ The EqualLens platform consists of several interconnected components:
 ### Frontend
 - **React-based SPA**: Modern, responsive UI built with React
 - **Component-based Design**: Modular architecture for maintainability
-- **Tailwind CSS**: Utility-first CSS framework for styling
+- **Custom Visualization Components**: Interactive performance metrics charts and animated progress indicators
 
 ### Backend
-- **Python FastAPI**: High-performance API server
+- **Python FastAPI**: High-performance API with three-layer architecture:
+  - API routers for endpoint functionality
+  - Service layer for business logic
+  - Model layer for schema definitions
 - **Firebase Integration**: Direct interaction with Firestore and Storage
 - **Google API Clients**: Interfaces with various Google Cloud services
 
@@ -101,12 +102,12 @@ The EqualLens platform consists of several interconnected components:
 - **Collections Structure**:
   - `jobs`: Job listings and requirements
   - `candidates`: Candidate information and extracted resume data
-  - `applications`: Links between candidates and jobs
-  - `interviewQuestionSet`: Interview question templates
-  - `interviewQuestionActual`: Actual questions presented to candidates
-  - `interviewResponses`: Recorded video responses
-  - `interviewLinks`: Scheduled link for interview
-  - `emailNotifications`: Email tracking and status
+  - `applications`: Links between candidates and jobs with application status tracking
+  - `interviewQuestionSet`:  Interview question templates organized by job category
+  - `interviewQuestionActual`: Specific questions presented to candidates with timestamps
+  - `interviewResponses`: Recorded video responses with scoring data and metadata
+  - `interviewLinks`: Secure interview access links with expiration dates and verification status
+  - `emailNotifications`: Records of all communications sent to candidates with delivery status
 
 ## 💻 Installation & Setup
 
@@ -119,7 +120,6 @@ The EqualLens platform consists of several interconnected components:
   - Natural Language
   - Cloud Vision
   - Speech-to-Text
-  - Video Intelligence
   - Generative AI Studio (Gemini)
 
 ### Backend Setup
@@ -200,29 +200,51 @@ npm start
 ## 🔄 Key Workflows
 
 ### 1. Job Creation & Resume Upload
-1. HR creates a new job with title, description, requirements
-2. Upload multiple resumes for the position
-3. System automatically extracts and structures resume data
-4. Candidates are categorized under the job position
+1. HR creates new job listings with title, description, and requirements
+2. HR uploads multiple resumes in bulk through the dashboard interface
+3. AI-powered document parsing extracts and structures resume data automatically
+4. System categorizes candidates under appropriate job positions
+5. HR can upload additional resumes at any time
+5. Candidate data is organized into structured profiles for efficient comparison
 
-### 2. Candidate Scoring & Ranking
-1. HR enters natural language prompt describing ranking criteria
-2. System converts the prompt into numerical weights for skills, education, and experience
-3. AI scores each candidate based on the criteria
-4. Candidates are displayed in ranked order
+### 2. Anonymized Candidate Screening
+1. HR views candidate list with identifying information removed to reduce bias
+2. System presents anonymized profiles with structured skill, experience, and education breakdown
+3. AI analysis highlights qualifications without revealing demographic information
+4. HR evaluates candidates based on objective criteria rather than personal factors
+5. Screening process ensures consistent and fair evaluation across all applications
 
-### 3. Interview Process
-1. HR can generate interview questions automatically or customize them
-2. System sends interview links to selected candidates
-3. Candidates verify identity by taking photo with ID card
-4. Candidates answer recorded interview questions
-5. HR reviews and rates interview responses
+### 3. AI-Driven Candidate Scoring & Ranking
+1. HR selects from three predetermined ranking criteria: skills, education, and experience
+2. System applies numerical weights to each selected criterion for consistent evaluation
+3. AI scores candidates based on resume match to job requirements using selected criteria
+4. HR can quickly adjust ranking priorities to see different candidate orderings
+5. Visual score breakdowns show each candidate's performance across all criteria
+6. HR can approve candidates to proceed directly to the interview stage
 
-### 4. Candidate Management
-1. View all candidates for a position
-2. Access detailed candidate profiles with AI-generated summaries
-3. Track candidate progress through the pipeline
-4. Send automated emails for interview invitations or rejections
+### 4. AI-Tailored Interview Questions with Manual Control
+1. HR uses "AI Generate Sections" to create complete question sets tailored to individual candidates or job requirements
+2. Generated questions are automatically organized into relevant sections (Technical Skills, Work Experience, etc.)
+3. System offers flexibility with randomized selection, compulsory questions, and customizable time limits
+4. HR can edit any AI-generated questions or add manual questions before finalizing
+5. "Apply to All" feature allows consistent question sets to be deployed across multiple candidates
+6. Individual questions can be AI-generated within sections for targeted assessment of specific candidate attributes
+
+### 5. Automated Interview Process
+1. System sends personalized interview invitations with secure one-time links that expire after 7 days
+2. Candidates verify identity through live photo comparison with ID
+3. Interface presents questions sequentially with a 20-second reading period before recording begins
+4. Candidates record responses with facecam in a single-attempt format with predetermined time limits
+5. Self-service scheduling allows candidates to complete interviews at their convenience within the link's validity period
+6. Responses are automatically processed with Google Cloud Speech-to-Text for consistent evaluation across all applicants
+
+### 6. Interview Review & Analysis
+1. HR reviews candidates through an interactive dashboard with status tracking and advanced filtering options.
+2. The system displays candidate audio responses with synchronized transcript highlighting, enabling efficient review.
+3. AI analyzes responses across four key metrics: relevance, clarity, confidence, and engagement, with detailed score breakdowns for each.
+4. Performance data is presented through visual charts showing grade assessments, score composition, and achievement percentages.
+5. AI generates objective feedback for each response with specific improvement suggestions, highlighting strengths and weaknesses.
+6. HR can send personalized offer or rejection emails directly through the platform.
 
 ## 📸 Screenshots
 Bulk CV Upload and Management
@@ -238,21 +260,19 @@ AI-Tailored Interview Questions with Manual Control
 ![AI-Tailored Interview Questions](./equallens-project/public/aigenerateintquestion.gif)
 
 ## 🔮 Future Roadmap
-
-- **Enhanced Analytics**: Detailed reporting on recruitment metrics
-- **Advanced Bias Detection**: More sophisticated algorithms to identify potential bias in job descriptions and evaluation
-- **Multi-language Support**: Expand language capabilities for global recruiting
-- **Talent Pool Management**: Long-term candidate tracking across multiple positions
-- **Integration with ATS Systems**: Connect with existing Applicant Tracking Systems
+- **Accessibility Features**: Sign language recognition for candidates with speech impairments using Google Video Intelligence API and MediaPipe
+- **Advanced Facial Analysis**: Engagement assessment through expression detection with Google Cloud Video Intelligence API while maintaining anonymity
+- **Animated Avatars**: Using Vertex AI to create anonymized avatars that mirror facial expressions while masking identity
+- **Predictive Analytics**: Historical data analysis with TensorFlow and scikit-learn to identify successful hire patterns
+- **Personalized AI Chatbot**: Assistant for recruiters with candidate recommendations using Gemini and Dialogflow
+- **ATS Integration**: Seamless connection with existing Applicant Tracking Systems
+- **Multi-language Support**: Expanded capabilities for global recruitment needs
 
 ## 🤝 Contributing
-
 We welcome contributions to the EqualLens project! Please see our [Contributing Guidelines](CONTRIBUTING.md) for more information.
 
 ## 📄 License
-
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
 ---
 
 Built with ❤️ by the EqualLens Team
