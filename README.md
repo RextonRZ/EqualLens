@@ -280,11 +280,6 @@ AI-Powered Interview Analysis
 - **ATS Integration**: Seamless connection with existing Applicant Tracking Systems
 - **Multi-language Support**: Expanded capabilities for global recruitment needs
 
-## 🤝 Contributing
-We welcome contributions to the EqualLens project! Please see our [Contributing Guidelines](CONTRIBUTING.md) for more information.
-
-## 📄 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 ---
 
 Built with ❤️ by the EqualLens Team
