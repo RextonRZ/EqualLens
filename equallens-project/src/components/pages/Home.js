@@ -37,18 +37,19 @@ export default function Home() {
             video: "anonymizedCandidate.mp4"
         },
         {
-            title: "AI-TAILORED INTERVIEW QUESTIONS", // Keep original for fallback
+            title: "AI-TAILORED INTERVIEW QUESTIONS", 
             description: "AI-tailored Interview Question with Manual Control",
             video: "aigenerateintquestion.mp4"
         },
         {
             title: "AUTOMATED INTERVIEW SYSTEM",
             description: "Streamline the interview process with intelligent scheduling and management.",
-            video: "instantTranscript.mp4"
+            video: "automatedinterview.mp4"
         },
         {
             title: "INSTANT INTERVIEW TRANSCRIPT",
-            description: "Get immediate transcripts and summaries of candidate interviews."
+            description: "Get immediate transcripts and summaries of candidate interviews.",
+            video: "instantTranscript.mp4"
         },
         {
             title: "AI-POWERED INTERVIEW ANALYSIS",

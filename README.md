@@ -256,8 +256,20 @@ Seamless Document Parsing
 AI-Driven Candidate Ranking
 ![AI-Driven Candidate Ranking Demo](./equallens-project/public/rankingHighlights.gif)
 
+Anonymized Candidate Screnning
+![Anonymized Candidate Screening Demo](./equallens-project/public/anonymizedCandidate.gif)
+
 AI-Tailored Interview Questions with Manual Control
 ![AI-Tailored Interview Questions](./equallens-project/public/aigenerateintquestion.gif)
+
+Automated Interview System
+![Automated Interview System](./equallens-project/public/automatedinterview.gif)
+
+Instant Interview Transcript
+![Instant Interview Transcript](./equallens-project/public/instantTranscript.gif)
+
+AI-Powered Interview Analysis
+![AI-Powered Interview Analysis](./equallens-project/public/intAnalysis.gif)
 
 ## 🔮 Future Roadmap
 - **Accessibility Features**: Sign language recognition for candidates with speech impairments using Google Video Intelligence API and MediaPipe
