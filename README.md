@@ -247,6 +247,9 @@ npm start
 6. HR can send personalized offer or rejection emails directly through the platform.
 
 ## 📸 Screenshots
+Project Overview
+![Project Overview](./equallens-project/public/overviewProject.gif)
+
 Bulk CV Upload and Management
 ![Bulk File Upload Demo](./equallens-project/public/bulkfileupload.gif)
 
